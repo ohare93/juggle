@@ -1011,6 +1011,107 @@ func TestPerformanceMetrics(t *testing.T) {
 	})
 }
 
+// TestPlanCommand verifies plan command functionality
+func TestPlanCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+	store := env.GetStore(t)
+
+	t.Run("MultiWordIntentWithoutQuotes", func(t *testing.T) {
+		// Test that multi-word intents work without quotes
+		// This simulates: juggle plan Fix the help text
+		multiWordIntent := "Fix the help text for start command"
+
+		// Create a ball with multi-word intent
+		ball, err := session.New(env.ProjectDir, multiWordIntent, session.PriorityMedium)
+		if err != nil {
+			t.Fatalf("Failed to create ball with multi-word intent: %v", err)
+		}
+		ball.ActiveState = session.ActiveReady
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		// Verify the intent was preserved correctly
+		if ball.Intent != multiWordIntent {
+			t.Errorf("Expected intent %q, got %q", multiWordIntent, ball.Intent)
+		}
+
+		// Verify it's a ready ball (planned)
+		if ball.ActiveState != session.ActiveReady {
+			t.Errorf("Expected ActiveState ready, got %s", ball.ActiveState)
+		}
+
+		// Reload and verify persistence
+		reloaded, err := store.GetBallByID(ball.ID)
+		if err != nil {
+			t.Fatalf("Failed to reload ball: %v", err)
+		}
+
+		if reloaded.Intent != multiWordIntent {
+			t.Errorf("Intent not persisted correctly: expected %q, got %q", multiWordIntent, reloaded.Intent)
+		}
+	})
+
+	t.Run("SingleWordIntent", func(t *testing.T) {
+		// Test that single-word intents still work
+		intent := "Refactor"
+
+		ball, err := session.New(env.ProjectDir, intent, session.PriorityHigh)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.ActiveState = session.ActiveReady
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		if ball.Intent != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		}
+	})
+
+	t.Run("QuotedIntent", func(t *testing.T) {
+		// Test that quoted intents still work (backward compatibility)
+		intent := "Add new feature with spaces"
+
+		ball, err := session.New(env.ProjectDir, intent, session.PriorityUrgent)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.ActiveState = session.ActiveReady
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		if ball.Intent != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		}
+	})
+
+	t.Run("IntentWithSpecialCharacters", func(t *testing.T) {
+		// Test that intents with special characters work
+		intent := "Fix bug: API returns 500 on /users endpoint"
+
+		ball, err := session.New(env.ProjectDir, intent, session.PriorityHigh)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.ActiveState = session.ActiveReady
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		if ball.Intent != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		}
+	})
+}
+
 // Helper functions
 
 func filterJugglingBalls(balls []*session.Session) []*session.Session {

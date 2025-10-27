@@ -24,7 +24,15 @@ var searchCmd = &cobra.Command{
   - Status
   - Priority
 
-The query string will be matched against ball intents. Use flags for more specific filtering.`,
+The query string will be matched against ball intents. Use flags for more specific filtering.
+
+By default, searches across all discovered projects. Use --local to restrict to current project only.
+
+Examples:
+  juggle search bug                    # Search all projects for "bug"
+  juggle search --local feature        # Search current project for "feature"
+  juggle search --tags backend         # Search by tags
+  juggle search --priority high        # Search by priority`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runSearch,
 }
@@ -36,14 +44,25 @@ func init() {
 }
 
 func runSearch(cmd *cobra.Command, args []string) error {
+	// Get current directory
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
 	// Load config to discover projects
 	config, err := LoadConfigForCommand()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Discover all projects
-	projects, err := session.DiscoverProjects(config)
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Discover projects (respects --local flag)
+	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
 	}
@@ -53,7 +72,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Load all balls from all projects
+	// Load all balls from discovered projects
 	allBalls, err := session.LoadAllBalls(projects)
 	if err != nil {
 		return fmt.Errorf("failed to load balls: %w", err)

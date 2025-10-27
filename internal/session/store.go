@@ -37,6 +37,11 @@ type Store struct {
 	config      StoreConfig
 }
 
+// ProjectDir returns the project directory for this store
+func (s *Store) ProjectDir() string {
+	return s.projectDir
+}
+
 // NewStore creates a new store for the given project directory
 func NewStore(projectDir string) (*Store, error) {
 	return NewStoreWithConfig(projectDir, DefaultStoreConfig())
@@ -406,6 +411,100 @@ func (s *Store) writeBalls(balls []*Session) error {
 
 	// Atomic rename
 	if err := os.Rename(tempPath, s.ballsPath); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// UnarchiveBall restores a completed ball from archive back to ready state
+func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
+	// Load archived balls
+	archived, err := s.LoadArchivedBalls()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load archived balls: %w", err)
+	}
+
+	// Find ball with matching ID
+	var ball *Session
+	var ballIndex int
+	for i, b := range archived {
+		if b.ID == ballID {
+			ball = b
+			ballIndex = i
+			break
+		}
+	}
+	if ball == nil {
+		return nil, fmt.Errorf("ball not found in archive: %s", ballID)
+	}
+
+	// Change state to ready
+	ball.ActiveState = ActiveReady
+	ball.JuggleState = nil
+	ball.CompletedAt = nil
+	ball.CompletionNote = ""
+
+	// Append to active balls
+	if err := s.AppendBall(ball); err != nil {
+		return nil, fmt.Errorf("failed to restore ball to active: %w", err)
+	}
+
+	// Remove from archive by rewriting archive file without this ball
+	updatedArchive := make([]*Session, 0, len(archived)-1)
+	for i, b := range archived {
+		if i != ballIndex {
+			updatedArchive = append(updatedArchive, b)
+		}
+	}
+
+	if err := s.writeArchivedBalls(updatedArchive); err != nil {
+		// Ball was added to active, but we failed to remove from archive
+		// This is not ideal but not critical - archive will have duplicate
+		return ball, fmt.Errorf("ball restored but failed to remove from archive: %w", err)
+	}
+
+	return ball, nil
+}
+
+// writeArchivedBalls rewrites the entire archive/balls.jsonl file
+func (s *Store) writeArchivedBalls(balls []*Session) error {
+	// Write to temp file first
+	tempPath := s.archivePath + ".tmp"
+	f, err := os.Create(tempPath)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	for _, ball := range balls {
+		data, err := json.Marshal(ball)
+		if err != nil {
+			f.Close()
+			os.Remove(tempPath)
+			return fmt.Errorf("failed to marshal ball: %w", err)
+		}
+
+		if _, err := f.Write(data); err != nil {
+			f.Close()
+			os.Remove(tempPath)
+			return fmt.Errorf("failed to write ball: %w", err)
+		}
+
+		if _, err := f.WriteString("\n"); err != nil {
+			f.Close()
+			os.Remove(tempPath)
+			return fmt.Errorf("failed to write newline: %w", err)
+		}
+	}
+
+	if err := f.Close(); err != nil {
+		os.Remove(tempPath)
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempPath, s.archivePath); err != nil {
 		os.Remove(tempPath)
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}

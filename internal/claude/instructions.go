@@ -160,24 +160,81 @@ type InstallOptions struct {
 	Update    bool   // Update existing instructions
 	Uninstall bool   // Remove instructions
 	Force     bool   // Don't prompt for confirmation
+	AgentType string // Agent type (claude, cursor, aider, etc.)
 }
 
-// GetTargetPath returns the path to CLAUDE.md based on options
+// FindInstructionFile searches for existing instruction files in standard locations.
+// Returns the path to the first file found, or "" if none exist.
+// Uses Claude agent's default locations for backward compatibility.
+func FindInstructionFile(baseDir string) string {
+	return FindInstructionFileForAgent(baseDir, "claude")
+}
+
+// FindInstructionFileForAgent searches for existing instruction files for a specific agent.
+// Returns the path to the first file found, or "" if none exist.
+func FindInstructionFileForAgent(baseDir string, agentType string) string {
+	config, ok := GetAgentConfig(agentType)
+	if !ok {
+		// Fallback to default locations if agent type is unknown
+		config = SupportedAgents["claude"]
+	}
+
+	for _, relPath := range config.InstructionPaths {
+		path := filepath.Join(baseDir, relPath)
+		if FileExists(path) {
+			return path
+		}
+	}
+
+	return ""
+}
+
+// GetTargetInstructionFile determines which file to write to.
+// Uses existing file if found, otherwise returns the preferred location for new file.
+func GetTargetInstructionFile(baseDir string, preferredPath string) string {
+	return GetTargetInstructionFileForAgent(baseDir, preferredPath, "claude")
+}
+
+// GetTargetInstructionFileForAgent determines which file to write to for a specific agent.
+// Uses existing file if found, otherwise returns the preferred location for new file.
+func GetTargetInstructionFileForAgent(baseDir string, preferredPath string, agentType string) string {
+	if existing := FindInstructionFileForAgent(baseDir, agentType); existing != "" {
+		return existing
+	}
+	return preferredPath
+}
+
+// GetTargetPath returns the path to instruction file based on options.
+// For local installations, it searches for existing instruction files first.
 func GetTargetPath(opts InstallOptions) (string, error) {
+	agentType := opts.AgentType
+	if agentType == "" {
+		agentType = "claude" // Default to Claude for backward compatibility
+	}
+
+	config, ok := GetAgentConfig(agentType)
+	if !ok {
+		return "", fmt.Errorf("unsupported agent type: %s", agentType)
+	}
+
 	if opts.Global {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("failed to get home directory: %w", err)
 		}
-		return filepath.Join(homeDir, ".claude", "CLAUDE.md"), nil
+		// For global, use the first preferred path
+		return filepath.Join(homeDir, config.InstructionPaths[0]), nil
 	}
 
-	// Local is default
+	// Local is default - search for existing files first
 	wd, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get working directory: %w", err)
 	}
-	return filepath.Join(wd, ".claude", "CLAUDE.md"), nil
+
+	// Use agent's first preferred path as default
+	preferredPath := filepath.Join(wd, config.InstructionPaths[0])
+	return GetTargetInstructionFileForAgent(wd, preferredPath, agentType), nil
 }
 
 // GetProjectDir returns the current working directory for project-level operations

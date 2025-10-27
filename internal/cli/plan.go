@@ -11,12 +11,17 @@ import (
 )
 
 var planCmd = &cobra.Command{
-	Use:   "plan [intent]",
+	Use:   "plan [intent...]",
 	Short: "Add a planned ball for future work",
 	Long: `Add a planned ball to track future work you intend to do.
 
-The intent can be provided as a positional argument, via the --intent flag, 
-or interactively if neither is specified.
+The intent can be provided as a positional argument (with or without quotes),
+via the --intent flag, or interactively if neither is specified.
+
+Examples:
+  juggle plan "Fix the help text"        # With quotes
+  juggle plan Fix the help text          # Without quotes (words joined)
+  juggle plan --intent "Add new feature" # Using flag
 
 Planned balls can be started later with: juggle <ball-id>`,
 	RunE: runPlan,
@@ -40,10 +45,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize store: %w", err)
 	}
 
-	// Get intent from: 1) first arg, 2) --intent flag, 3) prompt
+	// Get intent from: 1) positional args (joined), 2) --intent flag, 3) prompt
 	intent := ""
 	if len(args) > 0 {
-		intent = args[0]
+		// Join all arguments to support multi-word intents without quotes
+		intent = strings.Join(args, " ")
 	} else if intentFlag != "" {
 		intent = intentFlag
 	} else {

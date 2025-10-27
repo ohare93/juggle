@@ -20,19 +20,36 @@ Priority algorithm:
 3. Balls in-air but idle longest
 4. Higher priority balls
 
-If running in Zellij, will automatically switch to the ball's tab.`,
+By default, analyzes balls from all discovered projects. Use --local to restrict to current project only.
+
+If running in Zellij, will automatically switch to the ball's tab.
+
+Examples:
+  juggle next           # Find next ball across all projects
+  juggle next --local   # Find next ball in current project only`,
 	RunE: runNext,
 }
 
 func runNext(cmd *cobra.Command, args []string) error {
+	// Get current directory
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
 	// Load config to discover projects
 	config, err := LoadConfigForCommand()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Discover all projects
-	projects, err := session.DiscoverProjects(config)
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Discover projects (respects --local flag)
+	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
 	}

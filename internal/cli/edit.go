@@ -31,8 +31,9 @@ Examples:
   juggle edit my-app-1 --priority urgent
   juggle edit my-app-1 --active-state dropped
   juggle edit my-app-1 --tags bug-fix,security`,
-	Args: cobra.ExactArgs(1),
-	RunE: runEdit,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: CompleteBallIDs,
+	RunE:              runEdit,
 }
 
 func init() {
@@ -41,6 +42,9 @@ func init() {
 	editCmd.Flags().StringVar(&editPriority, "priority", "", "Update the priority (low|medium|high|urgent)")
 	editCmd.Flags().StringVar(&editActiveState, "active-state", "", "Update the active state (ready|juggling|dropped|complete)")
 	editCmd.Flags().StringVar(&editTags, "tags", "", "Update tags (comma-separated)")
+
+	// Add completion for priority flag
+	editCmd.RegisterFlagCompletionFunc("priority", CompletePriorities)
 }
 
 func runEdit(cmd *cobra.Command, args []string) error {

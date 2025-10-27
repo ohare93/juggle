@@ -22,6 +22,7 @@ Getting started:
 - Create and start juggling immediately: juggle start
 - Plan for later: juggle plan, then juggle <ball-id> to activate
 - See what's juggling: juggle (no args)
+- See only local project balls: juggle --local
 
 The juggling metaphor:
 - ready: Ball is ready to start juggling
@@ -42,6 +43,7 @@ type GlobalOptions struct {
 	ConfigHome string // Override for ~/.juggler directory
 	ProjectDir string // Override for current working directory
 	JugglerDir string // Override for .juggler directory name
+	LocalOnly  bool   // Restrict operations to current project only
 }
 
 // GlobalOpts holds the parsed global flags (exported for testing)
@@ -82,6 +84,22 @@ func NewStoreForCommand(projectDir string) (*session.Store, error) {
 // LoadConfigForCommand loads Config with options from global flags
 func LoadConfigForCommand() (*session.Config, error) {
 	return session.LoadConfigWithOptions(GetConfigOptions())
+}
+
+// DiscoverProjectsForCommand discovers projects respecting the --local flag
+// If --local is set, returns only current project directory
+// Otherwise discovers all projects from config search paths
+func DiscoverProjectsForCommand(config *session.Config, store *session.Store) ([]string, error) {
+	if GlobalOpts.LocalOnly {
+		// Local only - return just the current project directory
+		cwd, err := GetWorkingDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current directory: %w", err)
+		}
+		return []string{cwd}, nil
+	}
+	// Cross-project - discover all
+	return session.DiscoverProjects(config)
 }
 
 // Execute runs the root command
@@ -190,7 +208,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.ConfigHome, "config-home", "", "Override ~/.juggler directory (for testing)")
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.ProjectDir, "project-dir", "", "Override working directory (for testing)")
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.JugglerDir, "juggler-dir", ".juggler", "Override .juggler directory name")
-	
+	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.LocalOnly, "local", false, "Restrict operations to current project only")
+
 	// Set custom help function
 	defaultHelpFunc = rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(customHelpFunc)
@@ -198,6 +217,7 @@ func init() {
 	// Add commands
 	rootCmd.AddCommand(ballsCmd)
 	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(jumpCmd)
@@ -209,6 +229,7 @@ func init() {
 	rootCmd.AddCommand(planCmd)
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(setupAgentCmd)
 	rootCmd.AddCommand(setupClaudeCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(auditCmd)

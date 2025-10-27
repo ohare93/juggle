@@ -16,20 +16,26 @@ import (
 var (
 	filterTags     string
 	filterPriority string
-	showLocalOnly  bool
 )
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show all active sessions",
-	Long:  `Display a table of all active sessions with their current status.`,
+	Long: `Display a table of all active sessions with their current status.
+
+By default, shows balls from all discovered projects. Use --local to restrict to current project only.
+
+Examples:
+  juggle status                    # Show all projects
+  juggle status --local            # Show only current project
+  juggle status --tags feature     # Filter by tags
+  juggle status --priority high    # Filter by priority`,
 	RunE:  runStatus,
 }
 
 func init() {
 	statusCmd.Flags().StringVar(&filterTags, "tags", "", "Filter by tags (comma-separated, OR logic)")
 	statusCmd.Flags().StringVar(&filterPriority, "priority", "", "Filter by priority (low|medium|high|urgent)")
-	statusCmd.Flags().BoolVar(&showLocalOnly, "local", false, "Show only balls from current project")
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
@@ -50,8 +56,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Discover all projects
-	projects, err := session.DiscoverProjects(config)
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Discover projects (respects --local flag)
+	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
 	}
@@ -62,25 +73,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Load all balls from all projects (or just current project if --local)
-	projectsToLoad := projects
-	if showLocalOnly {
-		// Filter to current project only
-		projectsToLoad = []string{}
-		for _, p := range projects {
-			if p == cwd {
-				projectsToLoad = append(projectsToLoad, p)
-				break
-			}
-		}
-		if len(projectsToLoad) == 0 {
-			fmt.Println("Current directory is not a tracked juggler project.")
-			fmt.Println("\nStart a new session with: juggler start")
-			return nil
-		}
-	}
-
-	allBalls, err := session.LoadAllBalls(projectsToLoad)
+	allBalls, err := session.LoadAllBalls(projects)
 	if err != nil {
 		return fmt.Errorf("failed to load balls: %w", err)
 	}

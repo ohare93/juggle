@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,7 +39,17 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	projects, err := session.DiscoverProjects(config)
+	// Get current directory to create a store (needed for DiscoverProjectsForCommand)
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
 	}
@@ -48,8 +59,7 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to load juggling balls: %w", err)
 	}
 
-	// Get current directory for highlighting and marker updates
-	cwd, _ := GetWorkingDir()
+	// cwd already retrieved above for highlighting and marker updates
 
 	if len(juggling) == 0 {
 		fmt.Println("No balls currently being juggled")
@@ -171,7 +181,12 @@ func listAllBalls(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	projects, err := session.DiscoverProjects(config)
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
 	}
@@ -353,7 +368,16 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	ballID := args[0]
-	
+
+	// Special case: unarchive needs to look in archives, not active balls
+	if len(args) > 1 && args[1] == "unarchive" {
+		ball, store, err := findArchivedBallByID(ballID)
+		if err != nil {
+			return err
+		}
+		return handleBallUnarchive(ball, store)
+	}
+
 	// Find ball across all projects
 	ball, store, err := findBallByID(ballID)
 	if err != nil {
@@ -380,6 +404,8 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 		return handleBallTag(ball, operationArgs, store)
 	case "edit":
 		return handleBallEdit(ball, operationArgs, store)
+	case "delete":
+		return handleBallDelete(ball, operationArgs, store)
 	default:
 		return fmt.Errorf("unknown operation: %s", operation)
 	}
@@ -720,6 +746,57 @@ func handleBallEdit(ball *session.Session, args []string, store *session.Store) 
 	}
 
 	fmt.Printf("✓ Updated %s for ball %s\n", property, ball.ShortID())
+	return nil
+}
+
+// handleBallDelete handles deleting a ball
+func handleBallDelete(ball *session.Session, args []string, store *session.Store) error {
+	// Check for --force flag
+	force := false
+	for _, arg := range args {
+		if arg == "--force" || arg == "-f" {
+			force = true
+			break
+		}
+	}
+
+	// Show ball information
+	fmt.Printf("Ball to delete:\n")
+	fmt.Printf("  ID: %s\n", ball.ID)
+	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Priority: %s\n", ball.Priority)
+	fmt.Printf("  State: %s", ball.ActiveState)
+	if ball.ActiveState == session.ActiveJuggling && ball.JuggleState != nil {
+		fmt.Printf(" (%s)", *ball.JuggleState)
+	}
+	fmt.Printf("\n")
+	if len(ball.Todos) > 0 {
+		fmt.Printf("  Todos: %d items\n", len(ball.Todos))
+	}
+	if len(ball.Tags) > 0 {
+		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))
+	}
+	fmt.Println()
+
+	// Confirm deletion unless --force is used
+	if !force {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Printf("Are you sure you want to delete this ball? This cannot be undone. [y/N]: ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(strings.ToLower(input))
+
+		if input != "y" && input != "yes" {
+			fmt.Println("Deletion cancelled.")
+			return nil
+		}
+	}
+
+	// Delete the ball
+	if err := store.DeleteBall(ball.ID); err != nil {
+		return fmt.Errorf("failed to delete ball: %w", err)
+	}
+
+	fmt.Printf("✓ Ball %s deleted successfully\n", ball.ShortID())
 	return nil
 }
 

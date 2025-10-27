@@ -25,8 +25,9 @@ the deletion. Use --force to skip the confirmation prompt.
 Examples:
   juggle delete my-app-1
   juggle delete my-app-1 --force`,
-	Args: cobra.ExactArgs(1),
-	RunE: runDelete,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: CompleteBallIDs,
+	RunE:              runDelete,
 }
 
 func init() {
@@ -57,7 +58,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		ball, err := store.GetBallByID(ballID)
+		ball, err := store.ResolveBallID(ballID)
 		if err == nil && ball != nil {
 			foundBall = ball
 			foundStore = store

@@ -137,6 +137,55 @@ juggle session unblock
 juggle session done "Fixed OAuth token refresh issue"
 ```
 
+## Interactive TUI
+
+For a more visual and interactive experience, use the TUI mode:
+
+```bash
+juggle tui
+juggle --local tui  # Local project only
+```
+
+The TUI provides:
+- **Full-screen interface** with keyboard navigation
+- **Real-time filtering** by state (ready/juggling/dropped/complete)
+- **Quick actions** without typing commands
+- **Ball details view** showing todos, tags, and timestamps
+- **Color-coded status** for easy visual scanning
+- **Cross-project view** of all your work
+- **Safe delete** with confirmation dialog
+
+### Keyboard Shortcuts
+
+**Navigation:**
+- `↑/k` - Move up
+- `↓/j` - Move down
+- `Enter` - View ball details
+- `b/Esc` - Back to list (or exit from list)
+- `?` - Toggle help
+
+**Filters (toggleable):**
+- `1` - Show all states
+- `2` - Toggle ready visibility
+- `3` - Toggle juggling visibility
+- `4` - Toggle dropped visibility
+- `5` - Toggle complete visibility
+
+**State Management:**
+- `Tab` - Cycle state (ready → juggling → complete → dropped → ready)
+- `s` - Start ball (ready → juggling:in-air)
+- `r` - Set ball to ready
+- `c` - Complete ball
+- `d` - Drop ball
+- `R` - Refresh/reload (shift+r)
+
+**Ball Operations:**
+- `x` - Delete ball (with confirmation)
+- `p` - Cycle priority (low → medium → high → urgent → low)
+
+**Other:**
+- `q` - Quit
+
 ## Commands
 
 ### Workflow Commands

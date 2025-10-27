@@ -36,24 +36,30 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Get all juggling balls in this project
-	jugglingBalls, err := store.GetJugglingBalls()
-	if err != nil || len(jugglingBalls) == 0 {
-		// Silently ignore if no juggling balls
+	// Get all balls in this project (not just juggling ones)
+	allBalls, err := store.LoadBalls()
+	if err != nil || len(allBalls) == 0 {
+		// Silently ignore if no balls
 		return nil
 	}
 
+	// Also get juggling balls for fallback resolution (steps 3 & 4)
+	jugglingBalls, err := store.GetJugglingBalls()
+	if err != nil {
+		jugglingBalls = []*session.Session{}
+	}
+
 	// Resolution order:
-	// 1. JUGGLER_CURRENT_BALL environment variable (explicit override)
-	// 2. Zellij session+tab matching
+	// 1. JUGGLER_CURRENT_BALL environment variable (explicit override) - search all balls
+	// 2. Zellij session+tab matching - search all balls
 	// 3. If only one juggling ball, use it
 	// 4. Most recently active juggling ball
 
 	var ball *session.Session
 
-	// 1. Check for explicit ball ID override
+	// 1. Check for explicit ball ID override (search all balls)
 	if envBallID := os.Getenv("JUGGLER_CURRENT_BALL"); envBallID != "" {
-		for _, b := range jugglingBalls {
+		for _, b := range allBalls {
 			if b.ID == envBallID {
 				ball = b
 				break
@@ -68,24 +74,34 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 		// If env var set but ball not found, fall through to other methods
 	}
 
-	// 2. Try Zellij matching if in Zellij
+	// 2. Try Zellij matching if in Zellij (search all balls)
 	zellijInfo, err := zellij.DetectInfo()
 	if err == nil && zellijInfo.IsActive && zellijInfo.SessionName != "" {
 		// Try to match by session+tab
-		for _, b := range jugglingBalls {
+		// Prefer exact session+tab match, fall back to session-only match
+		var sessionOnlyMatch *session.Session
+		for _, b := range allBalls {
 			if b.ZellijSession == zellijInfo.SessionName {
-				// If tab name is available, match on both session and tab
+				// If both have tab names, try exact tab match
 				if zellijInfo.TabName != "" && b.ZellijTab != "" {
 					if b.ZellijTab == zellijInfo.TabName {
 						ball = b
 						break
 					}
-				} else if b.ZellijTab == "" || zellijInfo.TabName == "" {
-					// Match on session only if tab info not available
-					ball = b
-					break
+					// Tab names don't match, but remember this as a session-only fallback
+					if sessionOnlyMatch == nil {
+						sessionOnlyMatch = b
+					}
+					continue
 				}
+				// No tab info available (or only one has it), match on session only
+				ball = b
+				break
 			}
+		}
+		// If no exact match found, use session-only fallback
+		if ball == nil && sessionOnlyMatch != nil {
+			ball = sessionOnlyMatch
 		}
 		if ball != nil {
 			// Found via Zellij matching
@@ -93,6 +109,11 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 			ball.IncrementUpdateCount()
 			return store.UpdateBall(ball)
 		}
+	}
+
+	// If no juggling balls, silently ignore (nothing to track)
+	if len(jugglingBalls) == 0 {
+		return nil
 	}
 
 	// 3. If only one juggling ball, use it

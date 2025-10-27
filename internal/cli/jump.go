@@ -13,8 +13,9 @@ var jumpCmd = &cobra.Command{
 	Short: "Jump to a session's Zellij tab",
 	Long: `Switch to the Zellij tab associated with the given session.
 Requires Zellij to be running and the session to have Zellij info.`,
-	Args: cobra.ExactArgs(1),
-	RunE: runJump,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: CompleteBallIDs,
+	RunE:              runJump,
 }
 
 func runJump(cmd *cobra.Command, args []string) error {
