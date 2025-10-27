@@ -304,11 +304,9 @@ func addInstructionsWithTemplate(content, template string) string {
 		return strings.TrimSpace(template) + "\n"
 	}
 
-	// Add instructions at the end with proper spacing
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-	return content + "\n" + strings.TrimSpace(template) + "\n"
+	// Add instructions at the start with proper spacing
+	// This ensures the CRITICAL BLOCKING REQUIREMENT is read first
+	return strings.TrimSpace(template) + "\n\n" + content
 }
 
 // UpdateInstructions updates existing instructions or adds new ones
