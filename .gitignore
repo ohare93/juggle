@@ -1,0 +1,28 @@
+# Binaries
+/juggler
+/juggle
+.juggler/
+
+# Devbox
+/.devbox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+*.out
+coverage.txt
+*.prof
+
+# Temporary files
+tmp/
+temp/

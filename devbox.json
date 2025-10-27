@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.0/.schema/devbox.schema.json",
+  "packages": [
+    "go@latest",
+    "gopls@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null"
+    ],
+    "scripts": {
+      "test": [
+        "go test -v ./internal/integration_test/..."
+      ],
+      "test-all": [
+        "go test -v ./..."
+      ],
+      "test-coverage": [
+        "go test -v -coverprofile=coverage.out ./internal/integration_test/...",
+        "go tool cover -html=coverage.out -o coverage.html"
+      ]
+    }
+  }
+}

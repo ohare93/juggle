@@ -1,0 +1,312 @@
+# Installation Guide
+
+## Prerequisites
+
+- Go 1.21 or later (for building from source)
+- Git
+- (Optional) Zellij for terminal workspace integration
+
+## Installation Methods
+
+### Method 1: Install Script (Recommended)
+
+The quickest way to install Juggler:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/jmoiron/juggler/main/install.sh | bash
+```
+
+Or download and inspect first:
+
+```bash
+curl -O https://raw.githubusercontent.com/jmoiron/juggler/main/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+1. Download the latest release for your platform
+2. Install the binary to `~/.local/bin/juggle`
+3. Add `~/.local/bin` to your PATH if needed
+
+### Method 2: Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/jmoiron/juggler.git
+cd juggler
+
+# Build the binary
+go build -o juggle ./cmd/juggle
+
+# Install to your PATH
+sudo mv juggle /usr/local/bin/
+# or
+mv juggle ~/.local/bin/
+```
+
+### Method 3: Go Install
+
+If you have Go installed:
+
+```bash
+go install github.com/jmoiron/juggler/cmd/juggle@latest
+```
+
+Make sure `$GOPATH/bin` (usually `~/go/bin`) is in your PATH.
+
+### Method 4: Download Pre-built Binary
+
+1. Go to the [Releases page](https://github.com/jmoiron/juggler/releases)
+2. Download the binary for your platform
+3. Extract and move to a directory in your PATH:
+
+```bash
+# Linux/macOS
+tar -xzf juggler-linux-amd64.tar.gz
+sudo mv juggle /usr/local/bin/
+
+# Or install to user directory
+mkdir -p ~/.local/bin
+mv juggle ~/.local/bin/
+```
+
+## Initial Setup
+
+### 1. Verify Installation
+
+```bash
+juggle --version
+```
+
+### 2. Configure Search Paths
+
+Tell Juggler where to look for projects:
+
+```bash
+# Add your development directory
+juggle projects add ~/Development
+
+# Add multiple paths
+juggle projects add ~/work
+juggle projects add ~/personal-projects
+```
+
+Juggler will search these directories for any project containing a `.juggler` folder.
+
+### 3. Start Your First Session
+
+```bash
+cd your-project
+juggle start "My first work session"
+```
+
+This creates `.juggler/balls.jsonl` in your project directory.
+
+## Claude Code Integration (Optional)
+
+### Recommended Setup with Workflow Enforcement
+
+For projects using Claude Code:
+
+```bash
+cd your-project
+juggle setup-claude --install-hooks
+```
+
+This installs:
+- **Agent instructions** in `.claude/CLAUDE.md`
+- **Workflow enforcement hooks** in `.claude/hooks.json`
+- **Marker file system** for check tracking
+
+**Validation Steps:**
+```bash
+# Verify installation
+ls .claude/
+# Expected: CLAUDE.md  hooks.json
+
+# Check instructions at document start
+head -30 .claude/CLAUDE.md
+# Should see: "🚫 CRITICAL BLOCKING REQUIREMENT"
+
+# Test hook manually
+juggle reminder
+# Should show reminder (first time)
+
+# Test check command
+juggle check
+# Should show current state and guidance
+```
+
+**Important:**
+- Restart Claude Code after installation
+- Instructions appear at top of CLAUDE.md (critical positioning)
+- Hook runs before each interaction (<50ms overhead)
+- See [Workflow Enforcement Guide](./workflow-enforcement.md) for details
+
+### Alternative: Global Installation
+
+For use across all projects:
+
+```bash
+juggle setup-claude --global
+```
+
+Installs to `~/.claude/CLAUDE.md` instead of project-local `.claude/CLAUDE.md`.
+
+**Note:** Hooks are project-specific, so use `--install-hooks` in each project even with global instructions.
+
+## Zellij Integration (Optional)
+
+For automatic tab switching and better context tracking:
+
+### 1. Install Zellij
+
+```bash
+# macOS
+brew install zellij
+
+# Linux (cargo)
+cargo install zellij
+
+# Or download from https://github.com/zellij-org/zellij/releases
+```
+
+### 2. Configure Zellij
+
+Juggler automatically detects Zellij sessions. Start Zellij in your project:
+
+```bash
+cd your-project
+zellij
+```
+
+Now Juggler commands will track which Zellij tab you're in and can automatically switch tabs:
+
+```bash
+juggle jump <ball-id>  # Switches to the ball's tab
+juggle next            # Jumps to highest priority ball
+```
+
+## Updating
+
+### Using Install Script
+
+```bash
+curl -sSL https://raw.githubusercontent.com/jmoiron/juggler/main/install.sh | bash
+```
+
+### Using Go
+
+```bash
+go install github.com/jmoiron/juggler/cmd/juggle@latest
+```
+
+### Manual Update
+
+Download the latest release and replace the binary.
+
+## Configuration
+
+Juggler stores configuration in `~/.config/juggler/config.json`:
+
+```json
+{
+  "search_paths": [
+    "/home/user/Development",
+    "/home/user/projects"
+  ]
+}
+```
+
+You can edit this file directly or use:
+
+```bash
+juggle projects add /new/path
+juggle projects remove /old/path
+```
+
+## Uninstallation
+
+```bash
+# Remove binary
+rm ~/.local/bin/juggle
+# or
+sudo rm /usr/local/bin/juggle
+
+# Remove configuration
+rm -rf ~/.config/juggler
+
+# Remove project data (optional - only if you want to delete all tracked sessions)
+find ~/Development -name ".juggler" -type d -exec rm -rf {} +
+```
+
+## Troubleshooting
+
+### Command not found
+
+Ensure `~/.local/bin` is in your PATH:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
+
+# Reload shell
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+### No projects found
+
+Add search paths:
+
+```bash
+juggle projects add ~/Development
+```
+
+Or start a session in a specific directory to create `.juggler`:
+
+```bash
+cd your-project
+juggle start "Initial session"
+```
+
+### Zellij integration not working
+
+Verify Zellij is running:
+
+```bash
+echo $ZELLIJ_SESSION_NAME
+```
+
+If empty, you're not in a Zellij session. Start one:
+
+```bash
+zellij
+```
+
+### Permission denied
+
+If installing to `/usr/local/bin`, you need sudo:
+
+```bash
+sudo mv juggle /usr/local/bin/
+```
+
+Or install to user directory without sudo:
+
+```bash
+mkdir -p ~/.local/bin
+mv juggle ~/.local/bin/
+```
+
+## Getting Help
+
+- Documentation: See `docs/` directory
+- Issues: https://github.com/jmoiron/juggler/issues
+- Commands: `juggle --help` or `juggler <command> --help`
+
+## Next Steps
+
+- Read the [Claude Integration Guide](./claude-integration.md) for AI-assisted workflows
+- Explore commands with `juggle --help`
+- Set up your first project: `juggle start "Description of your work"`

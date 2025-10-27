@@ -1,0 +1,10 @@
+{
+  "assistant-response-start": {
+    "command": "juggle reminder 2\u003e/dev/null || true",
+    "description": "Remind to check juggler state"
+  },
+  "user-prompt-submit": {
+    "command": "juggle track-activity 2\u003e/dev/null || true",
+    "description": "Track activity on current ball"
+  }
+}
