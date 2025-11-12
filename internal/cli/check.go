@@ -133,15 +133,12 @@ func handleSingleJugglingBall(ball *session.Session, readyBalls []*session.Sessi
 	fmt.Println()
 
 	// Prompt user
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Is this what you're working on? (y/n): ")
-	input, err := reader.ReadString('\n')
+	confirmed, err := ConfirmSingleKey("Is this what you're working on?")
 	if err != nil {
-		return fmt.Errorf("failed to read input: %w", err)
+		return fmt.Errorf("operation cancelled")
 	}
-	response := strings.TrimSpace(strings.ToLower(input))
 
-	if response == "y" || response == "yes" {
+	if confirmed {
 		successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 		fmt.Println()
 		fmt.Println(successStyle.Render("✓ Great! Continue working on this ball."))

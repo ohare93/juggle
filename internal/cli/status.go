@@ -318,6 +318,16 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd str
 				todosCell + " " +
 				intentCell,
 			)
+
+			// Show description on next line if present
+			if ball.Description != "" {
+				descDisplay := ball.Description
+				if len(descDisplay) > 80 {
+					descDisplay = descDisplay[:77] + "..."
+				}
+				dimStyle := StyleDim
+				fmt.Printf("  %s\n", dimStyle.Render(descDisplay))
+			}
 		}
 	}
 

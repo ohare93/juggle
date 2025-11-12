@@ -123,6 +123,17 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid priority %q, must be one of: low, medium, high, urgent", priority)
 	}
 
+	// Get description from: 1) --description flag, 2) prompt if not provided
+	description := descriptionFlag
+	if description == "" {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Add a description for context? (optional, press Enter to skip): ")
+		input, err := reader.ReadString('\n')
+		if err == nil {
+			description = strings.TrimSpace(input)
+		}
+	}
+
 	// Create the session
 	sess, err := session.New(cwd, intent, session.Priority(priority))
 	if err != nil {
@@ -130,8 +141,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set description if provided
-	if descriptionFlag != "" {
-		sess.SetDescription(descriptionFlag)
+	if description != "" {
+		sess.SetDescription(description)
 	}
 
 	// Add tags if provided

@@ -138,19 +138,35 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		statePadded = stateStyle.Render(statePadded)
 		priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-		// Build the line with optional state message
+		// Build the line with optional state message and todo count
 		intentDisplay := ball.Intent
 		if ball.StateMessage != "" {
 			intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.StateMessage+")"))
 		}
 
-		fmt.Printf("  [%s] %s  %s  %s  %s\n",
+		// Add todo completion summary if todos exist
+		todoSummary := ""
+		if len(ball.Todos) > 0 {
+			todoSummary = fmt.Sprintf(" %s", dimStyle.Render("["+ball.TodoCompletionSummary()+"]"))
+		}
+
+		fmt.Printf("  [%s] %s  %s  %s  %s%s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
 			priorityPadded,
 			intentDisplay,
+			todoSummary,
 		)
+
+		// Show description on next line if present
+		if ball.Description != "" {
+			descDisplay := ball.Description
+			if len(descDisplay) > 80 {
+				descDisplay = descDisplay[:77] + "..."
+			}
+			fmt.Printf("      %s\n", dimStyle.Render(descDisplay))
+		}
 	}
 
 	fmt.Println()
@@ -307,19 +323,35 @@ func listAllBalls(cmd *cobra.Command) error {
 				statePadded = stateStyle.Render(statePadded)
 				priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-				// Build the line with optional state message
+				// Build the line with optional state message and todo count
 				intentDisplay := ball.Intent
 				if ball.StateMessage != "" {
 					dimStyle := StyleDim
 					intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.StateMessage+")"))
 				}
 
-				fmt.Printf("  [%s] %s  %s  %s\n",
+				// Add todo completion summary if todos exist
+				todoSummary := ""
+				if len(ball.Todos) > 0 {
+					todoSummary = fmt.Sprintf(" %s", StyleDim.Render("["+ball.TodoCompletionSummary()+"]"))
+				}
+
+				fmt.Printf("  [%s] %s  %s  %s%s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
+					todoSummary,
 				)
+
+				// Show description on next line if present
+				if ball.Description != "" {
+					descDisplay := ball.Description
+					if len(descDisplay) > 80 {
+						descDisplay = descDisplay[:77] + "..."
+					}
+					fmt.Printf("      %s\n", StyleDim.Render(descDisplay))
+				}
 			}
 		}
 	}

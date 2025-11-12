@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/ohare93/juggle/internal/session"
@@ -90,12 +88,13 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	// Confirm deletion unless --force is used
 	if !deleteForce {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Printf("Are you sure you want to delete this ball? This cannot be undone. [y/N]: ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(strings.ToLower(input))
+		fmt.Print("Are you sure you want to delete this ball? This cannot be undone. ")
+		confirmed, err := ConfirmSingleKey("")
+		if err != nil {
+			return fmt.Errorf("operation cancelled")
+		}
 
-		if input != "y" && input != "yes" {
+		if !confirmed {
 			fmt.Println("Deletion cancelled.")
 			return nil
 		}

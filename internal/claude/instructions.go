@@ -75,6 +75,16 @@ A ball matches the current task if **ANY** of these are true:
 **If no match - CREATE NEW BALL:**
 ` + "```bash\njuggle start  # Interactive creation (recommended)\n# OR\njuggle plan --intent \"...\" --priority medium  # Non-interactive\n```" + `
 
+**IMPORTANT:** When creating a new ball, **always provide a description** for future context:
+- Descriptions help you and other agents understand the ball's purpose later
+- Include **why** this task matters, not just what it is
+- Add relevant technical context or constraints
+- Format: "What this task is about and why it matters"
+- The ` + "`start`" + ` and ` + "`plan`" + ` commands will prompt you for a description interactively
+
+Example:
+` + "```bash\n# When prompted for description, provide context:\n\"Fixing critical bug that causes data loss when users upload files > 10MB. \nNeeds to be fixed before next release.\"\n```" + `
+
 ### 🟢 Step 3: Update Status After Work
 
 These state updates are **MANDATORY**, not optional:

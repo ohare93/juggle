@@ -369,6 +369,12 @@ func (s *Session) TodoStats() (total, completed int) {
 	return
 }
 
+// TodoCompletionSummary returns a string like "3/5" showing completed/total todos
+func (s *Session) TodoCompletionSummary() string {
+	total, completed := s.TodoStats()
+	return fmt.Sprintf("%d/%d", completed, total)
+}
+
 // AddTag adds a tag to the session
 func (s *Session) AddTag(tag string) {
 	for _, t := range s.Tags {

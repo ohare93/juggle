@@ -157,10 +157,11 @@ func handleAgentUninstall(targetPath string, hasInstructions bool, opts claude.I
 
 	// Confirm unless forced
 	if !opts.Force {
-		fmt.Printf("Remove %s instructions from %s? [y/N]: ", config.Name, targetPath)
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" {
+		confirmed, err := ConfirmSingleKey(fmt.Sprintf("Remove %s instructions from %s?", config.Name, targetPath))
+		if err != nil {
+			return fmt.Errorf("operation cancelled")
+		}
+		if !confirmed {
 			fmt.Println("Cancelled.")
 			return nil
 		}
@@ -277,11 +278,11 @@ func handleAgentInstall(targetPath string, hasInstructions bool, opts claude.Ins
 
 	// Confirm unless forced
 	if !opts.Force {
-		fmt.Printf("Install these instructions? [Y/n]: ")
-		var response string
-		fmt.Scanln(&response)
-		response = strings.ToLower(strings.TrimSpace(response))
-		if response != "" && response != "y" && response != "yes" {
+		confirmed, err := ConfirmSingleKey("Install these instructions?")
+		if err != nil {
+			return fmt.Errorf("operation cancelled")
+		}
+		if !confirmed {
 			fmt.Println("Cancelled.")
 			return nil
 		}
