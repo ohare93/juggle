@@ -23,6 +23,7 @@ Juggler provides:
 - **Zellij integration** for quick tab switching
 - **Hook-based automation** for activity tracking (works great with AI coding tools)
 - **Rich terminal UI** with color-coded status
+- **Beads integration** (optional) for linking conversations to issue tracking
 
 ## Installation
 
@@ -99,7 +100,14 @@ See [Claude Integration Guide](docs/claude-integration.md), [Agent Integration G
 ### 🔍 Search & History
 - Search active balls: `juggle search authentication`
 - Query archive: `juggle history --after 2025-10-01 --tags feature`
+- Query by beads issue: `juggle history --beads bd-a1b2`
 - Export data: `juggle export --format csv --output analysis.csv`
+
+### 🔗 Beads Integration (Optional)
+- Link balls to beads issues: `juggle start --beads bd-a1b2`
+- Track conversation history per issue: `juggle history --beads bd-a1b2`
+- See cross-references: `juggle show juggler-5` displays linked issues
+- Maintain context across multiple sessions on same beads issue
 
 ### ✏️ Flexible Editing
 - Interactive mode: `juggle edit <ball-id>`
@@ -111,6 +119,9 @@ See [Claude Integration Guide](docs/claude-integration.md), [Agent Integration G
 # Start tracking a new session
 cd ~/projects/my-app
 juggle start --intent "Fix authentication bug" --priority high
+
+# Start with beads integration (optional)
+juggle start --intent "Work on bd-a1b2" --beads bd-a1b2 --priority high
 
 # Plan future work
 juggle plan --intent "Refactor login flow" --priority medium
@@ -135,6 +146,9 @@ juggle session unblock
 
 # Complete session (will prompt to start next planned ball)
 juggle session done "Fixed OAuth token refresh issue"
+
+# Query history for a beads issue (optional)
+juggle history --beads bd-a1b2
 ```
 
 ## Interactive TUI
@@ -236,7 +250,32 @@ The `session` command (aliases: `ball`, `project`, `repo`, `current`) manages th
 
 - `juggle search [query]` - Search active balls by intent or filters
 - `juggle history [query]` - Query archived (done) balls
+  - `--beads <issue-id>` - Find all balls that worked on a beads issue
 - `juggle export` - Export balls to JSON or CSV
+
+### Beads Integration (Optional)
+
+Link juggler balls to [beads](https://github.com/steveyegge/beads) issues for context continuity:
+
+- `juggle start --beads bd-a1b2` - Create ball linked to beads issue
+- `juggle link <ball-id> <beads-id>` - Link existing ball to beads issue
+- `juggle unlink <ball-id> <beads-id>` - Unlink beads issue
+- `juggle history --beads bd-a1b2` - Find all balls that worked on this issue
+- `juggle show <ball-id>` - Display includes linked beads issues
+
+**Example workflow:**
+```bash
+# Start work on a beads issue
+juggle start "Implement bd-a1b2 search API" --beads bd-a1b2
+
+# Later: see all juggler sessions that touched this issue
+juggle history --beads bd-a1b2
+
+# Link additional beads issues during work
+juggle link juggler-5 bd-c3d4
+```
+
+This enables cross-referencing between juggler's conversation state and beads' issue tracking, maintaining context across multiple work sessions on the same beads issue.
 
 ### Filtering
 
