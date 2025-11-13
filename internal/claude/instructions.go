@@ -140,6 +140,28 @@ Think of tasks as balls being juggled:
 - ` + "`juggle <ball-id> todo done <N>`" + ` - Complete todo N
 - ` + "`juggle next`" + ` - Find ball needing attention
 
+### 🔗 Beads Integration (Optional)
+
+Juggler can link balls to beads issues for cross-referencing and context continuity:
+
+**Creating balls with beads links:**
+` + "```bash\njuggle start \"Implement search API\" --beads bd-a1b2\njuggle plan \"Fix auth bug\" --beads bd-c3d4 --priority high\n```" + `
+
+**Linking existing balls:**
+` + "```bash\njuggle link juggler-5 bd-a1b2           # Link to one issue\njuggle link juggler-5 bd-a1b2 bd-e5f6   # Link to multiple\njuggle unlink juggler-5 bd-a1b2         # Unlink\n```" + `
+
+**Finding balls by beads issue:**
+` + "```bash\njuggle history --beads bd-a1b2          # See all balls that worked on bd-a1b2\njuggle show juggler-5                   # Display shows linked beads issues\n```" + `
+
+**When to use beads integration:**
+- Working on beads issues and want conversation history
+- Multiple sessions on same beads issue (context continuity)
+- Tracking which juggler sessions touched which beads issues
+
+**Best practice:**
+When user mentions a beads issue ID (bd-xxxx), include it when creating the ball:
+` + "```bash\n# User: \"Work on bd-a1b2 - add search API\"\njuggle start \"Work on bd-a1b2: Add search API\" --beads bd-a1b2\n```" + `
+
 ### 🔄 Multi-Agent / Multi-Session Support
 
 When multiple agents/users work simultaneously, activity tracking resolution:
