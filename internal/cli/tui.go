@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var tuiSplitView bool
+var tuiLegacy bool
 var tuiSessionFilter string
 
 var tuiCmd = &cobra.Command{
@@ -18,38 +18,40 @@ var tuiCmd = &cobra.Command{
 	Short: "Launch interactive terminal UI",
 	Long: `Launch an interactive terminal user interface for managing balls.
 
-The TUI provides a full-screen interface with keyboard navigation,
-filtering, and quick actions.
+The TUI provides a full-screen split-view interface with three panels:
+sessions, balls, and todos. Use keyboard navigation for quick actions.
 
-Use --split flag to launch the new three-panel split view:
-  juggle tui --split
+Use --legacy flag to launch the old single-panel list view:
+  juggle tui --legacy
 
 Use --local flag to restrict view to current project only:
   juggle --local tui
 
-Navigation (split view):
-  Tab/h/l    Switch between panels
+Use --session to start with a session pre-selected:
+  juggle tui --session my-feature
+
+Navigation:
+  Tab/h/l    Switch between panels (sessions → balls → todos)
   ↑/k        Move up within panel
   ↓/j        Move down within panel
   Enter      Select item / expand
   Esc        Go back / deselect
 
-CRUD Operations (split view):
-  a          Add new item (session/ball/todo)
+CRUD Operations:
+  a          Add new item (session/ball/todo based on panel)
   e          Edit selected item
   d          Delete selected item (with confirmation)
+  t          Edit tags for selected ball
   Space      Toggle todo completion
 
 State Management:
-  s          Start ball
-  c          Complete ball
+  s          Start ball (→ in_progress)
+  c          Complete ball (→ complete, archives)
   b          Block ball (prompts for reason)
 
-Legacy Navigation:
-  Tab        Cycle state (ready → juggling → complete → dropped → ready)
-  r          Set ball to ready
-  p          Cycle priority (low → medium → high → urgent → low)
-  x          Delete ball (with confirmation)
+Search/Filter:
+  /          Open search/filter for current panel
+  Ctrl+U     Clear current filter
 
 Filters (toggleable):
   1          Show all states
@@ -60,7 +62,7 @@ Filters (toggleable):
 
 Other:
   R          Refresh/reload (shift+r)
-  ?          Toggle help
+  ?          Show help
   q          Quit`,
 	RunE: runTUI,
 }
@@ -86,13 +88,12 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	var model tui.Model
 
-	// --session implies --split
-	if tuiSessionFilter != "" {
-		tuiSplitView = true
-	}
-
-	if tuiSplitView {
-		// Initialize split view with file watcher
+	// Default is split view, use --legacy for old list view
+	if tuiLegacy {
+		// Initialize legacy TUI model (old list view)
+		model = tui.InitialModel(store, config, GlobalOpts.LocalOnly)
+	} else {
+		// Initialize split view with file watcher (default)
 		sessionStore, err := session.NewSessionStore(workingDir)
 		if err != nil {
 			return err
@@ -115,9 +116,6 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		}
 
 		model = tui.InitialSplitModelWithWatcher(store, sessionStore, config, GlobalOpts.LocalOnly, w, tuiSessionFilter)
-	} else {
-		// Initialize legacy TUI model
-		model = tui.InitialModel(store, config, GlobalOpts.LocalOnly)
 	}
 
 	// Create program with alternate screen
@@ -132,7 +130,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
-	tuiCmd.Flags().BoolVarP(&tuiSplitView, "split", "s", false, "Use split-view layout with sessions, balls, and todos panels")
-	tuiCmd.Flags().StringVar(&tuiSessionFilter, "session", "", "Start with session selected (implies --split)")
+	tuiCmd.Flags().BoolVar(&tuiLegacy, "legacy", false, "Use legacy single-panel list view instead of split view")
+	tuiCmd.Flags().StringVar(&tuiSessionFilter, "session", "", "Start with session pre-selected")
 	rootCmd.AddCommand(tuiCmd)
 }
