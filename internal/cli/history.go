@@ -17,7 +17,6 @@ var (
 	historyBefore   string
 	historySortBy   string
 	historyStats    bool
-	historyBeads    string
 )
 
 var historyCmd = &cobra.Command{
@@ -46,7 +45,6 @@ func init() {
 	historyCmd.Flags().StringVar(&historyBefore, "before", "", "Show balls completed before date (YYYY-MM-DD)")
 	historyCmd.Flags().StringVar(&historySortBy, "sort", "completed-desc", "Sort by: completed-desc|completed-asc|priority")
 	historyCmd.Flags().BoolVar(&historyStats, "stats", false, "Show archive statistics instead of listing balls")
-	historyCmd.Flags().StringVar(&historyBeads, "beads", "", "Filter by beads issue ID (e.g., bd-a1b2)")
 }
 
 func runHistory(cmd *cobra.Command, args []string) error {
@@ -99,11 +97,6 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		query.Priority = session.Priority(historyPriority)
 	}
 
-	// Parse beads issue
-	if historyBeads != "" {
-		query.BeadsIssue = historyBeads
-	}
-
 	// Parse date filters
 	if historyAfter != "" {
 		t, err := time.Parse("2006-01-02", historyAfter)
@@ -140,9 +133,6 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		if query.Priority != "" {
 			fmt.Printf("  Priority: %s\n", query.Priority)
 		}
-		if query.BeadsIssue != "" {
-			fmt.Printf("  Beads: %s\n", query.BeadsIssue)
-		}
 		if query.CompletedAfter != nil {
 			fmt.Printf("  After: %s\n", query.CompletedAfter.Format("2006-01-02"))
 		}
@@ -159,7 +149,7 @@ func runHistory(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
-	if query.Query != "" || len(query.Tags) > 0 || query.Priority != "" || query.BeadsIssue != "" || query.CompletedAfter != nil || query.CompletedBefore != nil {
+	if query.Query != "" || len(query.Tags) > 0 || query.Priority != "" || query.CompletedAfter != nil || query.CompletedBefore != nil {
 		fmt.Println("Filters:")
 		if query.Query != "" {
 			fmt.Printf("  Query: \"%s\"\n", query.Query)
@@ -169,9 +159,6 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		}
 		if query.Priority != "" {
 			fmt.Printf("  Priority: %s\n", query.Priority)
-		}
-		if query.BeadsIssue != "" {
-			fmt.Printf("  Beads: %s\n", query.BeadsIssue)
 		}
 		if query.CompletedAfter != nil {
 			fmt.Printf("  After: %s\n", query.CompletedAfter.Format("2006-01-02"))

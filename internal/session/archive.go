@@ -38,9 +38,6 @@ type ArchiveQuery struct {
 	// Filter by priority
 	Priority Priority
 
-	// Filter by beads issue ID
-	BeadsIssue string
-
 	// Date range filters
 	CompletedAfter  *time.Time
 	CompletedBefore *time.Time
@@ -101,13 +98,6 @@ func QueryArchive(projectPaths []string, query ArchiveQuery) ([]*Session, error)
 		// Priority filter
 		if query.Priority != "" && ball.Priority != query.Priority {
 			continue
-		}
-
-		// Beads issue filter
-		if query.BeadsIssue != "" {
-			if !ball.HasBeadsIssue(query.BeadsIssue) {
-				continue
-			}
 		}
 
 		// Completed after filter

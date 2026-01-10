@@ -32,7 +32,6 @@ func init() {
 	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "Additional context or details")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "medium", "Priority: low, medium, high, urgent")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
-	planCmd.Flags().StringSliceVarP(&beadsFlag, "beads", "b", []string{}, "Beads issue IDs to link (e.g., bd-a1b2)")
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
@@ -101,11 +100,6 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		ball.AddTag(tag)
 	}
 
-	// Add beads issues if provided
-	for _, beadsIssue := range beadsFlag {
-		ball.AddBeadsIssue(beadsIssue)
-	}
-
 	// Save the ball
 	if err := store.AppendBall(ball); err != nil {
 		return fmt.Errorf("failed to save planned ball: %w", err)
@@ -122,9 +116,6 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))
-	}
-	if len(ball.BeadsIssues) > 0 {
-		fmt.Printf("  Beads: %s\n", strings.Join(ball.BeadsIssues, ", "))
 	}
 	fmt.Printf("\nStart working on this ball with: juggle %s in-air\n", ball.ID)
 

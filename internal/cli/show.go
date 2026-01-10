@@ -84,14 +84,6 @@ func renderSessionDetails(sess *session.Session) {
 		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(sess.Tags, ", ")))
 	}
 
-	if len(sess.BeadsIssues) > 0 {
-		beadsDisplay := strings.Join(sess.BeadsIssues, ", ")
-		if sess.BeadsPrimary != "" && len(sess.BeadsIssues) > 1 {
-			beadsDisplay = beadsDisplay + fmt.Sprintf(" (primary: %s)", sess.BeadsPrimary)
-		}
-		fmt.Println(labelStyle.Render("Beads Issues:"), valueStyle.Render(beadsDisplay))
-	}
-
 	if len(sess.Todos) > 0 {
 		total, completed := sess.TodoStats()
 		percentage := 0.0

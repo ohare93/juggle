@@ -63,8 +63,6 @@ type Session struct {
 	Todos          []Todo        `json:"todos,omitempty"`
 	Tags           []string      `json:"tags,omitempty"`
 	CompletionNote string        `json:"completion_note,omitempty"`
-	BeadsIssues    []string      `json:"beads_issues,omitempty"`  // Referenced beads issues
-	BeadsPrimary   string        `json:"beads_primary,omitempty"` // Main issue if multiple
 }
 
 // UnmarshalJSON implements custom unmarshaling to handle migration from old format
@@ -84,8 +82,6 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 	s.UpdateCount = sj.UpdateCount
 	s.Tags = sj.Tags
 	s.CompletionNote = sj.CompletionNote
-	s.BeadsIssues = sj.BeadsIssues
-	s.BeadsPrimary = sj.BeadsPrimary
 
 	// Migrate state from old format to new format
 	if sj.ActiveState != "" {
@@ -172,8 +168,6 @@ type sessionJSON struct {
 	Todos          json.RawMessage `json:"todos,omitempty"`
 	Tags           []string        `json:"tags,omitempty"`
 	CompletionNote string          `json:"completion_note,omitempty"`
-	BeadsIssues    []string        `json:"beads_issues,omitempty"`
-	BeadsPrimary   string          `json:"beads_primary,omitempty"`
 }
 
 // New creates a new session with the given parameters in ready state
@@ -473,67 +467,4 @@ func (s *Session) PriorityWeight() int {
 	default:
 		return 0
 	}
-}
-
-// AddBeadsIssue adds a beads issue reference to the session
-func (s *Session) AddBeadsIssue(issueID string) {
-	// Check if already exists
-	for _, id := range s.BeadsIssues {
-		if id == issueID {
-			return
-		}
-	}
-	s.BeadsIssues = append(s.BeadsIssues, issueID)
-	// If this is the first issue, make it primary
-	if s.BeadsPrimary == "" {
-		s.BeadsPrimary = issueID
-	}
-	s.UpdateActivity()
-}
-
-// RemoveBeadsIssue removes a beads issue reference from the session
-func (s *Session) RemoveBeadsIssue(issueID string) bool {
-	for i, id := range s.BeadsIssues {
-		if id == issueID {
-			s.BeadsIssues = append(s.BeadsIssues[:i], s.BeadsIssues[i+1:]...)
-			// If we removed the primary, clear it or pick a new one
-			if s.BeadsPrimary == issueID {
-				if len(s.BeadsIssues) > 0 {
-					s.BeadsPrimary = s.BeadsIssues[0]
-				} else {
-					s.BeadsPrimary = ""
-				}
-			}
-			s.UpdateActivity()
-			return true
-		}
-	}
-	return false
-}
-
-// SetBeadsPrimary sets the primary beads issue (must already be in BeadsIssues)
-func (s *Session) SetBeadsPrimary(issueID string) error {
-	if issueID == "" {
-		s.BeadsPrimary = ""
-		return nil
-	}
-	// Verify it's in the list
-	for _, id := range s.BeadsIssues {
-		if id == issueID {
-			s.BeadsPrimary = issueID
-			s.UpdateActivity()
-			return nil
-		}
-	}
-	return fmt.Errorf("beads issue %s not found in session's beads issues", issueID)
-}
-
-// HasBeadsIssue checks if the session references a specific beads issue
-func (s *Session) HasBeadsIssue(issueID string) bool {
-	for _, id := range s.BeadsIssues {
-		if id == issueID {
-			return true
-		}
-	}
-	return false
 }
