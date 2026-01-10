@@ -23,6 +23,10 @@ func (m Model) View() string {
 		return m.renderConfirmDeleteView()
 	case splitView:
 		return m.renderSplitView()
+	case inputSessionView, inputBallView, inputTodoView, inputBlockedView:
+		return m.renderInputView()
+	case confirmSplitDelete:
+		return m.renderSplitConfirmDelete()
 	default:
 		return "Unknown view"
 	}
@@ -143,6 +147,147 @@ func helpSection(title string, items []helpItem) string {
 		b.WriteString(fmt.Sprintf("  %s  %s\n", keyStyle.Render(item.key), item.desc))
 	}
 	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderInputView renders the text input dialog
+func (m Model) renderInputView() string {
+	var b strings.Builder
+
+	// Determine title based on mode and action
+	var title string
+	switch m.mode {
+	case inputSessionView:
+		if m.inputAction == actionAdd {
+			title = "Create New Session"
+		} else {
+			title = "Edit Session"
+		}
+	case inputBallView:
+		if m.inputAction == actionAdd {
+			title = "Create New Ball"
+		} else {
+			title = "Edit Ball"
+		}
+	case inputTodoView:
+		if m.inputAction == actionAdd {
+			title = "Add Todo"
+		} else {
+			title = "Edit Todo"
+		}
+	case inputBlockedView:
+		title = "Block Ball"
+	}
+
+	titleStyled := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("6")).
+		Render(title)
+	b.WriteString(titleStyled + "\n\n")
+
+	// Show context based on mode
+	switch m.mode {
+	case inputSessionView:
+		if m.inputAction == actionEdit && m.sessionCursor < len(m.sessions) {
+			sess := m.sessions[m.sessionCursor]
+			b.WriteString(fmt.Sprintf("Session: %s\n\n", sess.ID))
+		}
+	case inputBallView:
+		if m.inputAction == actionEdit && m.editingBall != nil {
+			b.WriteString(fmt.Sprintf("Ball: %s\n\n", m.editingBall.ID))
+		}
+		if m.selectedSession != nil && m.inputAction == actionAdd {
+			b.WriteString(fmt.Sprintf("Session: %s\n\n", m.selectedSession.ID))
+		}
+	case inputTodoView:
+		if m.selectedBall != nil {
+			b.WriteString(fmt.Sprintf("Ball: %s\n\n", m.selectedBall.ID))
+		}
+	case inputBlockedView:
+		if m.editingBall != nil {
+			b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
+			b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
+		}
+	}
+
+	// Show input field
+	inputStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("6")).
+		Padding(0, 1).
+		Width(50)
+	b.WriteString(inputStyle.Render(m.textInput.View()) + "\n\n")
+
+	// Show message if any
+	if m.message != "" {
+		b.WriteString(messageStyle.Render(m.message) + "\n\n")
+	}
+
+	// Help
+	help := lipgloss.NewStyle().
+		Faint(true).
+		Render("Enter = submit | Esc = cancel")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+// renderSplitConfirmDelete renders the delete confirmation for split view
+func (m Model) renderSplitConfirmDelete() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("1")). // Red
+		Render("Confirm Delete")
+	b.WriteString(title + "\n\n")
+
+	// Show what will be deleted
+	switch m.confirmAction {
+	case "delete_session":
+		if m.sessionCursor < len(m.sessions) {
+			sess := m.sessions[m.sessionCursor]
+			b.WriteString(fmt.Sprintf("Session: %s\n", sess.ID))
+			if sess.Description != "" {
+				b.WriteString(fmt.Sprintf("Description: %s\n", sess.Description))
+			}
+			ballCount := m.countBallsForSession(sess.ID)
+			b.WriteString(fmt.Sprintf("Balls: %d\n", ballCount))
+		}
+	case "delete_ball":
+		balls := m.getBallsForSession()
+		if m.cursor < len(balls) {
+			ball := balls[m.cursor]
+			b.WriteString(fmt.Sprintf("Ball: %s\n", ball.ID))
+			b.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+			b.WriteString(fmt.Sprintf("State: %s\n", ball.State))
+			b.WriteString(fmt.Sprintf("Todos: %d\n", len(ball.Todos)))
+		}
+	case "delete_todo":
+		if m.selectedBall != nil && m.todoCursor < len(m.selectedBall.Todos) {
+			todo := m.selectedBall.Todos[m.todoCursor]
+			b.WriteString(fmt.Sprintf("Ball: %s\n", m.selectedBall.ID))
+			b.WriteString(fmt.Sprintf("Todo: %s\n", todo.Text))
+		}
+	}
+
+	b.WriteString("\n")
+
+	warning := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("3")). // Yellow
+		Render("This action cannot be undone.")
+	b.WriteString(warning + "\n\n")
+
+	prompt := lipgloss.NewStyle().
+		Bold(true).
+		Render("Delete? [y/N]")
+	b.WriteString(prompt + "\n\n")
+
+	help := lipgloss.NewStyle().
+		Faint(true).
+		Render("y = confirm | n/Esc = cancel")
+	b.WriteString(help)
 
 	return b.String()
 }

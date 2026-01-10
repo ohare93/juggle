@@ -15,6 +15,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle input modes (text entry)
+		if m.mode == inputSessionView || m.mode == inputBallView || m.mode == inputTodoView || m.mode == inputBlockedView {
+			return m.handleInputKey(msg)
+		}
+
+		// Handle delete confirmation in split view
+		if m.mode == confirmSplitDelete {
+			return m.handleSplitConfirmDelete(msg)
+		}
+
 		// Handle split view specific keys first
 		if m.mode == splitView {
 			return m.handleSplitViewKey(msg)
@@ -310,8 +320,20 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "?":
 		// TODO: Show help for split view
-		m.message = "Help: Tab=panels j/k=nav Enter=select s=start c=complete b=block q=quit"
+		m.message = "Help: Tab=panels j/k=nav Enter=select a=add e=edit d=delete s=start c=complete b=block q=quit"
 		return m, nil
+
+	case "a":
+		// Add new item based on panel
+		return m.handleSplitAddItem()
+
+	case "e":
+		// Edit selected item based on panel
+		return m.handleSplitEditItem()
+
+	case "d":
+		// Delete selected item with confirmation
+		return m.handleSplitDeletePrompt()
 	}
 
 	return m, nil
@@ -451,7 +473,7 @@ func (m Model) handleSplitCompleteBall() (tea.Model, tea.Cmd) {
 	return m, updateBall(store, ball)
 }
 
-// handleSplitBlockBall blocks the selected ball in split view
+// handleSplitBlockBall prompts for a blocked reason
 func (m Model) handleSplitBlockBall() (tea.Model, tea.Cmd) {
 	balls := m.getBallsForSession()
 	if len(balls) == 0 || m.cursor >= len(balls) {
@@ -459,16 +481,15 @@ func (m Model) handleSplitBlockBall() (tea.Model, tea.Cmd) {
 	}
 
 	ball := balls[m.cursor]
-	ball.SetBlocked("blocked from TUI")
-	m.addActivity("Blocked ball: " + ball.ID)
+	m.editingBall = ball
+	m.textInput.Reset()
+	m.textInput.Focus()
+	m.textInput.Placeholder = "Blocked reason (e.g., waiting for API access)"
+	m.inputTarget = "blocked_reason"
+	m.mode = inputBlockedView
+	m.addActivity("Blocking ball: " + ball.ID)
 
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
-	}
-
-	return m, updateBall(store, ball)
+	return m, nil
 }
 
 func (m *Model) handleStartBall() (tea.Model, tea.Cmd) {
@@ -663,4 +684,411 @@ func (m *Model) handleConfirmDelete() (tea.Model, tea.Cmd) {
 
 	// Reload balls
 	return m, loadBalls(m.store, m.config, m.localOnly)
+}
+
+// handleSplitAddItem handles adding a new item based on active panel
+func (m Model) handleSplitAddItem() (tea.Model, tea.Cmd) {
+	m.inputAction = actionAdd
+	m.textInput.Reset()
+	m.textInput.Focus()
+
+	switch m.activePanel {
+	case SessionsPanel:
+		m.textInput.Placeholder = "Session ID (e.g., feature-auth)"
+		m.inputTarget = "session_id"
+		m.mode = inputSessionView
+		m.addActivity("Adding new session...")
+	case BallsPanel:
+		m.textInput.Placeholder = "Ball intent (what you're doing)"
+		m.inputTarget = "intent"
+		m.mode = inputBallView
+		m.addActivity("Adding new ball...")
+	case TodosPanel:
+		if m.selectedBall == nil {
+			m.message = "No ball selected"
+			return m, nil
+		}
+		m.textInput.Placeholder = "Todo text"
+		m.inputTarget = "todo"
+		m.editingTodo = -1 // -1 means new todo
+		m.mode = inputTodoView
+		m.addActivity("Adding new todo...")
+	}
+
+	return m, nil
+}
+
+// handleSplitEditItem handles editing the selected item
+func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
+	m.inputAction = actionEdit
+	m.textInput.Reset()
+	m.textInput.Focus()
+
+	switch m.activePanel {
+	case SessionsPanel:
+		if len(m.sessions) == 0 || m.sessionCursor >= len(m.sessions) {
+			m.message = "No session selected"
+			return m, nil
+		}
+		sess := m.sessions[m.sessionCursor]
+		m.textInput.Placeholder = "Session description"
+		m.textInput.SetValue(sess.Description)
+		m.inputTarget = "session_description"
+		m.mode = inputSessionView
+		m.addActivity("Editing session: " + sess.ID)
+
+	case BallsPanel:
+		balls := m.getBallsForSession()
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			m.message = "No ball selected"
+			return m, nil
+		}
+		ball := balls[m.cursor]
+		m.editingBall = ball
+		m.textInput.Placeholder = "Ball intent"
+		m.textInput.SetValue(ball.Intent)
+		m.inputTarget = "intent"
+		m.mode = inputBallView
+		m.addActivity("Editing ball: " + ball.ID)
+
+	case TodosPanel:
+		if m.selectedBall == nil || len(m.selectedBall.Todos) == 0 {
+			m.message = "No todo selected"
+			return m, nil
+		}
+		if m.todoCursor >= len(m.selectedBall.Todos) {
+			m.message = "No todo selected"
+			return m, nil
+		}
+		todo := m.selectedBall.Todos[m.todoCursor]
+		m.textInput.Placeholder = "Todo text"
+		m.textInput.SetValue(todo.Text)
+		m.editingTodo = m.todoCursor
+		m.mode = inputTodoView
+		m.addActivity("Editing todo...")
+	}
+
+	return m, nil
+}
+
+// handleSplitDeletePrompt shows delete confirmation
+func (m Model) handleSplitDeletePrompt() (tea.Model, tea.Cmd) {
+	switch m.activePanel {
+	case SessionsPanel:
+		if len(m.sessions) == 0 || m.sessionCursor >= len(m.sessions) {
+			m.message = "No session selected"
+			return m, nil
+		}
+		m.confirmAction = "delete_session"
+		m.mode = confirmSplitDelete
+		m.addActivity("Confirming session deletion...")
+
+	case BallsPanel:
+		balls := m.getBallsForSession()
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			m.message = "No ball selected"
+			return m, nil
+		}
+		m.confirmAction = "delete_ball"
+		m.mode = confirmSplitDelete
+		m.addActivity("Confirming ball deletion...")
+
+	case TodosPanel:
+		if m.selectedBall == nil || len(m.selectedBall.Todos) == 0 {
+			m.message = "No todo selected"
+			return m, nil
+		}
+		if m.todoCursor >= len(m.selectedBall.Todos) {
+			m.message = "No todo selected"
+			return m, nil
+		}
+		m.confirmAction = "delete_todo"
+		m.mode = confirmSplitDelete
+		m.addActivity("Confirming todo deletion...")
+	}
+
+	return m, nil
+}
+
+// handleInputKey handles keyboard input in text input modes
+func (m Model) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Cancel input
+		m.mode = splitView
+		m.message = "Cancelled"
+		m.textInput.Blur()
+		return m, nil
+
+	case "enter":
+		// Submit input
+		return m.handleInputSubmit()
+
+	default:
+		// Pass to textinput
+		var cmd tea.Cmd
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+}
+
+// handleInputSubmit handles submitting the input value
+func (m Model) handleInputSubmit() (tea.Model, tea.Cmd) {
+	value := strings.TrimSpace(m.textInput.Value())
+	if value == "" {
+		m.message = "Value cannot be empty"
+		return m, nil
+	}
+
+	m.textInput.Blur()
+
+	switch m.mode {
+	case inputSessionView:
+		return m.submitSessionInput(value)
+	case inputBallView:
+		return m.submitBallInput(value)
+	case inputTodoView:
+		return m.submitTodoInput(value)
+	case inputBlockedView:
+		return m.submitBlockedInput(value)
+	}
+
+	m.mode = splitView
+	return m, nil
+}
+
+// submitSessionInput handles session add/edit submission
+func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
+	if m.inputAction == actionAdd {
+		// Create new session
+		if m.sessionStore == nil {
+			m.message = "Session store not available"
+			m.mode = splitView
+			return m, nil
+		}
+		_, err := m.sessionStore.CreateSession(value, "")
+		if err != nil {
+			m.message = "Error creating session: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Created session: " + value)
+		m.message = "Created session: " + value
+	} else {
+		// Edit session description
+		if m.sessionCursor >= len(m.sessions) {
+			m.mode = splitView
+			return m, nil
+		}
+		sess := m.sessions[m.sessionCursor]
+		err := m.sessionStore.UpdateSessionDescription(sess.ID, value)
+		if err != nil {
+			m.message = "Error updating session: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Updated session description: " + sess.ID)
+		m.message = "Updated session: " + sess.ID
+	}
+
+	m.mode = splitView
+	return m, loadSessions(m.sessionStore)
+}
+
+// submitBallInput handles ball add/edit submission
+func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
+	if m.inputAction == actionAdd {
+		// Create new ball using the store's project directory
+		ball, err := session.New(m.store.ProjectDir(), value, session.PriorityMedium)
+		if err != nil {
+			m.message = "Error creating ball: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+
+		// Add session tag if a session is selected
+		if m.selectedSession != nil {
+			ball.Tags = append(ball.Tags, m.selectedSession.ID)
+		}
+
+		// Use the store's working directory
+		err = m.store.AppendBall(ball)
+		if err != nil {
+			m.message = "Error creating ball: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Created ball: " + ball.ID)
+		m.message = "Created ball: " + ball.ID
+	} else {
+		// Edit ball intent
+		if m.editingBall == nil {
+			m.mode = splitView
+			return m, nil
+		}
+		m.editingBall.Intent = value
+		store, err := session.NewStore(m.editingBall.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Updated ball: " + m.editingBall.ID)
+		m.message = "Updated ball: " + m.editingBall.ID
+		m.mode = splitView
+		return m, updateBall(store, m.editingBall)
+	}
+
+	m.mode = splitView
+	return m, loadBalls(m.store, m.config, m.localOnly)
+}
+
+// submitTodoInput handles todo add/edit submission
+func (m Model) submitTodoInput(value string) (tea.Model, tea.Cmd) {
+	if m.selectedBall == nil {
+		m.mode = splitView
+		return m, nil
+	}
+
+	if m.editingTodo == -1 {
+		// Add new todo
+		m.selectedBall.AddTodo(value)
+		m.addActivity("Added todo: " + truncate(value, 20))
+		m.message = "Added todo"
+	} else {
+		// Edit existing todo
+		if m.editingTodo < len(m.selectedBall.Todos) {
+			m.selectedBall.Todos[m.editingTodo].Text = value
+			m.addActivity("Updated todo")
+			m.message = "Updated todo"
+		}
+	}
+
+	store, err := session.NewStore(m.selectedBall.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		m.mode = splitView
+		return m, nil
+	}
+
+	m.mode = splitView
+	return m, updateBall(store, m.selectedBall)
+}
+
+// submitBlockedInput handles blocked reason submission
+func (m Model) submitBlockedInput(value string) (tea.Model, tea.Cmd) {
+	if m.editingBall == nil {
+		m.mode = splitView
+		return m, nil
+	}
+
+	m.editingBall.SetBlocked(value)
+	m.addActivity("Blocked ball: " + m.editingBall.ID + " - " + truncate(value, 20))
+	m.message = "Blocked ball: " + m.editingBall.ID
+
+	store, err := session.NewStore(m.editingBall.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		m.mode = splitView
+		return m, nil
+	}
+
+	m.mode = splitView
+	return m, updateBall(store, m.editingBall)
+}
+
+// handleSplitConfirmDelete handles yes/no for delete confirmation
+func (m Model) handleSplitConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		return m.executeSplitDelete()
+	case "n", "N", "esc":
+		m.mode = splitView
+		m.message = "Cancelled"
+		return m, nil
+	}
+	return m, nil
+}
+
+// executeSplitDelete performs the actual deletion
+func (m Model) executeSplitDelete() (tea.Model, tea.Cmd) {
+	switch m.confirmAction {
+	case "delete_session":
+		if m.sessionCursor >= len(m.sessions) {
+			m.mode = splitView
+			return m, nil
+		}
+		sess := m.sessions[m.sessionCursor]
+		err := m.sessionStore.DeleteSession(sess.ID)
+		if err != nil {
+			m.message = "Error deleting session: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Deleted session: " + sess.ID)
+		m.message = "Deleted session: " + sess.ID
+		m.mode = splitView
+		// Reset selection if we deleted the selected session
+		if m.selectedSession != nil && m.selectedSession.ID == sess.ID {
+			m.selectedSession = nil
+		}
+		return m, loadSessions(m.sessionStore)
+
+	case "delete_ball":
+		balls := m.getBallsForSession()
+		if m.cursor >= len(balls) {
+			m.mode = splitView
+			return m, nil
+		}
+		ball := balls[m.cursor]
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		err = store.DeleteBall(ball.ID)
+		if err != nil {
+			m.message = "Error deleting ball: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Deleted ball: " + ball.ID)
+		m.message = "Deleted ball: " + ball.ID
+		// Reset selection if we deleted the selected ball
+		if m.selectedBall != nil && m.selectedBall.ID == ball.ID {
+			m.selectedBall = nil
+		}
+		m.mode = splitView
+		return m, loadBalls(m.store, m.config, m.localOnly)
+
+	case "delete_todo":
+		if m.selectedBall == nil || m.todoCursor >= len(m.selectedBall.Todos) {
+			m.mode = splitView
+			return m, nil
+		}
+		todoText := m.selectedBall.Todos[m.todoCursor].Text
+		// Remove the todo
+		m.selectedBall.Todos = append(
+			m.selectedBall.Todos[:m.todoCursor],
+			m.selectedBall.Todos[m.todoCursor+1:]...,
+		)
+		// Adjust cursor if needed
+		if m.todoCursor >= len(m.selectedBall.Todos) && m.todoCursor > 0 {
+			m.todoCursor--
+		}
+		store, err := session.NewStore(m.selectedBall.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		m.addActivity("Deleted todo: " + truncate(todoText, 20))
+		m.message = "Deleted todo"
+		m.mode = splitView
+		return m, updateBall(store, m.selectedBall)
+	}
+
+	m.mode = splitView
+	return m, nil
 }
