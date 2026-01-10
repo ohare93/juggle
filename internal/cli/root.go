@@ -15,23 +15,26 @@ var rootCmd = &cobra.Command{
 	SilenceUsage: true,
 	SilenceErrors: true,
 	Long: `Juggle helps you manage multiple concurrent tasks (balls) with AI agents.
-Track which balls are in-air (being worked on), need-thrown (need direction),
-or need-caught (need verification).
+Track task progress across projects with a simple state model.
 
 Getting started:
-- Create and start juggling immediately: juggle start
-- Plan for later: juggle plan, then juggle <ball-id> to activate
-- See what's juggling: juggle (no args)
-- See only local project balls: juggle --local
+  juggle start          Create and start a new task immediately
+  juggle plan           Plan work for later
+  juggle                See active tasks (no args)
+  juggle tui            Launch interactive split-view interface
 
-The juggling metaphor:
-- ready: Ball is ready to start juggling
-- juggling: Ball is currently being juggled
-  - needs-thrown: Needs your direction/input
-  - in-air: Agent is actively working
-  - needs-caught: Agent finished, needs your verification
-- dropped: Ball was explicitly dropped
-- complete: Ball successfully caught and complete`,
+Ball states:
+  pending      Task is planned but not started
+  in_progress  Task is actively being worked on
+  blocked      Task is blocked (with reason)
+  complete     Task finished and archived
+
+Example workflow:
+  juggle start "Add login feature"   # Create and start
+  juggle todo add "Design UI"        # Add todos
+  juggle blocked "Waiting for API"   # Mark blocked with reason
+  juggle in-progress                 # Resume work
+  juggle complete                    # Finish and archive`,
 	RunE:                       runRootCommand,
 	Args:                       cobra.ArbitraryArgs,
 	DisableFlagParsing:         false,

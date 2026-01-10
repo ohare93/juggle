@@ -55,11 +55,11 @@ func (m Model) renderListView() string {
 		filterStr = "all"
 	}
 
-	stats := fmt.Sprintf("Total: %d | Ready: %d | Juggling: %d | Dropped: %d | Complete: %d | Filter: %s",
+	stats := fmt.Sprintf("Total: %d | Pending: %d | In Progress: %d | Blocked: %d | Complete: %d | Filter: %s",
 		len(m.balls),
-		countByState(m.balls, "ready"),
-		countByState(m.balls, "juggling"),
-		countByState(m.balls, "dropped"),
+		countByState(m.balls, "pending"),
+		countByState(m.balls, "in_progress"),
+		countByState(m.balls, "blocked"),
 		countByState(m.balls, "complete"),
 		filterStr,
 	)
@@ -76,8 +76,8 @@ func (m Model) renderListView() string {
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Navigation: ↑/k up • ↓/j down • enter details • esc exit\n"))
 	b.WriteString(helpStyle.Render("Actions: s start • c complete • d drop • x delete • p cycle priority\n"))
-	b.WriteString(helpStyle.Render("Filter: 1 all • 2 toggle ready • 3 toggle juggling • 4 toggle dropped • 5 toggle complete\n"))
-	b.WriteString(helpStyle.Render("Other: r set ready • R refresh • tab cycle state • ? help • q quit\n"))
+	b.WriteString(helpStyle.Render("Filter: 1 all • 2 toggle pending • 3 toggle in_progress • 4 toggle blocked • 5 toggle complete\n"))
+	b.WriteString(helpStyle.Render("Other: r set pending • R refresh • tab cycle state • ? help • q quit\n"))
 
 	// Message
 	if m.message != "" {
@@ -109,20 +109,20 @@ func (m Model) renderHelpView() string {
 	}))
 
 	b.WriteString(helpSection("Quick Actions", []helpItem{
-		{"s", "Start ball (ready → juggling:in-air)"},
-		{"c", "Complete ball (juggling → complete)"},
-		{"d", "Drop ball (→ dropped)"},
+		{"s", "Start ball (→ in_progress)"},
+		{"c", "Complete ball (→ complete, archives)"},
+		{"d", "Block ball (→ blocked)"},
 		{"x", "Delete ball (with confirmation)"},
 		{"p", "Cycle priority (low → medium → high → urgent → low)"},
-		{"r", "Set ball to ready state"},
-		{"tab", "Cycle state (ready → juggling:in-air → complete → dropped → ready)"},
+		{"r", "Set ball to pending state"},
+		{"tab", "Cycle state (pending → in_progress → complete → blocked → pending)"},
 	}))
 
 	b.WriteString(helpSection("Filters", []helpItem{
 		{"1", "Show all balls"},
-		{"2", "Toggle ready balls"},
-		{"3", "Toggle juggling balls"},
-		{"4", "Toggle dropped balls"},
+		{"2", "Toggle pending balls"},
+		{"3", "Toggle in_progress balls"},
+		{"4", "Toggle blocked balls"},
 		{"5", "Toggle complete balls"},
 	}))
 
