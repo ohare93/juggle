@@ -17,6 +17,7 @@ var (
 	tagsFlag        []string
 	ballIDFlag      string
 	sessionFlag     string
+	modelSizeFlag   string
 )
 
 var startCmd = &cobra.Command{
@@ -36,6 +37,7 @@ func init() {
 	startCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	startCmd.Flags().StringVar(&ballIDFlag, "id", "", "ID of planned ball to activate")
 	startCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
+	startCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -143,6 +145,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// Add session ID as tag if --session flag provided
 	if sessionFlag != "" {
 		sess.AddTag(sessionFlag)
+	}
+
+	// Set model size if provided
+	if modelSizeFlag != "" {
+		modelSize := session.ModelSize(modelSizeFlag)
+		if modelSize != session.ModelSizeSmall && modelSize != session.ModelSizeMedium && modelSize != session.ModelSizeLarge {
+			return fmt.Errorf("invalid model size %q, must be one of: small, medium, large", modelSizeFlag)
+		}
+		sess.ModelSize = modelSize
 	}
 
 	// Set to juggling/in-air since we're starting work NOW

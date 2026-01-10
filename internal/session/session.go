@@ -18,6 +18,16 @@ const (
 	PriorityUrgent Priority = "urgent"
 )
 
+// ModelSize specifies preferred LLM model size for cost optimization
+type ModelSize string
+
+const (
+	ModelSizeBlank  ModelSize = ""       // Default - use large or session default
+	ModelSizeSmall  ModelSize = "small"  // Maps to haiku or equivalent fast model
+	ModelSizeMedium ModelSize = "medium" // Maps to sonnet or equivalent balanced model
+	ModelSizeLarge  ModelSize = "large"  // Maps to opus or equivalent capable model
+)
+
 // Todo represents a single todo item with completion status
 type Todo struct {
 	Text        string    `json:"text"`
@@ -70,6 +80,7 @@ type Session struct {
 	Todos          []Todo      `json:"todos,omitempty"`
 	Tags           []string    `json:"tags,omitempty"`
 	CompletionNote string      `json:"completion_note,omitempty"`
+	ModelSize      ModelSize   `json:"model_size,omitempty"` // Preferred LLM model size for cost optimization
 
 	// Legacy fields - kept for backward compatibility with existing code
 	// TODO: Remove after full migration
@@ -95,6 +106,7 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 	s.UpdateCount = sj.UpdateCount
 	s.Tags = sj.Tags
 	s.CompletionNote = sj.CompletionNote
+	s.ModelSize = sj.ModelSize
 
 	// Migrate state from various formats to new BallState
 	if sj.State != "" {
@@ -220,6 +232,7 @@ type sessionJSON struct {
 	Todos          json.RawMessage `json:"todos,omitempty"`
 	Tags           []string        `json:"tags,omitempty"`
 	CompletionNote string          `json:"completion_note,omitempty"`
+	ModelSize      ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
 }
 
 // New creates a new session with the given parameters in pending state

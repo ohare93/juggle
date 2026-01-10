@@ -542,7 +542,11 @@ func exportRalph(projectDir, sessionID string, balls []*session.Session) ([]byte
 // writeBallForRalph writes a single ball in Ralph format
 func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
 	// Task header with ID, state, and priority
-	buf.WriteString(fmt.Sprintf("## %s [%s] (priority: %s)\n", ball.ID, ball.State, ball.Priority))
+	header := fmt.Sprintf("## %s [%s] (priority: %s)", ball.ID, ball.State, ball.Priority)
+	if ball.ModelSize != "" {
+		header += fmt.Sprintf(" (model: %s)", ball.ModelSize)
+	}
+	buf.WriteString(header + "\n")
 
 	// Intent
 	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))

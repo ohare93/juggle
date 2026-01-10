@@ -33,6 +33,7 @@ func init() {
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "medium", "Priority: low, medium, high, urgent")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
+	planCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
@@ -104,6 +105,15 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	// Add session ID as tag if --session flag provided
 	if sessionFlag != "" {
 		ball.AddTag(sessionFlag)
+	}
+
+	// Set model size if provided
+	if modelSizeFlag != "" {
+		modelSize := session.ModelSize(modelSizeFlag)
+		if modelSize != session.ModelSizeSmall && modelSize != session.ModelSizeMedium && modelSize != session.ModelSizeLarge {
+			return fmt.Errorf("invalid model size %q, must be one of: small, medium, large", modelSizeFlag)
+		}
+		ball.ModelSize = modelSize
 	}
 
 	// Save the ball
