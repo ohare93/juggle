@@ -6,19 +6,7 @@ You are implementing features tracked by juggler balls. You must autonomously se
 
 ## Workflow
 
-### 0. Pre-flight Check
-
-Before starting work, verify required tools are available:
-- Run `jj --version` to confirm jj is installed
-- Run `go version` to confirm Go is installed
-- Run `juggle --version` to confirm juggle CLI is installed
-
-If any command fails or is permission-denied, output exactly:
-```
-<promise>BLOCKED: [command] not available or permission denied</promise>
-```
-
-### 1. Read Context
+### 0. Read Context
 
 The context sections below contain:
 - `<context>`: Epic-level goals, constraints, and background
@@ -27,14 +15,44 @@ The context sections below contain:
 
 Review these sections to understand the current state.
 
-### 2. Select Work
+### 1. Select Work
 
-- Find the highest-priority ball where state is NOT `complete`
-- YOU decide which has highest priority based on dependencies and complexity
-- If a ball is `in_progress` with incomplete todos, continue that ball
-- If all `in_progress` balls are done, mark them complete and find the next `pending` ball
+1. Find the highest-priority ball where state is NOT `complete`
+2. YOU decide which has highest priority based on dependencies and complexity
+3. If a ball is `in_progress` with incomplete todos, continue that ball
+4. Note the ball's **acceptance criteria** - these determine what tools you'll need
 
 **IMPORTANT: Only work on ONE BALL per iteration.**
+
+### 2. Pre-flight Check (MANDATORY - BEFORE ANY IMPLEMENTATION)
+
+**Based on the selected ball, identify and test ONLY the commands you will need.**
+
+1. **Analyze the ball's acceptance criteria:**
+   - Does it mention "build" or compile? → need build tool (go, cargo, npm, etc.)
+   - Does it mention "test"? → need test runner
+   - Will you commit changes? → need version control (jj or git)
+   - Will you update juggler state? → need `juggle` CLI
+   - Does it require specific tools? → check those
+
+2. **Test each required command** by running its version command:
+   - If it succeeds: continue to next check
+   - If it fails OR is permission-denied: IMMEDIATELY output:
+     ```
+     <promise>BLOCKED: [tool] not available for [ball-id] - [error message]</promise>
+     ```
+     Then STOP. Do not try alternatives. Do not continue.
+
+3. **Report what you verified:**
+   ```
+   Pre-flight for [ball-id]: [tools verified] ✓
+   ```
+
+**CRITICAL RULES:**
+- Test ONLY what the selected ball needs - nothing more
+- Exit IMMEDIATELY on first failure - no alternatives, no retries
+- This check should complete in under 30 seconds
+- If a ball only updates docs, you may only need `jj` - don't test build tools
 
 ### 3. Implement
 
@@ -46,10 +64,11 @@ Review these sections to understand the current state.
 
 ### 4. Verify
 
-- Build: `go build ./...`
-- Test: `go test ./...`
+Run the verification commands required by the ball's acceptance criteria:
+- If build is required: run the project's build command
+- If tests are required: run the project's test command
 - Fix any failures before proceeding
-- All code must compile and tests must pass
+- All required checks must pass before committing
 
 ### 5. Update Juggler State
 
