@@ -34,7 +34,7 @@ devbox run test-coverage
 #     go tool cover -html=coverage.out -o coverage.html
 
 # Run single test
-go test -v ./internal/integration_test/... -run TestTrackActivity
+go test -v ./internal/integration_test/... -run TestExport
 ```
 
 ### Development
@@ -58,15 +58,19 @@ go fmt ./...
 
 ### State Machine
 
-Balls follow this state flow:
+Balls use a simplified 4-state model:
 
-- **ready** → Ball is planned but not started
-- **juggling** → Ball is actively being worked on (with substates):
-  - **needs-thrown** → Waiting for user input/direction
-  - **in-air** → Agent is actively working
-  - **needs-caught** → Work complete, needs user verification
-- **dropped** → Task abandoned
+- **pending** → Ball is planned but not started
+- **in_progress** → Ball is actively being worked on
 - **complete** → Task finished and archived
+- **blocked** → Task is blocked (with optional `BlockedReason` for context)
+
+State transitions:
+- `pending` → `in_progress` (via `start`)
+- `in_progress` → `complete` (via completion commands)
+- `in_progress` → `blocked` (via block command with reason)
+- `blocked` → `in_progress` (via unblock/resume)
+- Any state → `pending` (reset)
 
 ### Key Components
 
@@ -74,10 +78,11 @@ Balls follow this state flow:
 
 **`session.go`** - Core data model:
 
-- `Session` struct: Represents a ball with ID, intent, priority, state, todos, tags, Zellij info
-- State types: `ActiveState` (ready/juggling/dropped/complete), `JuggleState` (needs-thrown/in-air/needs-caught)
+- `Session` struct: Represents a ball with ID, intent, priority, state, todos, tags
+- `BallState` type: pending/in_progress/complete/blocked
+- `BlockedReason` field: Provides context when a ball is blocked
 - Priority levels: low/medium/high/urgent
-- Methods for state transitions, todo management, activity tracking
+- Methods for state transitions, todo management
 
 **`store.go`** - Persistent storage:
 
@@ -95,7 +100,7 @@ Balls follow this state flow:
 **`discovery.go`** - Cross-project discovery:
 
 - `DiscoverProjects()`: Scans search paths for `.juggler/` directories
-- `LoadAllBalls()`, `LoadJugglingBalls()`: Load balls across all discovered projects
+- `LoadAllBalls()`, `LoadInProgressBalls()`: Load balls across all discovered projects
 - Enables global views like `juggle status` and `juggle next`
 
 **`archive.go`** - Archival operations:
@@ -107,7 +112,7 @@ Balls follow this state flow:
 
 **Command structure:**
 
-- `root.go`: Main command dispatcher, handles `juggle` with no args (shows juggling balls) or `juggle <ball-id> <action>`
+- `root.go`: Main command dispatcher, handles `juggle` with no args (shows in-progress balls) or `juggle <ball-id> <action>`
 - Each major command has its own file (e.g., `start.go`, `status.go`, `todo.go`)
 - Helper functions: `GetWorkingDir()`, `NewStoreForCommand()`, `LoadConfigForCommand()`
 
@@ -117,36 +122,13 @@ Balls follow this state flow:
 - Cross-project commands: Load config → discover projects → load balls → operate
 - Ball-specific commands: Find ball by ID across all projects → create store for that ball's directory → operate
 
-**Activity tracking (`track.go`):**
+#### 3. TUI Package (`internal/tui/`)
 
-- `track-activity` command updates last activity timestamp (called by Claude hooks)
-- Resolution order:
-  1. `JUGGLER_CURRENT_BALL` env var (explicit override)
-  2. Zellij session+tab matching
-  3. Single juggling ball in project
-  4. Most recently active ball
+**Bubble Tea-based terminal UI:**
 
-#### 3. Zellij Integration (`internal/zellij/`)
-
-**`zellij.go`** - Terminal multiplexer integration:
-
-- `DetectInfo()`: Checks `ZELLIJ_SESSION_NAME` env var, parses layout dump for current tab
-- `GoToTab()`: Switches to a tab by name
-- Balls store Zellij session+tab when created in Zellij
-- `jump` and `next` commands use this for seamless tab switching
-
-#### 4. Claude Integration (`internal/claude/`)
-
-**`instructions.go`** - Agent instructions:
-
-- Template for teaching Claude agents how to use juggler
-- Markers: `<!-- juggler-instructions-start/end -->` for idempotent installs
-- Functions for reading/writing/updating CLAUDE.md files
-
-**`setup_claude.go`** (CLI) - Installation command:
-
-- `juggle setup-claude`: Install instructions to `.claude/CLAUDE.md` (local) or `~/.claude/CLAUDE.md` (global)
-- Flags: `--global`, `--dry-run`, `--update`, `--uninstall`, `--force`
+- List view: Shows balls with state indicators
+- Detail view: Shows ball details, todos, and actions
+- State-based styling: Different colors for pending/in_progress/complete/blocked
 
 ## Storage Format
 
@@ -157,12 +139,10 @@ Each ball is one line of JSON in `.juggler/balls.jsonl`:
 ```json
 {
   "id": "juggler-5",
-  "zellij_session": "main",
-  "zellij_tab": "juggler",
   "intent": "Add search feature",
   "priority": "high",
-  "active_state": "juggling",
-  "juggle_state": "in-air",
+  "state": "in_progress",
+  "blocked_reason": "",
   "started_at": "2025-10-16T10:30:00Z",
   "last_activity": "2025-10-16T11:45:00Z",
   "update_count": 12,
@@ -178,20 +158,17 @@ Each ball is one line of JSON in `.juggler/balls.jsonl`:
 
 - Per-project: `.juggler/balls.jsonl` (active), `.juggler/archive/balls.jsonl` (complete)
 - Global config: `~/.juggler/config.json`
-- Local instructions: `.claude/CLAUDE.md`
-- Global instructions: `~/.claude/CLAUDE.md`
 
 ## Important Patterns
 
 ### Resolving Current Ball
 
-When multiple balls exist in a project, resolution logic (in `internal/cli/todo.go`, `session.go`, etc.):
+When multiple balls exist in a project, resolution logic:
 
 1. Check for explicit ball ID argument
 2. If no ID provided, find current ball:
-   - If exactly one juggling ball exists → use it
-   - If multiple juggling balls → error, require explicit ID
-   - Special: `track-activity` uses resolution order (env var → Zellij → single → most recent)
+   - If exactly one in-progress ball exists → use it
+   - If multiple in-progress balls → error, require explicit ID
 
 ### Cross-Project Operations
 
@@ -205,12 +182,12 @@ Commands like `status`, `next`, `search`, `history`:
 
 ### State Transitions
 
-Valid transitions (enforced in various command handlers):
+Valid transitions (enforced in command handlers):
 
-- `ready` → `juggling` (via `start`)
-- `juggling` → `complete` (via session commands)
-- `juggling` → `dropped` (via session commands)
-- Within `juggling`: `needs-thrown` ↔ `in-air` ↔ `needs-caught`
+- `pending` → `in_progress` (via `start`)
+- `in_progress` → `complete` (via complete command)
+- `in_progress` → `blocked` (via block command)
+- `blocked` → `in_progress` (via resume)
 
 ### Testing Utilities
 
@@ -218,29 +195,34 @@ Integration tests use `testutil_test.go`:
 
 - `TestEnv`: Sets up isolated test environment with temp directories
 - `SetupTestStore()`: Creates store with temp config
-- Environment variable mocking for testing activity tracking resolution
+- Environment variable mocking for testing
 
 ## Multi-Agent Support
 
-When multiple agents/users work simultaneously:
-
-**Activity Tracking Resolution:**
-Set `JUGGLER_CURRENT_BALL` environment variable to explicitly target a ball:
+When multiple agents/users work simultaneously, set `JUGGLER_CURRENT_BALL` environment variable to explicitly target a ball:
 
 ```bash
 export JUGGLER_CURRENT_BALL="juggler-5"
 ```
 
-This overrides Zellij matching and ensures activity updates go to the correct ball when:
+This ensures operations go to the correct ball when:
 
 - Multiple AI agents work in same repo
 - Multiple terminal sessions are active
-- You want explicit control over which ball is tracked
+- You want explicit control over which ball is targeted
+
+## Future: Sessions
+
+*Note: Session support is planned for future development.*
+
+Sessions will group balls by tag, providing:
+- Context files per session
+- Progress tracking across related balls
+- Ralph-style agent loop integration
 
 ## Code Style Notes
 
 - Use `lipgloss` for terminal styling (colors, formatting)
 - Commands return `error`, not `fmt.Errorf()` directly - wrap with context
-- Silent failures for hook commands (return `nil` instead of error)
 - JSONL append-only writes for better version control diffs
 - Ball IDs format: `<directory-name>-<counter>` (e.g., `juggler-5`)
