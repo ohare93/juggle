@@ -405,6 +405,8 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 		return handleBallTag(ball, operationArgs, store)
 	case "edit":
 		return handleBallEdit(ball, operationArgs, store)
+	case "update":
+		return handleBallUpdate(ball, operationArgs, store)
 	case "delete":
 		return handleBallDelete(ball, operationArgs, store)
 	default:
@@ -720,6 +722,124 @@ func handleBallEdit(ball *session.Session, args []string, store *session.Store) 
 	}
 
 	fmt.Printf("✓ Updated %s for ball %s\n", property, ball.ShortID())
+	return nil
+}
+
+// handleBallUpdate handles updating ball properties via juggle <ball-id> update ...
+// This is a wrapper for the update command that works in the juggle <ball-id> update context
+func handleBallUpdate(ball *session.Session, args []string, store *session.Store) error {
+	// Parse flags from args
+	modified := false
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		switch arg {
+		case "--intent":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--intent requires a value")
+			}
+			ball.Intent = args[i+1]
+			modified = true
+			fmt.Printf("✓ Updated intent: %s\n", ball.Intent)
+			i += 2
+		case "--priority":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--priority requires a value")
+			}
+			if !session.ValidatePriority(args[i+1]) {
+				return fmt.Errorf("invalid priority: %s (must be low|medium|high|urgent)", args[i+1])
+			}
+			ball.Priority = session.Priority(args[i+1])
+			modified = true
+			fmt.Printf("✓ Updated priority: %s\n", ball.Priority)
+			i += 2
+		case "--state":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--state requires a value")
+			}
+			stateMap := map[string]session.BallState{
+				"pending":     session.StatePending,
+				"in_progress": session.StateInProgress,
+				"blocked":     session.StateBlocked,
+				"complete":    session.StateComplete,
+			}
+			newState, ok := stateMap[args[i+1]]
+			if !ok {
+				return fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete)", args[i+1])
+			}
+			// Check for --reason if setting to blocked
+			if newState == session.StateBlocked {
+				// Look for --reason in remaining args
+				reason := ""
+				for j := i + 2; j < len(args)-1; j++ {
+					if args[j] == "--reason" {
+						reason = args[j+1]
+						break
+					}
+				}
+				if reason == "" {
+					return fmt.Errorf("blocked reason required: use --reason flag when setting state to blocked")
+				}
+				ball.SetBlocked(reason)
+				fmt.Printf("✓ Updated state: blocked (reason: %s)\n", reason)
+			} else {
+				ball.SetState(newState)
+				fmt.Printf("✓ Updated state: %s\n", ball.State)
+			}
+			modified = true
+			i += 2
+		case "--reason":
+			// Skip - handled with --state blocked
+			i += 2
+		case "--criteria":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--criteria requires a value")
+			}
+			// Collect all --criteria values
+			var criteria []string
+			for j := i; j < len(args)-1; j++ {
+				if args[j] == "--criteria" {
+					criteria = append(criteria, args[j+1])
+				}
+			}
+			ball.SetAcceptanceCriteria(criteria)
+			modified = true
+			fmt.Printf("✓ Updated acceptance criteria (%d items)\n", len(criteria))
+			// Skip all --criteria pairs we processed
+			for j := i; j < len(args)-1; j += 2 {
+				if args[j] != "--criteria" {
+					break
+				}
+				i = j + 2
+			}
+		case "--tags":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--tags requires a value")
+			}
+			tags := strings.Split(args[i+1], ",")
+			for j := range tags {
+				tags[j] = strings.TrimSpace(tags[j])
+			}
+			ball.Tags = tags
+			modified = true
+			fmt.Printf("✓ Updated tags: %s\n", strings.Join(tags, ", "))
+			i += 2
+		default:
+			return fmt.Errorf("unknown flag: %s", arg)
+		}
+	}
+
+	if !modified {
+		fmt.Println("No updates specified. Use --intent, --priority, --state, --criteria, or --tags flags.")
+		return nil
+	}
+
+	ball.UpdateActivity()
+	if err := store.Save(ball); err != nil {
+		return fmt.Errorf("failed to save ball: %w", err)
+	}
+
+	fmt.Printf("\n✓ Ball %s updated successfully\n", ball.ShortID())
 	return nil
 }
 

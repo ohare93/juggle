@@ -230,6 +230,7 @@ func init() {
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(planCmd)
 	rootCmd.AddCommand(editCmd)
+	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(auditCmd)
