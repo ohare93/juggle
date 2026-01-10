@@ -228,8 +228,6 @@ func init() {
 	rootCmd.AddCommand(planCmd)
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(setupAgentCmd)
-	rootCmd.AddCommand(setupClaudeCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(auditCmd)
 }
