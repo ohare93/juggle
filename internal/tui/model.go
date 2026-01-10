@@ -28,6 +28,7 @@ const (
 	sessionSelectorView  // Session selector for tagging balls
 	confirmSplitDelete   // Delete confirmation in split view
 	panelSearchView      // Search/filter within current panel
+	confirmAgentLaunch   // Agent launch confirmation
 )
 
 // InputAction represents what action triggered the input mode
@@ -134,6 +135,9 @@ type Model struct {
 
 	// File watcher
 	fileWatcher *watcher.Watcher
+
+	// Agent state
+	agentStatus AgentStatus // Status of running agent
 }
 
 // InitialModel creates a model for the legacy list view

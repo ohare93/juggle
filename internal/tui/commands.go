@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os/exec"
+
 	"github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/ohare93/juggle/internal/watcher"
@@ -111,6 +113,72 @@ func listenForWatcherEvents(w *watcher.Watcher) tea.Cmd {
 			return watcherEventMsg{event: event}
 		case err := <-w.Errors:
 			return watcherErrorMsg{err: err}
+		}
+	}
+}
+
+// Agent-related messages
+type agentStartedMsg struct {
+	sessionID string
+}
+
+type agentIterationMsg struct {
+	sessionID string
+	iteration int
+	maxIter   int
+}
+
+type agentFinishedMsg struct {
+	sessionID     string
+	complete      bool
+	blocked       bool
+	blockedReason string
+	iterations    int
+	ballsComplete int
+	ballsTotal    int
+	err           error
+}
+
+// AgentStatus tracks the state of a running agent
+type AgentStatus struct {
+	Running       bool
+	SessionID     string
+	Iteration     int
+	MaxIterations int
+}
+
+// launchAgentCmd creates a command that runs the agent for a session
+func launchAgentCmd(sessionStore *session.SessionStore, sessionID string) tea.Cmd {
+	return func() tea.Msg {
+		// Launch "juggle agent run" as a subprocess
+		// This allows the TUI to continue running while the agent works
+		cmd := exec.Command("juggle", "agent", "run", sessionID)
+
+		// Start the command in the background
+		if err := cmd.Start(); err != nil {
+			return agentFinishedMsg{
+				sessionID: sessionID,
+				err:       err,
+			}
+		}
+
+		// Wait for the command to complete in this goroutine
+		// The TUI will continue to be responsive because this runs
+		// in a background goroutine (tea.Cmd runs async)
+		if err := cmd.Wait(); err != nil {
+			// Check if it was just a non-zero exit (common for blocked/incomplete)
+			if _, ok := err.(*exec.ExitError); !ok {
+				return agentFinishedMsg{
+					sessionID: sessionID,
+					err:       err,
+				}
+			}
+		}
+
+		// Agent finished - file watcher will pick up ball changes
+		return agentFinishedMsg{
+			sessionID: sessionID,
+			complete:  true,
 		}
 	}
 }

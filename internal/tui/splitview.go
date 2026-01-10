@@ -513,7 +513,7 @@ func (m Model) renderStatusBar() string {
 	// Build base hints based on active panel
 	switch m.activePanel {
 	case SessionsPanel:
-		hints = []string{"Tab:panels", "j/k:nav", "a:add", "e:edit", "d:del", "/:filter", "i:info", "?:help", "q:quit"}
+		hints = []string{"Tab:panels", "j/k:nav", "a:add", "A:agent", "e:edit", "d:del", "/:filter", "i:info", "?:help", "q:quit"}
 	case BallsPanel:
 		hints = []string{"Tab:panels", "j/k:nav", "[/]:session", "Space:back", "Enter:todos", "a:add", "e:edit", "t:tag", "i:info", "?:help"}
 	case TodosPanel:
@@ -532,6 +532,15 @@ func (m Model) renderStatusBar() string {
 		scopeIndicator = "[All Projects]"
 	}
 	status = scopeIndicator + " " + status
+
+	// Add agent status indicator if running
+	if m.agentStatus.Running {
+		agentIndicator := fmt.Sprintf("[Agent: %s %d/%d]",
+			m.agentStatus.SessionID,
+			m.agentStatus.Iteration,
+			m.agentStatus.MaxIterations)
+		status = agentIndicator + " " + status
+	}
 
 	// Add filter indicator if active
 	if m.panelSearchActive {
