@@ -232,6 +232,4 @@ func init() {
 	rootCmd.AddCommand(setupClaudeCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(auditCmd)
-	rootCmd.AddCommand(reminderCmd)
-	rootCmd.AddCommand(trackActivityCmd)
 }

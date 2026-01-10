@@ -38,13 +38,12 @@ Examples:
 }
 
 var setupAgentOpts struct {
-	global       bool
-	dryRun       bool
-	update       bool
-	uninstall    bool
-	force        bool
-	installHooks bool
-	listAgents   bool
+	global     bool
+	dryRun     bool
+	update     bool
+	uninstall  bool
+	force      bool
+	listAgents bool
 }
 
 func init() {
@@ -53,7 +52,6 @@ func init() {
 	setupAgentCmd.Flags().BoolVar(&setupAgentOpts.update, "update", false, "Update existing instructions (removes and re-adds)")
 	setupAgentCmd.Flags().BoolVar(&setupAgentOpts.uninstall, "uninstall", false, "Remove juggler instructions from file")
 	setupAgentCmd.Flags().BoolVar(&setupAgentOpts.force, "force", false, "Don't prompt for confirmation")
-	setupAgentCmd.Flags().BoolVar(&setupAgentOpts.installHooks, "install-hooks", false, "Also install hooks for activity tracking (local only)")
 	setupAgentCmd.Flags().BoolVar(&setupAgentOpts.listAgents, "list", false, "List all supported agent types")
 }
 
@@ -137,21 +135,8 @@ func handleAgentUninstall(targetPath string, hasInstructions bool, opts claude.I
 	// Remove instructions
 	newContent := claude.RemoveInstructions(content)
 
-	// Check if hooks exist (only for local installations)
-	var hooksExist bool
-	var projectDir string
-	if !opts.Global {
-		projectDir, err = claude.GetProjectDir()
-		if err == nil {
-			hooksExist, _ = claude.HooksInstalled(projectDir)
-		}
-	}
-
 	if opts.DryRun {
 		fmt.Printf("Dry run - would remove %s instructions from %s\n", config.Name, targetPath)
-		if hooksExist {
-			fmt.Println("- Would also remove hooks from .claude/hooks.json")
-		}
 		return nil
 	}
 
@@ -173,15 +158,6 @@ func handleAgentUninstall(targetPath string, hasInstructions bool, opts claude.I
 	}
 
 	fmt.Printf("✓ Removed %s instructions from %s\n", config.Name, targetPath)
-
-	// Remove hooks if they exist
-	if hooksExist && projectDir != "" {
-		if err := claude.RemoveHooks(projectDir); err != nil {
-			fmt.Println("⚠️  Warning: Failed to remove hooks:", err)
-		} else {
-			fmt.Println("✓ Removed hooks from .claude/hooks.json")
-		}
-	}
 
 	return nil
 }
@@ -248,9 +224,6 @@ func handleAgentInstall(targetPath string, hasInstructions bool, opts claude.Ins
 	if opts.DryRun {
 		fmt.Println("Dry run - would perform these actions:")
 		fmt.Printf("- Install %s instructions to %s\n", config.Name, targetPath)
-		if setupAgentOpts.installHooks && !opts.Global {
-			fmt.Println("- Install hooks to .claude/hooks.json")
-		}
 		fmt.Println()
 		fmt.Println("Preview of instructions to be added:")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -298,21 +271,6 @@ func handleAgentInstall(targetPath string, hasInstructions bool, opts claude.Ins
 		verb = "Updated"
 	}
 
-	// Install hooks if requested (only for local installations)
-	var hooksInstalled bool
-	if setupAgentOpts.installHooks && !opts.Global {
-		projectDir, err := claude.GetProjectDir()
-		if err != nil {
-			fmt.Println("⚠️  Warning: Failed to get project directory for hooks:", err)
-		} else {
-			if err := claude.InstallHooks(projectDir); err != nil {
-				fmt.Println("⚠️  Warning: Failed to install hooks:", err)
-			} else {
-				hooksInstalled = true
-			}
-		}
-	}
-
 	// Show success messages
 	fmt.Println()
 	if opts.Global {
@@ -321,17 +279,13 @@ func handleAgentInstall(targetPath string, hasInstructions bool, opts claude.Ins
 		fmt.Printf("✓ %s %s instructions to %s\n", verb, config.Name, targetPath)
 	}
 
-	if hooksInstalled {
-		fmt.Println("✓ Installed hooks to .claude/hooks.json")
-	}
-
 	fmt.Println()
 	fmt.Printf("Juggler integration for %s complete!\n", config.Name)
 
 	if opts.Global {
 		fmt.Println()
 		fmt.Println("Note: Global instructions point to project-specific files.")
-		fmt.Println("Run 'juggle setup-agent", opts.AgentType, "--install-hooks' in each project for full integration.")
+		fmt.Println("Run 'juggle setup-agent", opts.AgentType, "' in each project for full integration.")
 	}
 
 	fmt.Println()

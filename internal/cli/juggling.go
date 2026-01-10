@@ -68,11 +68,6 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		fmt.Println("  juggle start              - Create and start juggling a new ball")
 		fmt.Println("  juggle plan               - Plan a ball for later")
 		fmt.Println("  juggle <ball-id>          - Start juggling a planned ball")
-
-		// Update check marker even when no balls
-		if cwd != "" {
-			_ = session.UpdateCheckMarker(cwd)
-		}
 		return nil
 	}
 
@@ -170,11 +165,6 @@ func listJugglingBalls(cmd *cobra.Command) error {
 	}
 
 	fmt.Println()
-
-	// Update check marker when listing juggling balls
-	if cwd != "" {
-		_ = session.UpdateCheckMarker(cwd)
-	}
 
 	return nil
 }
@@ -448,8 +438,6 @@ func activateBall(ball *session.Session, store *session.Store) error {
 	// If ball is already juggling (or in any non-ready state), show its details
 	if ball.ActiveState != session.ActiveReady {
 		renderSessionDetails(ball)
-		// Update check marker when viewing ball details
-		_ = session.UpdateCheckMarker(ball.WorkingDir)
 		return nil
 	}
 
@@ -462,9 +450,6 @@ func activateBall(ball *session.Session, store *session.Store) error {
 	fmt.Printf("✓ Started juggling ball: %s\n", ball.ID)
 	fmt.Printf("  State: juggling:needs-thrown\n")
 	fmt.Printf("  Intent: %s\n", ball.Intent)
-
-	// Update check marker when activating ball
-	_ = session.UpdateCheckMarker(ball.WorkingDir)
 
 	return nil
 }

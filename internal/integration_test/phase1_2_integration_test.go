@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +13,7 @@ import (
 )
 
 // TestEndToEndWorkflow tests the complete Phase 1 & 2 feature integration
-// This test validates: audit → check → reminder → status/start/list → marker updates
+// This test validates: audit → check → status/start/list
 func TestEndToEndWorkflow(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
@@ -157,117 +156,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 		}
 	})
 
-	// === Step 3: Test Reminder Marker Creation ===
-	t.Run("ReminderMarkerCreation", func(t *testing.T) {
-		// Update the check marker
-		err := session.UpdateCheckMarker(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("UpdateCheckMarker failed: %v", err)
-		}
-
-		// Verify marker was created
-		markerPath := session.GetMarkerFilePathForTest(env.ProjectDir)
-		if _, err := os.Stat(markerPath); os.IsNotExist(err) {
-			t.Error("Marker file was not created")
-		}
-
-		// Verify reminder should not show (recently updated)
-		shouldShow, err := session.ShouldShowReminder(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("ShouldShowReminder failed: %v", err)
-		}
-		if shouldShow {
-			t.Error("Reminder should not show after updating marker")
-		}
-
-		// Clean up marker
-		os.Remove(markerPath)
-	})
-
-	// === Step 4: Test Status/Start/List Update Marker ===
-	t.Run("StatusCommandUpdatesMarker", func(t *testing.T) {
-		markerPath := session.GetMarkerFilePathForTest(env.ProjectDir)
-
-		// Remove marker if exists
-		os.Remove(markerPath)
-
-		// Verify marker doesn't exist
-		if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
-			t.Fatal("Marker should not exist before status command")
-		}
-
-		// Simulate status command calling UpdateCheckMarker
-		err := session.UpdateCheckMarker(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("UpdateCheckMarker failed: %v", err)
-		}
-
-		// Verify marker was created
-		if _, err := os.Stat(markerPath); os.IsNotExist(err) {
-			t.Error("Status command should create marker file")
-		}
-
-		// Clean up
-		os.Remove(markerPath)
-	})
-
-	// === Step 5: Test Reminder Show/Hide Based on Timestamp ===
-	t.Run("ReminderTimestampLogic", func(t *testing.T) {
-		markerPath := session.GetMarkerFilePathForTest(env.ProjectDir)
-
-		// Test 1: No marker file - should show reminder
-		os.Remove(markerPath)
-		shouldShow, err := session.ShouldShowReminder(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("ShouldShowReminder failed: %v", err)
-		}
-		if !shouldShow {
-			t.Error("Reminder should show when no marker exists")
-		}
-
-		// Test 2: Fresh marker - should not show reminder
-		marker := session.MarkerFile{
-			Timestamp: time.Now(),
-			Project:   env.ProjectDir,
-		}
-		if err := session.WriteMarkerFileForTest(markerPath, marker); err != nil {
-			t.Fatalf("Failed to write marker: %v", err)
-		}
-
-		shouldShow, err = session.ShouldShowReminder(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("ShouldShowReminder failed: %v", err)
-		}
-		if shouldShow {
-			t.Error("Reminder should not show with fresh marker")
-		}
-
-		// Test 3: Old marker - should show reminder
-		oldMarker := session.MarkerFile{
-			Timestamp: time.Now().Add(-10 * time.Minute),
-			Project:   env.ProjectDir,
-		}
-		if err := session.WriteMarkerFileForTest(markerPath, oldMarker); err != nil {
-			t.Fatalf("Failed to write old marker: %v", err)
-		}
-		// Update file mtime to match
-		if err := os.Chtimes(markerPath, time.Now(), time.Now().Add(-10*time.Minute)); err != nil {
-			t.Fatalf("Failed to set file time: %v", err)
-		}
-
-		shouldShow, err = session.ShouldShowReminder(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("ShouldShowReminder failed: %v", err)
-		}
-		if !shouldShow {
-			t.Error("Reminder should show with old marker")
-		}
-
-		// Clean up
-		os.Remove(markerPath)
-	})
-
-	// === Step 6: Cross-Command Consistency ===
+	// === Step 3: Cross-Command Consistency ===
 	t.Run("CrossCommandConsistency", func(t *testing.T) {
 		// Verify all balls have update counts
 		balls, err := store.LoadBalls()
@@ -286,207 +175,6 @@ func TestEndToEndWorkflow(t *testing.T) {
 			if ball.ActiveState == session.ActiveJuggling && ball.JuggleState == nil {
 				t.Errorf("Ball %s is juggling but has nil JuggleState", ball.ShortID())
 			}
-		}
-	})
-}
-
-// TestHooksIntegration tests Claude hooks installation and management
-func TestHooksIntegration(t *testing.T) {
-	env := SetupTestEnv(t)
-	defer CleanupTestEnv(t, env)
-
-	t.Run("FreshInstallation", func(t *testing.T) {
-		// Install hooks
-		if err := claude.InstallHooks(env.ProjectDir); err != nil {
-			t.Fatalf("InstallHooks failed: %v", err)
-		}
-
-		// Verify hooks.json was created
-		hooksPath := filepath.Join(env.ProjectDir, ".claude", "hooks.json")
-		if _, err := os.Stat(hooksPath); os.IsNotExist(err) {
-			t.Fatal("hooks.json was not created")
-		}
-
-		// Verify hooks are correctly installed
-		installed, err := claude.HooksInstalled(env.ProjectDir)
-		if err != nil {
-			t.Fatalf("HooksInstalled check failed: %v", err)
-		}
-		if !installed {
-			t.Error("Hooks should be installed")
-		}
-
-		// Verify JSON structure
-		data, err := os.ReadFile(hooksPath)
-		if err != nil {
-			t.Fatalf("Failed to read hooks.json: %v", err)
-		}
-
-		var hooks claude.HooksMap
-		if err := json.Unmarshal(data, &hooks); err != nil {
-			t.Fatalf("hooks.json is not valid JSON: %v", err)
-		}
-
-		// Verify required hooks exist
-		if _, exists := hooks["user-prompt-submit"]; !exists {
-			t.Error("Missing user-prompt-submit hook")
-		}
-		if _, exists := hooks["assistant-response-start"]; !exists {
-			t.Error("Missing assistant-response-start hook")
-		}
-
-		// Verify commands contain juggle commands
-		userPromptHook := hooks["user-prompt-submit"]
-		if !strings.Contains(userPromptHook.Command, "juggle track-activity") {
-			t.Errorf("user-prompt-submit has wrong command: %s", userPromptHook.Command)
-		}
-
-		assistantHook := hooks["assistant-response-start"]
-		if !strings.Contains(assistantHook.Command, "juggle reminder") {
-			t.Errorf("assistant-response-start has wrong command: %s", assistantHook.Command)
-		}
-
-		// Verify safety suffix
-		safetySuffix := "2>/dev/null || true"
-		if !strings.HasSuffix(userPromptHook.Command, safetySuffix) {
-			t.Error("user-prompt-submit missing safety suffix")
-		}
-		if !strings.HasSuffix(assistantHook.Command, safetySuffix) {
-			t.Error("assistant-response-start missing safety suffix")
-		}
-	})
-
-	t.Run("MergeBehavior", func(t *testing.T) {
-		hooksPath := filepath.Join(env.ProjectDir, ".claude", "hooks.json")
-
-		// Create existing hooks
-		existingHooks := claude.HooksMap{
-			"custom-hook": {
-				Command:     "echo 'custom'",
-				Description: "Custom hook",
-			},
-		}
-		existingJSON, _ := json.MarshalIndent(existingHooks, "", "  ")
-		if err := os.WriteFile(hooksPath, existingJSON, 0644); err != nil {
-			t.Fatalf("Failed to write existing hooks: %v", err)
-		}
-
-		// Install juggler hooks
-		if err := claude.InstallHooks(env.ProjectDir); err != nil {
-			t.Fatalf("InstallHooks failed: %v", err)
-		}
-
-		// Verify merge
-		data, err := os.ReadFile(hooksPath)
-		if err != nil {
-			t.Fatalf("Failed to read hooks.json: %v", err)
-		}
-
-		var hooks claude.HooksMap
-		if err := json.Unmarshal(data, &hooks); err != nil {
-			t.Fatalf("Failed to parse hooks.json: %v", err)
-		}
-
-		// Should have 3 hooks: 1 custom + 2 juggler
-		if len(hooks) != 3 {
-			t.Errorf("Expected 3 hooks after merge, got %d", len(hooks))
-		}
-
-		// Verify custom hook preserved
-		if _, exists := hooks["custom-hook"]; !exists {
-			t.Error("Custom hook was not preserved")
-		}
-
-		// Verify juggler hooks added
-		if _, exists := hooks["user-prompt-submit"]; !exists {
-			t.Error("user-prompt-submit not added")
-		}
-		if _, exists := hooks["assistant-response-start"]; !exists {
-			t.Error("assistant-response-start not added")
-		}
-	})
-
-	t.Run("UninstallPreservesNonJugglerHooks", func(t *testing.T) {
-		hooksPath := filepath.Join(env.ProjectDir, ".claude", "hooks.json")
-
-		// Install juggler hooks first
-		if err := claude.InstallHooks(env.ProjectDir); err != nil {
-			t.Fatalf("InstallHooks failed: %v", err)
-		}
-
-		// Add custom hook
-		data, _ := os.ReadFile(hooksPath)
-		var hooks claude.HooksMap
-		json.Unmarshal(data, &hooks)
-		hooks["custom-hook"] = claude.HookConfig{
-			Command:     "echo 'custom'",
-			Description: "Custom hook",
-		}
-		updatedJSON, _ := json.MarshalIndent(hooks, "", "  ")
-		os.WriteFile(hooksPath, updatedJSON, 0644)
-
-		// Remove juggler hooks
-		if err := claude.RemoveHooks(env.ProjectDir); err != nil {
-			t.Fatalf("RemoveHooks failed: %v", err)
-		}
-
-		// Verify hooks.json still exists
-		data, err := os.ReadFile(hooksPath)
-		if err != nil {
-			t.Fatal("hooks.json should exist after removing juggler hooks")
-		}
-
-		// Verify only custom hook remains
-		var remainingHooks claude.HooksMap
-		if err := json.Unmarshal(data, &remainingHooks); err != nil {
-			t.Fatalf("Failed to parse hooks.json: %v", err)
-		}
-
-		if len(remainingHooks) != 1 {
-			t.Errorf("Expected 1 hook, got %d", len(remainingHooks))
-		}
-
-		if _, exists := remainingHooks["custom-hook"]; !exists {
-			t.Error("Custom hook was removed")
-		}
-
-		// Verify juggler hooks removed
-		if _, exists := remainingHooks["user-prompt-submit"]; exists {
-			t.Error("user-prompt-submit not removed")
-		}
-		if _, exists := remainingHooks["assistant-response-start"]; exists {
-			t.Error("assistant-response-start not removed")
-		}
-	})
-
-	t.Run("ReminderCommandCallableFromHook", func(t *testing.T) {
-		// This tests that the reminder command structure is compatible with hooks
-		// We verify the command string matches expected format
-		template, err := claude.GetHooksTemplate()
-		if err != nil {
-			t.Fatalf("GetHooksTemplate failed: %v", err)
-		}
-
-		var hooks claude.HooksMap
-		if err := json.Unmarshal([]byte(template), &hooks); err != nil {
-			t.Fatalf("Template is not valid JSON: %v", err)
-		}
-
-		assistantHook := hooks["assistant-response-start"]
-
-		// Verify it's a valid shell command
-		if !strings.HasPrefix(assistantHook.Command, "juggle") {
-			t.Error("Hook command should start with 'juggle'")
-		}
-
-		// Verify it contains the safety pattern
-		if !strings.Contains(assistantHook.Command, "2>/dev/null || true") {
-			t.Error("Hook command should contain safety pattern")
-		}
-
-		// Verify it's calling the reminder command
-		if !strings.Contains(assistantHook.Command, "reminder") {
-			t.Error("assistant-response-start should call reminder command")
 		}
 	})
 }
@@ -516,60 +204,6 @@ func TestEdgeCases(t *testing.T) {
 		}
 		if len(balls) != 0 {
 			t.Errorf("Expected 0 balls in new store, got %d", len(balls))
-		}
-	})
-
-	t.Run("CorruptMarkerFile", func(t *testing.T) {
-		tempDir := t.TempDir()
-		markerPath := session.GetMarkerFilePathForTest(tempDir)
-
-		// Write corrupt marker file
-		if err := os.WriteFile(markerPath, []byte("not json"), 0644); err != nil {
-			t.Fatalf("Failed to write corrupt marker: %v", err)
-		}
-
-		// Should handle gracefully
-		shouldShow, err := session.ShouldShowReminder(tempDir)
-		if err != nil {
-			// Error is acceptable
-			t.Logf("ShouldShowReminder returned error for corrupt marker (acceptable): %v", err)
-		}
-
-		// Should not panic and return some value
-		t.Logf("ShouldShowReminder returned: %v", shouldShow)
-
-		// Clean up
-		os.Remove(markerPath)
-	})
-
-	t.Run("NonExistentProjectDir", func(t *testing.T) {
-		nonExistent := "/this/path/does/not/exist/hopefully"
-
-		// Should not panic
-		shouldShow, err := session.ShouldShowReminder(nonExistent)
-		if err != nil {
-			t.Logf("ShouldShowReminder handled non-existent dir: %v", err)
-		}
-		t.Logf("ShouldShowReminder returned: %v for non-existent dir", shouldShow)
-
-		// Update marker should also not panic
-		err = session.UpdateCheckMarker(nonExistent)
-		if err != nil {
-			t.Logf("UpdateCheckMarker handled non-existent dir: %v", err)
-		}
-	})
-
-	t.Run("EmptyPath", func(t *testing.T) {
-		// Should not panic
-		shouldShow, err := session.ShouldShowReminder("")
-		if err != nil {
-			t.Logf("ShouldShowReminder handled empty path: %v", err)
-		}
-		t.Logf("ShouldShowReminder returned: %v for empty path", shouldShow)
-
-		err = session.UpdateCheckMarker("")
-		if err != nil {
-			t.Logf("UpdateCheckMarker handled empty path: %v", err)
 		}
 	})
 }
@@ -812,56 +446,20 @@ func TestCrossCommandConsistency(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	t.Run("AllCommandsUseUpdateCheckMarker", func(t *testing.T) {
-		markerPath := session.GetMarkerFilePathForTest(env.ProjectDir)
-
-		// Remove marker
-		os.Remove(markerPath)
-
-		// Simulate various commands calling UpdateCheckMarker
-		commands := []struct {
-			name string
-			fn   func() error
-		}{
-			{"status", func() error { return session.UpdateCheckMarker(env.ProjectDir) }},
-			{"start", func() error { return session.UpdateCheckMarker(env.ProjectDir) }},
-			{"list", func() error { return session.UpdateCheckMarker(env.ProjectDir) }},
-			{"juggle", func() error { return session.UpdateCheckMarker(env.ProjectDir) }},
-		}
-
-		for _, cmd := range commands {
-			t.Run(cmd.name, func(t *testing.T) {
-				// Remove marker
-				os.Remove(markerPath)
-
-				// Call command's marker update
-				if err := cmd.fn(); err != nil {
-					t.Fatalf("%s command UpdateCheckMarker failed: %v", cmd.name, err)
-				}
-
-				// Verify marker created
-				if _, err := os.Stat(markerPath); os.IsNotExist(err) {
-					t.Errorf("%s command did not create marker", cmd.name)
-				}
-			})
-		}
-	})
-
 	t.Run("ConsistentStyling", func(t *testing.T) {
 		// This is a placeholder for lipgloss styling consistency
 		// In a real test, we'd capture CLI output and verify consistent use of styles
-		// For now, we verify the StyleConfig exists and can be used
+		// For now, we verify the concept is testable
 
 		// The actual style verification would happen in CLI-level tests
-		// Here we just verify the concept is testable
 		t.Log("Styling consistency verified through CLI command tests")
 	})
 
 	t.Run("ConsistentErrorHandling", func(t *testing.T) {
 		// Test that commands handle errors consistently
+		store := env.GetStore(t)
 
 		// Test with invalid ball ID
-		store := env.GetStore(t)
 		_, err := store.GetBallByID("nonexistent-id")
 		if err == nil {
 			t.Error("Expected error for nonexistent ball")
@@ -934,26 +532,14 @@ func TestPerformanceMetrics(t *testing.T) {
 		env := SetupTestEnv(t)
 		defer CleanupTestEnv(t, env)
 
-		// Test marker operations are fast
-		start := time.Now()
-		for i := 0; i < 100; i++ {
-			session.UpdateCheckMarker(env.ProjectDir)
-			session.ShouldShowReminder(env.ProjectDir)
-		}
-		duration := time.Since(start)
-
-		if duration > 100*time.Millisecond {
-			t.Errorf("100 marker operations took %v, should be < 100ms", duration)
-		}
-
 		// Test ball creation is fast
-		start = time.Now()
+		start := time.Now()
 		store := env.GetStore(t)
 		for i := 0; i < 10; i++ {
 			ball, _ := session.New(env.ProjectDir, "Test ball", session.PriorityMedium)
 			store.AppendBall(ball)
 		}
-		duration = time.Since(start)
+		duration := time.Since(start)
 
 		if duration > 500*time.Millisecond {
 			t.Errorf("10 ball creations took %v, should be < 500ms", duration)

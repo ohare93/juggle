@@ -191,9 +191,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Render grouped by project
 	renderGroupedSessions(ballsByProject, cwd, currentBallID)
 
-	// Update check marker after viewing status
-	_ = session.UpdateCheckMarker(cwd)
-
 	return nil
 }
 

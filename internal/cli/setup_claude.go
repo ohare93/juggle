@@ -25,12 +25,11 @@ The instructions teach agents:
 }
 
 var setupClaudeOpts struct {
-	global       bool
-	dryRun       bool
-	update       bool
-	uninstall    bool
-	force        bool
-	installHooks bool
+	global    bool
+	dryRun    bool
+	update    bool
+	uninstall bool
+	force     bool
 }
 
 func init() {
@@ -39,16 +38,9 @@ func init() {
 	setupClaudeCmd.Flags().BoolVar(&setupClaudeOpts.update, "update", false, "Update existing instructions (removes and re-adds)")
 	setupClaudeCmd.Flags().BoolVar(&setupClaudeOpts.uninstall, "uninstall", false, "Remove juggler instructions from CLAUDE.md")
 	setupClaudeCmd.Flags().BoolVar(&setupClaudeOpts.force, "force", false, "Don't prompt for confirmation")
-	setupClaudeCmd.Flags().BoolVar(&setupClaudeOpts.installHooks, "install-hooks", false, "Also install hooks for activity tracking")
 }
 
 func runSetupClaude(cmd *cobra.Command, args []string) error {
-	// Pass through the installHooks flag to global variable
-	setupAgentOpts.installHooks = setupClaudeOpts.installHooks
-	defer func() {
-		setupAgentOpts.installHooks = false // Reset after use
-	}()
-
 	// Delegate to setup-agent with "claude" type for backward compatibility
 	opts := claude.InstallOptions{
 		Global:    setupClaudeOpts.global,

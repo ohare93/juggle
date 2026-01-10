@@ -72,9 +72,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 		// Ensure project is in search paths for discovery
 		_ = session.EnsureProjectInSearchPaths(cwd)
 
-		// Update check marker when starting ball
-		_ = session.UpdateCheckMarker(cwd)
-
 		fmt.Printf("✓ Started planned ball: %s\n", ball.ID)
 		fmt.Printf("  Intent: %s\n", ball.Intent)
 		fmt.Printf("  Priority: %s\n", ball.Priority)
@@ -153,9 +150,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 
 	// Ensure project is in search paths for discovery
 	_ = session.EnsureProjectInSearchPaths(cwd)
-
-	// Update check marker when starting new session
-	_ = session.UpdateCheckMarker(cwd)
 
 	// Export session ID for hooks to use
 	fmt.Printf("export JUGGLER_SESSION_ID=%s\n", sess.ID)
