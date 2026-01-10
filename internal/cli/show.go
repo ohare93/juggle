@@ -80,13 +80,6 @@ func renderSessionDetails(sess *session.Session) {
 	fmt.Println(labelStyle.Render("Last Activity:"), valueStyle.Render(sess.LastActivity.Format("2006-01-02 15:04:05")))
 	fmt.Println(labelStyle.Render("Updates:"), valueStyle.Render(fmt.Sprintf("%d", sess.UpdateCount)))
 
-	if sess.ZellijSession != "" {
-		fmt.Println(labelStyle.Render("Zellij Session:"), valueStyle.Render(sess.ZellijSession))
-		if sess.ZellijTab != "" {
-			fmt.Println(labelStyle.Render("Zellij Tab:"), valueStyle.Render(sess.ZellijTab))
-		}
-	}
-
 	if len(sess.Tags) > 0 {
 		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(sess.Tags, ", ")))
 	}

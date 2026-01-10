@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ohare93/juggle/internal/session"
-	"github.com/ohare93/juggle/internal/zellij"
 	"github.com/spf13/cobra"
 )
 
@@ -67,14 +66,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 		needsThrown := session.JuggleNeedsThrown
 		ball.JuggleState = &needsThrown
 		ball.UpdateActivity()
-
-		// Detect and store Zellij info
-		zellijInfo, err := zellij.DetectInfo()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to detect Zellij info: %v\n", err)
-		} else if zellijInfo.IsActive {
-			ball.SetZellijInfo(zellijInfo.SessionName, zellijInfo.TabName)
-		}
 
 		if err := store.UpdateBall(ball); err != nil {
 			return fmt.Errorf("failed to update ball: %w", err)
@@ -162,14 +153,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 	inAir := session.JuggleInAir
 	sess.JuggleState = &inAir
 
-	// Detect and store Zellij info
-	zellijInfo, err := zellij.DetectInfo()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to detect Zellij info: %v\n", err)
-	} else if zellijInfo.IsActive {
-		sess.SetZellijInfo(zellijInfo.SessionName, zellijInfo.TabName)
-	}
-
 	// Save the session
 	if err := store.AppendBall(sess); err != nil {
 		return fmt.Errorf("failed to save session: %w", err)
@@ -189,9 +172,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Description: %s\n", sess.Description)
 	}
 	fmt.Printf("  Priority: %s\n", sess.Priority)
-	if zellijInfo != nil && zellijInfo.IsActive {
-		fmt.Printf("  Zellij: %s\n", zellijInfo.String())
-	}
 	if len(sess.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(sess.Tags, ", "))
 	}

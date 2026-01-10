@@ -50,15 +50,6 @@ func renderBallDetail(ball *session.Session) string {
 		}
 	}
 
-	// Zellij info
-	if ball.ZellijSession != "" {
-		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Zellij:") + "\n")
-		b.WriteString(renderField("  Session", ball.ZellijSession))
-		if ball.ZellijTab != "" {
-			b.WriteString(renderField("  Tab", ball.ZellijTab))
-		}
-	}
-
 	// Footer
 	b.WriteString("\n" + helpStyle.Render("Press 'b' to go back, 'q' to quit") + "\n")
 

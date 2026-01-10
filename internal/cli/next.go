@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/ohare93/juggle/internal/session"
-	"github.com/ohare93/juggle/internal/zellij"
 	"github.com/spf13/cobra"
 )
 
@@ -77,16 +76,6 @@ func runNext(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("  Priority: %s\n", nextBall.Priority)
 	fmt.Printf("  Idle: %s\n", formatDuration(nextBall.IdleDuration()))
-
-	// Try to jump if in Zellij
-	zellijInfo, err := zellij.DetectInfo()
-	if err == nil && zellijInfo.IsActive && nextBall.ZellijTab != "" {
-		if err := zellij.GoToTab(nextBall.ZellijTab); err != nil {
-			fmt.Printf("\nNote: Could not switch to tab: %v\n", err)
-		} else {
-			fmt.Printf("\n✓ Jumped to tab: %s\n", nextBall.ZellijTab)
-		}
-	}
 
 	return nil
 }

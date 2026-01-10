@@ -50,8 +50,6 @@ const (
 type Session struct {
 	ID             string        `json:"id"`
 	WorkingDir     string        `json:"-"` // Computed from file location, not stored
-	ZellijSession  string        `json:"zellij_session,omitempty"`
-	ZellijTab      string        `json:"zellij_tab,omitempty"`
 	Intent         string        `json:"intent"`
 	Description    string        `json:"description,omitempty"`
 	Priority       Priority      `json:"priority"`
@@ -78,8 +76,6 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 
 	// Copy all standard fields
 	s.ID = sj.ID
-	s.ZellijSession = sj.ZellijSession
-	s.ZellijTab = sj.ZellijTab
 	s.Intent = sj.Intent
 	s.Description = sj.Description
 	s.Priority = sj.Priority
@@ -160,8 +156,6 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 // sessionJSON is used for custom JSON unmarshaling to handle migration from old format
 type sessionJSON struct {
 	ID             string          `json:"id"`
-	ZellijSession  string          `json:"zellij_session,omitempty"`
-	ZellijTab      string          `json:"zellij_tab,omitempty"`
 	Intent         string          `json:"intent"`
 	Description    string          `json:"description,omitempty"`
 	Priority       Priority        `json:"priority"`
@@ -271,12 +265,6 @@ func (s *Session) StartJuggling() {
 		s.StartedAt = time.Now()
 		s.UpdateActivity()
 	}
-}
-
-// SetZellijInfo captures Zellij session and tab information
-func (s *Session) SetZellijInfo(session, tab string) {
-	s.ZellijSession = session
-	s.ZellijTab = tab
 }
 
 // AddTodo adds a todo item to the session

@@ -228,32 +228,6 @@ func (env *TestEnv) CreateJugglingBall(t *testing.T, intent string, priority ses
 	return sess
 }
 
-// CreateBallWithZellij creates a new session with Zellij session and tab info
-func (env *TestEnv) CreateBallWithZellij(t *testing.T, intent string, priority session.Priority, zellijSession, zellijTab string) *session.Session {
-	t.Helper()
-
-	store := env.GetStore(t)
-
-	sess, err := session.New(env.ProjectDir, intent, priority)
-	if err != nil {
-		t.Fatalf("Failed to create session: %v", err)
-	}
-
-	// Set Zellij info
-	sess.SetZellijInfo(zellijSession, zellijTab)
-	
-	// Set to juggling state
-	sess.SetActiveState(session.ActiveJuggling)
-	inAir := session.JuggleInAir
-	sess.JuggleState = &inAir
-
-	if err := store.AppendBall(sess); err != nil {
-		t.Fatalf("Failed to save session with Zellij info: %v", err)
-	}
-
-	return sess
-}
-
 // GetBallUpdateCount retrieves the current update count for a ball
 func (env *TestEnv) GetBallUpdateCount(t *testing.T, ballID string) int {
 	t.Helper()

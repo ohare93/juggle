@@ -220,7 +220,6 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.AddCommand(showCmd)
-	rootCmd.AddCommand(jumpCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(searchCmd)

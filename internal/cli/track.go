@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/ohare93/juggle/internal/session"
-	"github.com/ohare93/juggle/internal/zellij"
 	"github.com/spf13/cobra"
 )
 
@@ -51,9 +50,8 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 
 	// Resolution order:
 	// 1. JUGGLER_CURRENT_BALL environment variable (explicit override) - search all balls
-	// 2. Zellij session+tab matching - search all balls
-	// 3. If only one juggling ball, use it
-	// 4. Most recently active juggling ball
+	// 2. If only one juggling ball, use it
+	// 3. Most recently active juggling ball
 
 	var ball *session.Session
 
@@ -74,49 +72,12 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 		// If env var set but ball not found, fall through to other methods
 	}
 
-	// 2. Try Zellij matching if in Zellij (search all balls)
-	zellijInfo, err := zellij.DetectInfo()
-	if err == nil && zellijInfo.IsActive && zellijInfo.SessionName != "" {
-		// Try to match by session+tab
-		// Prefer exact session+tab match, fall back to session-only match
-		var sessionOnlyMatch *session.Session
-		for _, b := range allBalls {
-			if b.ZellijSession == zellijInfo.SessionName {
-				// If both have tab names, try exact tab match
-				if zellijInfo.TabName != "" && b.ZellijTab != "" {
-					if b.ZellijTab == zellijInfo.TabName {
-						ball = b
-						break
-					}
-					// Tab names don't match, but remember this as a session-only fallback
-					if sessionOnlyMatch == nil {
-						sessionOnlyMatch = b
-					}
-					continue
-				}
-				// No tab info available (or only one has it), match on session only
-				ball = b
-				break
-			}
-		}
-		// If no exact match found, use session-only fallback
-		if ball == nil && sessionOnlyMatch != nil {
-			ball = sessionOnlyMatch
-		}
-		if ball != nil {
-			// Found via Zellij matching
-			ball.UpdateActivity()
-			ball.IncrementUpdateCount()
-			return store.UpdateBall(ball)
-		}
-	}
-
 	// If no juggling balls, silently ignore (nothing to track)
 	if len(jugglingBalls) == 0 {
 		return nil
 	}
 
-	// 3. If only one juggling ball, use it
+	// 2. If only one juggling ball, use it
 	if len(jugglingBalls) == 1 {
 		ball = jugglingBalls[0]
 		ball.UpdateActivity()
@@ -124,7 +85,7 @@ func runTrackActivity(cmd *cobra.Command, args []string) error {
 		return store.UpdateBall(ball)
 	}
 
-	// 4. Fall back to most recently active juggling ball
+	// 3. Fall back to most recently active juggling ball
 	// (jugglingBalls is already sorted by most recent)
 	ball = jugglingBalls[0]
 	ball.UpdateActivity()
