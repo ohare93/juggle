@@ -225,12 +225,24 @@ func (m Model) renderBallsPanel(width, height int) string {
 		}
 
 		stateIcon := getStateIcon(ball.State)
-		line := fmt.Sprintf("%s %-*s %s",
-			stateIcon,
-			width-15,
-			truncate(ball.Intent, width-15),
-			string(ball.State),
-		)
+		var line string
+		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
+			// Show blocked reason inline for blocked balls
+			intent := truncate(ball.Intent, width-25)
+			reason := truncate(ball.BlockedReason, width-len(intent)-15)
+			line = fmt.Sprintf("%s %s [%s]",
+				stateIcon,
+				intent,
+				reason,
+			)
+		} else {
+			line = fmt.Sprintf("%s %-*s %s",
+				stateIcon,
+				width-15,
+				truncate(ball.Intent, width-15),
+				string(ball.State),
+			)
+		}
 		line = styleBallByState(ball, truncate(line, width-2))
 
 		if i == m.cursor && m.activePanel == BallsPanel {

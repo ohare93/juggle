@@ -20,6 +20,10 @@ func renderBallDetail(ball *session.Session) string {
 	b.WriteString(renderField("Intent", ball.Intent))
 	b.WriteString(renderField("Priority", string(ball.Priority)))
 	b.WriteString(renderField("State", formatState(ball)))
+	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
+		reasonStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Italic(true)
+		b.WriteString(renderField("Blocked Reason", reasonStyle.Render(ball.BlockedReason)))
+	}
 	b.WriteString(renderField("Working Dir", ball.WorkingDir))
 
 	// Timestamps
