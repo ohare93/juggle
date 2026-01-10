@@ -21,6 +21,8 @@ func (m Model) View() string {
 		return m.renderHelpView()
 	case confirmDeleteView:
 		return m.renderConfirmDeleteView()
+	case splitView:
+		return m.renderSplitView()
 	default:
 		return "Unknown view"
 	}

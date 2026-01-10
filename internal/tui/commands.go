@@ -51,3 +51,24 @@ func updateBall(store *session.Store, ball *session.Session) tea.Cmd {
 		return ballUpdatedMsg{ball: ball}
 	}
 }
+
+// Sessions loading for split view
+type sessionsLoadedMsg struct {
+	sessions []*session.JuggleSession
+	err      error
+}
+
+func loadSessions(sessionStore *session.SessionStore) tea.Cmd {
+	return func() tea.Msg {
+		if sessionStore == nil {
+			return sessionsLoadedMsg{sessions: []*session.JuggleSession{}}
+		}
+
+		sessions, err := sessionStore.ListSessions()
+		if err != nil {
+			return sessionsLoadedMsg{err: err}
+		}
+
+		return sessionsLoadedMsg{sessions: sessions}
+	}
+}

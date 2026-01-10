@@ -15,6 +15,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle split view specific keys first
+		if m.mode == splitView {
+			return m.handleSplitViewKey(msg)
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -158,19 +163,312 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor >= len(m.filteredBalls) {
 			m.cursor = 0
 		}
+		if m.mode == splitView {
+			m.addActivity("Balls loaded")
+		}
+		return m, nil
+
+	case sessionsLoadedMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		m.sessions = msg.sessions
+		// Reset session cursor if out of bounds
+		if m.sessionCursor >= len(m.sessions) {
+			m.sessionCursor = 0
+		}
+		if m.mode == splitView {
+			m.addActivity("Sessions loaded")
+		}
 		return m, nil
 
 	case ballUpdatedMsg:
 		if msg.err != nil {
 			m.message = "Error: " + msg.err.Error()
+			if m.mode == splitView {
+				m.addActivity("Error: " + msg.err.Error())
+			}
 		} else {
 			m.message = "Ball updated successfully"
+			if m.mode == splitView {
+				m.addActivity("Ball updated: " + msg.ball.ID)
+			}
 		}
 		// Reload balls
 		return m, loadBalls(m.store, m.config, m.localOnly)
 	}
 
 	return m, nil
+}
+
+// handleSplitViewKey handles keyboard input for split view mode
+func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+
+	switch key {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+
+	case "tab", "l":
+		// Cycle to next panel
+		m.message = ""
+		switch m.activePanel {
+		case SessionsPanel:
+			m.activePanel = BallsPanel
+		case BallsPanel:
+			if m.selectedBall != nil && len(m.selectedBall.Todos) > 0 {
+				m.activePanel = TodosPanel
+			} else {
+				m.activePanel = SessionsPanel
+			}
+		case TodosPanel:
+			m.activePanel = SessionsPanel
+		}
+		return m, nil
+
+	case "shift+tab", "h":
+		// Cycle to previous panel
+		m.message = ""
+		switch m.activePanel {
+		case SessionsPanel:
+			if m.selectedBall != nil && len(m.selectedBall.Todos) > 0 {
+				m.activePanel = TodosPanel
+			} else {
+				m.activePanel = BallsPanel
+			}
+		case BallsPanel:
+			m.activePanel = SessionsPanel
+		case TodosPanel:
+			m.activePanel = BallsPanel
+		}
+		return m, nil
+
+	case "up", "k":
+		m.message = ""
+		return m.handleSplitViewNavUp()
+
+	case "down", "j":
+		m.message = ""
+		return m.handleSplitViewNavDown()
+
+	case "enter":
+		return m.handleSplitViewEnter()
+
+	case "esc":
+		// Go back or deselect
+		if m.activePanel == TodosPanel {
+			m.activePanel = BallsPanel
+			m.todoCursor = 0
+		} else if m.selectedBall != nil {
+			m.selectedBall = nil
+			m.todoCursor = 0
+		} else if m.selectedSession != nil {
+			m.selectedSession = nil
+			m.cursor = 0
+		} else {
+			return m, tea.Quit
+		}
+		return m, nil
+
+	case " ":
+		// Toggle todo completion in todos panel
+		if m.activePanel == TodosPanel && m.selectedBall != nil && len(m.selectedBall.Todos) > 0 {
+			return m.handleToggleTodo()
+		}
+		return m, nil
+
+	case "s":
+		// Start ball
+		if m.activePanel == BallsPanel {
+			return m.handleSplitStartBall()
+		}
+		return m, nil
+
+	case "c":
+		// Complete ball
+		if m.activePanel == BallsPanel {
+			return m.handleSplitCompleteBall()
+		}
+		return m, nil
+
+	case "b":
+		// Block ball
+		if m.activePanel == BallsPanel {
+			return m.handleSplitBlockBall()
+		}
+		return m, nil
+
+	case "R":
+		// Refresh
+		m.message = "Reloading..."
+		m.addActivity("Refreshing data...")
+		return m, tea.Batch(
+			loadBalls(m.store, m.config, m.localOnly),
+			loadSessions(m.sessionStore),
+		)
+
+	case "?":
+		// TODO: Show help for split view
+		m.message = "Help: Tab=panels j/k=nav Enter=select s=start c=complete b=block q=quit"
+		return m, nil
+	}
+
+	return m, nil
+}
+
+// handleSplitViewNavUp handles up navigation in split view
+func (m Model) handleSplitViewNavUp() (tea.Model, tea.Cmd) {
+	switch m.activePanel {
+	case SessionsPanel:
+		if m.sessionCursor > 0 {
+			m.sessionCursor--
+		}
+	case BallsPanel:
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case TodosPanel:
+		if m.todoCursor > 0 {
+			m.todoCursor--
+		}
+	}
+	return m, nil
+}
+
+// handleSplitViewNavDown handles down navigation in split view
+func (m Model) handleSplitViewNavDown() (tea.Model, tea.Cmd) {
+	switch m.activePanel {
+	case SessionsPanel:
+		if m.sessionCursor < len(m.sessions)-1 {
+			m.sessionCursor++
+		}
+	case BallsPanel:
+		balls := m.getBallsForSession()
+		if m.cursor < len(balls)-1 {
+			m.cursor++
+		}
+	case TodosPanel:
+		if m.selectedBall != nil && m.todoCursor < len(m.selectedBall.Todos)-1 {
+			m.todoCursor++
+		}
+	}
+	return m, nil
+}
+
+// handleSplitViewEnter handles enter key in split view
+func (m Model) handleSplitViewEnter() (tea.Model, tea.Cmd) {
+	switch m.activePanel {
+	case SessionsPanel:
+		// Select session
+		if len(m.sessions) > 0 && m.sessionCursor < len(m.sessions) {
+			m.selectedSession = m.sessions[m.sessionCursor]
+			m.cursor = 0 // Reset ball cursor for new session
+			m.addActivity("Selected session: " + m.selectedSession.ID)
+		}
+	case BallsPanel:
+		// Select ball and show todos
+		balls := m.getBallsForSession()
+		if len(balls) > 0 && m.cursor < len(balls) {
+			m.selectedBall = balls[m.cursor]
+			m.todoCursor = 0
+			if len(m.selectedBall.Todos) > 0 {
+				m.activePanel = TodosPanel
+			}
+			m.addActivity("Selected ball: " + m.selectedBall.ID)
+		}
+	case TodosPanel:
+		// Toggle todo
+		return m.handleToggleTodo()
+	}
+	return m, nil
+}
+
+// handleToggleTodo toggles a todo's completion status
+func (m Model) handleToggleTodo() (tea.Model, tea.Cmd) {
+	if m.selectedBall == nil || len(m.selectedBall.Todos) == 0 {
+		return m, nil
+	}
+	if m.todoCursor >= len(m.selectedBall.Todos) {
+		return m, nil
+	}
+
+	todo := &m.selectedBall.Todos[m.todoCursor]
+	todo.Done = !todo.Done
+
+	status := "incomplete"
+	if todo.Done {
+		status = "complete"
+	}
+	m.addActivity("Todo marked " + status + ": " + truncate(todo.Text, 20))
+
+	store, err := session.NewStore(m.selectedBall.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, m.selectedBall)
+}
+
+// handleSplitStartBall starts the selected ball in split view
+func (m Model) handleSplitStartBall() (tea.Model, tea.Cmd) {
+	balls := m.getBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	ball.SetState(session.StateInProgress)
+	m.addActivity("Started ball: " + ball.ID)
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, ball)
+}
+
+// handleSplitCompleteBall completes the selected ball in split view
+func (m Model) handleSplitCompleteBall() (tea.Model, tea.Cmd) {
+	balls := m.getBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	ball.SetState(session.StateComplete)
+	m.addActivity("Completed ball: " + ball.ID)
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, ball)
+}
+
+// handleSplitBlockBall blocks the selected ball in split view
+func (m Model) handleSplitBlockBall() (tea.Model, tea.Cmd) {
+	balls := m.getBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	ball.SetBlocked("blocked from TUI")
+	m.addActivity("Blocked ball: " + ball.ID)
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, ball)
 }
 
 func (m *Model) handleStartBall() (tea.Model, tea.Cmd) {
