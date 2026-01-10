@@ -100,6 +100,19 @@ Examples:
 	RunE: runTodoDescribe,
 }
 
+var todoCompleteCmd = &cobra.Command{
+	Use:   "complete <ball-id> <index>",
+	Short: "Mark a todo as complete by ball ID and index (agent-friendly)",
+	Long: `Mark a todo as complete using explicit ball ID and 1-based index.
+This command is designed for agent use with positional arguments.
+
+Examples:
+  juggle todo complete myapp-5 1
+  juggle todo complete myapp-5 3`,
+	Args: cobra.ExactArgs(2),
+	RunE: runTodoComplete,
+}
+
 func init() {
 	// Add --ball flag to all todo subcommands
 	todoAddCmd.Flags().StringVar(&todoBallID, "ball", "", "Target specific ball by ID")
@@ -123,6 +136,7 @@ func init() {
 	todoCmd.AddCommand(todoEditCmd)
 	todoCmd.AddCommand(todoClearCmd)
 	todoCmd.AddCommand(todoDescribeCmd)
+	todoCmd.AddCommand(todoCompleteCmd)
 }
 
 // getCurrentBall finds the appropriate ball to operate on
@@ -493,6 +507,48 @@ func runTodoDescribe(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✓ Updated description for todo %d: %s\n", idx, ball.Todos[idx-1].Text)
 	fmt.Printf("  Description: %s\n", description)
+
+	return nil
+}
+
+func runTodoComplete(cmd *cobra.Command, args []string) error {
+	ballID := args[0]
+	idxStr := args[1]
+
+	idx, err := strconv.Atoi(idxStr)
+	if err != nil {
+		return fmt.Errorf("invalid index: %s (must be a number)", idxStr)
+	}
+
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to initialize store: %w", err)
+	}
+
+	ball, err := store.GetBallByID(ballID)
+	if err != nil {
+		return fmt.Errorf("ball %s not found", ballID)
+	}
+
+	if idx < 1 || idx > len(ball.Todos) {
+		return fmt.Errorf("invalid index: %d (must be between 1 and %d)", idx, len(ball.Todos))
+	}
+
+	// Mark todo as done (not toggle - always set to done)
+	ball.Todos[idx-1].Done = true
+	ball.UpdateActivity()
+
+	if err := store.UpdateBall(ball); err != nil {
+		return fmt.Errorf("failed to update ball: %w", err)
+	}
+
+	todo := ball.Todos[idx-1]
+	fmt.Printf("Completed todo %d: %s\n", idx, todo.Text)
 
 	return nil
 }
