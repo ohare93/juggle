@@ -3,6 +3,7 @@ package integration_test
 import (
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -765,4 +766,224 @@ func exportToJSON(balls []*session.Session) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// TestExportRalphFormat verifies Ralph agent export format
+func TestExportRalphFormat(t *testing.T) {
+	project := t.TempDir()
+
+	// Create session store and a session
+	sessionStore, err := session.NewSessionStore(project)
+	if err != nil {
+		t.Fatalf("Failed to create session store: %v", err)
+	}
+
+	// Create a session with context
+	sess, err := sessionStore.CreateSession("test-feature", "Implement test feature")
+	if err != nil {
+		t.Fatalf("Failed to create session: %v", err)
+	}
+
+	// Update context
+	if err := sessionStore.UpdateSessionContext("test-feature", "This is the context for the test feature.\nIt includes important information."); err != nil {
+		t.Fatalf("Failed to update session context: %v", err)
+	}
+
+	// Append progress
+	if err := sessionStore.AppendProgress("test-feature", "Started work on the feature.\nCompleted initial setup.\n"); err != nil {
+		t.Fatalf("Failed to append progress: %v", err)
+	}
+
+	// Create ball store and balls with the session tag
+	ballStore, err := session.NewStoreWithConfig(project, session.StoreConfig{JugglerDirName: ".juggler"})
+	if err != nil {
+		t.Fatalf("Failed to create ball store: %v", err)
+	}
+
+	balls := []*session.Session{
+		{
+			ID:           "project-1",
+			WorkingDir:   project,
+			Intent:       "Implement feature A",
+			Description:  "The first part of the feature",
+			Priority:     session.PriorityHigh,
+			State:        session.StateInProgress,
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+			Tags:         []string{"test-feature", "backend"},
+			Todos: []session.Todo{
+				{Text: "Design API", Done: true},
+				{Text: "Implement logic", Done: false},
+			},
+		},
+		{
+			ID:            "project-2",
+			WorkingDir:    project,
+			Intent:        "Implement feature B",
+			Priority:      session.PriorityMedium,
+			State:         session.StateBlocked,
+			BlockedReason: "waiting for API spec",
+			StartedAt:     time.Now(),
+			LastActivity:  time.Now(),
+			Tags:          []string{"test-feature"},
+		},
+	}
+
+	for _, ball := range balls {
+		if err := ballStore.Save(ball); err != nil {
+			t.Fatalf("Failed to save ball %s: %v", ball.ID, err)
+		}
+	}
+
+	// Export to Ralph format
+	output, err := exportToRalph(project, "test-feature", balls)
+	if err != nil {
+		t.Fatalf("Failed to export to Ralph format: %v", err)
+	}
+
+	outputStr := string(output)
+
+	// Verify <context> section
+	if !strings.Contains(outputStr, "<context>") {
+		t.Error("Missing <context> tag")
+	}
+	if !strings.Contains(outputStr, "</context>") {
+		t.Error("Missing </context> tag")
+	}
+	if !strings.Contains(outputStr, "# Implement test feature") {
+		t.Error("Missing session description in context")
+	}
+	if !strings.Contains(outputStr, "This is the context for the test feature") {
+		t.Error("Missing session context content")
+	}
+
+	// Verify <progress> section
+	if !strings.Contains(outputStr, "<progress>") {
+		t.Error("Missing <progress> tag")
+	}
+	if !strings.Contains(outputStr, "</progress>") {
+		t.Error("Missing </progress> tag")
+	}
+	if !strings.Contains(outputStr, "Started work on the feature") {
+		t.Error("Missing progress content")
+	}
+
+	// Verify <tasks> section
+	if !strings.Contains(outputStr, "<tasks>") {
+		t.Error("Missing <tasks> tag")
+	}
+	if !strings.Contains(outputStr, "</tasks>") {
+		t.Error("Missing </tasks> tag")
+	}
+
+	// Verify task content
+	if !strings.Contains(outputStr, "## project-1 [in_progress] (priority: high)") {
+		t.Error("Missing task header for project-1")
+	}
+	if !strings.Contains(outputStr, "Intent: Implement feature A") {
+		t.Error("Missing intent for project-1")
+	}
+	if !strings.Contains(outputStr, "[x] Design API") {
+		t.Error("Missing completed todo")
+	}
+	if !strings.Contains(outputStr, "[ ] Implement logic") {
+		t.Error("Missing incomplete todo")
+	}
+
+	// Verify blocked ball
+	if !strings.Contains(outputStr, "## project-2 [blocked] (priority: medium)") {
+		t.Error("Missing task header for project-2")
+	}
+	if !strings.Contains(outputStr, "Blocked: waiting for API spec") {
+		t.Error("Missing blocked reason")
+	}
+
+	_ = sess // Use the session variable
+}
+
+// Helper function to export to Ralph format
+func exportToRalph(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
+	var buf strings.Builder
+
+	// Load session store to get context and progress
+	sessionStore, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to load the session
+	juggleSession, err := sessionStore.LoadSession(sessionID)
+	if err != nil {
+		juggleSession = &session.JuggleSession{
+			ID:          sessionID,
+			Description: "",
+			Context:     "",
+		}
+	}
+
+	// Load progress
+	progress, _ := sessionStore.LoadProgress(sessionID)
+
+	// Write <context> section
+	buf.WriteString("<context>\n")
+	if juggleSession.Description != "" {
+		buf.WriteString("# " + juggleSession.Description + "\n\n")
+	}
+	if juggleSession.Context != "" {
+		buf.WriteString(juggleSession.Context)
+		if !strings.HasSuffix(juggleSession.Context, "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString("</context>\n\n")
+
+	// Write <progress> section
+	buf.WriteString("<progress>\n")
+	if progress != "" {
+		buf.WriteString(progress)
+		if !strings.HasSuffix(progress, "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString("</progress>\n\n")
+
+	// Write <tasks> section
+	buf.WriteString("<tasks>\n")
+	for i, ball := range balls {
+		if i > 0 {
+			buf.WriteString("\n")
+		}
+		writeBallForRalphTest(&buf, ball)
+	}
+	buf.WriteString("</tasks>\n")
+
+	return []byte(buf.String()), nil
+}
+
+// writeBallForRalphTest writes a single ball in Ralph format (test helper)
+func writeBallForRalphTest(buf *strings.Builder, ball *session.Session) {
+	buf.WriteString("## " + ball.ID + " [" + string(ball.State) + "] (priority: " + string(ball.Priority) + ")\n")
+	buf.WriteString("Intent: " + ball.Intent + "\n")
+	if ball.Description != "" {
+		buf.WriteString("Description: " + ball.Description + "\n")
+	}
+	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
+		buf.WriteString("Blocked: " + ball.BlockedReason + "\n")
+	}
+	if len(ball.Todos) > 0 {
+		buf.WriteString("Todos:\n")
+		for i, todo := range ball.Todos {
+			checkbox := "[ ]"
+			if todo.Done {
+				checkbox = "[x]"
+			}
+			buf.WriteString("  " + fmt.Sprintf("%d", i+1) + ". " + checkbox + " " + todo.Text + "\n")
+			if todo.Description != "" {
+				buf.WriteString("     " + todo.Description + "\n")
+			}
+		}
+	}
+	if len(ball.Tags) > 0 {
+		buf.WriteString("Tags: " + strings.Join(ball.Tags, ", ") + "\n")
+	}
 }

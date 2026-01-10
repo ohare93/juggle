@@ -17,20 +17,27 @@ var (
 	exportIncludeDone bool
 	exportBallIDs     string
 	exportFilterState string
+	exportSession     string
 )
 
 var exportCmd = &cobra.Command{
 	Use:   "export",
-	Short: "Export balls to JSON or CSV",
-	Long: `Export session data to JSON or CSV format for analysis or backup.
+	Short: "Export balls to JSON, CSV, or Ralph format",
+	Long: `Export session data to JSON, CSV, or Ralph format for analysis or agent use.
 
 By default exports all active balls (excluding done) across all discovered projects.
 Use --local to restrict to current project only.
 
 Filters are applied in order:
-1. --ball-ids (if specified, only these balls)
-2. --filter-state (if specified, only balls in these states)
-3. --include-done (if false, excludes completed balls)
+1. --session (if specified, exports only balls with matching session tag)
+2. --ball-ids (if specified, only these balls)
+3. --filter-state (if specified, only balls in these states)
+4. --include-done (if false, excludes completed balls)
+
+The Ralph format (--format ralph) is designed for agent loops and includes:
+- <context> section from the session's context
+- <progress> section from the session's progress.txt
+- <tasks> section with balls, their state, priority, and todos
 
 Examples:
   # Export all active balls across all projects
@@ -39,32 +46,38 @@ Examples:
   # Export only current project balls
   juggler export --local --format csv
 
+  # Export session in Ralph format for agent use
+  juggler export --session my-feature --format ralph
+
   # Export specific balls by ID (supports full or short IDs)
   juggler export --ball-ids "juggler-5,48" --format json
 
-  # Export only juggling balls
-  juggler export --filter-state juggling --format json
+  # Export only in_progress balls
+  juggler export --filter-state in_progress --format json
 
-  # Export only in-air balls (requires ActiveState:JuggleState format)
-  juggler export --filter-state "juggling:in-air" --format json
-
-  # Combine filters: export local ready and juggling balls
-  juggler export --local --filter-state "ready,juggling" --format csv`,
+  # Combine filters: export local pending and in_progress balls
+  juggler export --local --filter-state "pending,in_progress" --format csv`,
 	RunE: runExport,
 }
 
 func init() {
-	exportCmd.Flags().StringVar(&exportFormat, "format", "json", "Export format: json or csv")
+	exportCmd.Flags().StringVar(&exportFormat, "format", "json", "Export format: json, csv, or ralph")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output file path (default: stdout)")
 	exportCmd.Flags().BoolVar(&exportIncludeDone, "include-done", false, "Include archived (done) balls in export")
 	exportCmd.Flags().StringVar(&exportBallIDs, "ball-ids", "", "Filter by specific ball IDs (comma-separated, supports full or short IDs)")
-	exportCmd.Flags().StringVar(&exportFilterState, "filter-state", "", "Filter by states (comma-separated: ready, juggling, juggling:in-air, etc.)")
+	exportCmd.Flags().StringVar(&exportFilterState, "filter-state", "", "Filter by states (comma-separated: pending, in_progress, blocked, complete)")
+	exportCmd.Flags().StringVar(&exportSession, "session", "", "Export balls from a specific session (for ralph format, includes context and progress)")
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
 	// Validate format
-	if exportFormat != "json" && exportFormat != "csv" {
-		return fmt.Errorf("invalid format: %s (must be json or csv)", exportFormat)
+	if exportFormat != "json" && exportFormat != "csv" && exportFormat != "ralph" {
+		return fmt.Errorf("invalid format: %s (must be json, csv, or ralph)", exportFormat)
+	}
+
+	// Ralph format requires --session
+	if exportFormat == "ralph" && exportSession == "" {
+		return fmt.Errorf("ralph format requires --session flag")
 	}
 
 	// Get current directory
@@ -101,8 +114,22 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load balls: %w", err)
 	}
 
-	// Apply filters in order: ball-ids → filter-state → include-done
+	// Apply filters in order: session → ball-ids → filter-state → include-done
 	balls := allBalls
+
+	// Filter 0: --session (if specified, filter by session tag)
+	if exportSession != "" {
+		filteredBalls := make([]*session.Session, 0)
+		for _, ball := range balls {
+			for _, tag := range ball.Tags {
+				if tag == exportSession {
+					filteredBalls = append(filteredBalls, ball)
+					break
+				}
+			}
+		}
+		balls = filteredBalls
+	}
 
 	// Filter 1: --ball-ids (if specified)
 	if exportBallIDs != "" {
@@ -120,18 +147,19 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Filter 3: --include-done (always applied)
-	if !exportIncludeDone {
+	// Filter 3: --include-done (always applied, except for ralph format which always includes all)
+	if !exportIncludeDone && exportFormat != "ralph" {
 		filteredBalls := make([]*session.Session, 0)
 		for _, ball := range balls {
-			if ball.ActiveState != session.ActiveComplete {
+			if ball.State != session.StateComplete {
 				filteredBalls = append(filteredBalls, ball)
 			}
 		}
 		balls = filteredBalls
 	}
 
-	if len(balls) == 0 {
+	// For ralph format, we allow empty balls (session might just have context)
+	if len(balls) == 0 && exportFormat != "ralph" {
 		return fmt.Errorf("no balls to export")
 	}
 
@@ -142,6 +170,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 		output, err = exportJSON(balls)
 	case "csv":
 		output, err = exportCSV(balls)
+	case "ralph":
+		output, err = exportRalph(cwd, exportSession, balls)
 	}
 
 	if err != nil {
@@ -233,11 +263,12 @@ func filterByBallIDs(balls []*session.Session, ballIDsStr string, projects []str
 }
 
 // filterByState filters balls by state(s)
-// Supports: "ready", "juggling", "juggling:in-air", "juggling:needs-thrown", etc.
+// Supports new states: "pending", "in_progress", "blocked", "complete"
+// Also supports legacy states for backward compatibility: "ready", "juggling", "dropped"
 func filterByState(balls []*session.Session, stateStr string) ([]*session.Session, error) {
 	// Parse comma-separated list
 	stateStrs := strings.Split(stateStr, ",")
-	stateFilters := make([]stateFilter, 0, len(stateStrs))
+	stateFilters := make([]session.BallState, 0, len(stateStrs))
 
 	for _, s := range stateStrs {
 		s = strings.TrimSpace(s)
@@ -245,33 +276,39 @@ func filterByState(balls []*session.Session, stateStr string) ([]*session.Sessio
 			continue
 		}
 
-		// Parse state (may include juggle state)
-		parts := strings.Split(s, ":")
-		activeState := parts[0]
-		var juggleState string
-		if len(parts) > 1 {
-			juggleState = parts[1]
-		}
-
-		// Validate active state
-		if !isValidActiveState(activeState) {
-			return nil, fmt.Errorf("invalid active state: %s (must be ready, juggling, dropped, or complete)", activeState)
-		}
-
-		// Validate juggle state if present
-		if juggleState != "" {
-			if activeState != "juggling" {
-				return nil, fmt.Errorf("juggle state can only be specified with 'juggling' active state: %s", s)
+		// Map legacy states to new states
+		var ballState session.BallState
+		switch s {
+		case "pending":
+			ballState = session.StatePending
+		case "in_progress":
+			ballState = session.StateInProgress
+		case "blocked":
+			ballState = session.StateBlocked
+		case "complete":
+			ballState = session.StateComplete
+		// Legacy state mappings
+		case "ready":
+			ballState = session.StatePending
+		case "juggling":
+			ballState = session.StateInProgress
+		case "dropped":
+			ballState = session.StateBlocked
+		default:
+			// Check if it's a legacy format with juggle state (e.g., "juggling:in-air")
+			if strings.Contains(s, ":") {
+				parts := strings.Split(s, ":")
+				if parts[0] == "juggling" {
+					ballState = session.StateInProgress
+				} else {
+					return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, or complete)", s)
+				}
+			} else {
+				return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, or complete)", s)
 			}
-			if !isValidJuggleState(juggleState) {
-				return nil, fmt.Errorf("invalid juggle state: %s (must be needs-thrown, in-air, or needs-caught)", juggleState)
-			}
 		}
 
-		stateFilters = append(stateFilters, stateFilter{
-			activeState: session.ActiveState(activeState),
-			juggleState: juggleState,
-		})
+		stateFilters = append(stateFilters, ballState)
 	}
 
 	if len(stateFilters) == 0 {
@@ -282,7 +319,7 @@ func filterByState(balls []*session.Session, stateStr string) ([]*session.Sessio
 	filteredBalls := make([]*session.Session, 0)
 	for _, ball := range balls {
 		for _, filter := range stateFilters {
-			if matchesStateFilter(ball, filter) {
+			if ball.State == filter {
 				filteredBalls = append(filteredBalls, ball)
 				break
 			}
@@ -292,6 +329,7 @@ func filterByState(balls []*session.Session, stateStr string) ([]*session.Sessio
 	return filteredBalls, nil
 }
 
+// Legacy types and functions kept for backward compatibility
 type stateFilter struct {
 	activeState session.ActiveState
 	juggleState string // empty means any juggle state
@@ -426,4 +464,116 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 	}
 
 	return []byte(buf.String()), nil
+}
+
+// exportRalph exports session data in Ralph agent format
+// Format:
+// <context>
+// [session context]
+// </context>
+//
+// <progress>
+// [progress.txt content]
+// </progress>
+//
+// <tasks>
+// [balls with todos]
+// </tasks>
+func exportRalph(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
+	var buf strings.Builder
+
+	// Load session store to get context and progress
+	sessionStore, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session store: %w", err)
+	}
+
+	// Try to load the session
+	juggleSession, err := sessionStore.LoadSession(sessionID)
+	if err != nil {
+		// Session might not exist yet, that's okay for Ralph export
+		// We'll just have empty context
+		juggleSession = &session.JuggleSession{
+			ID:          sessionID,
+			Description: "",
+			Context:     "",
+		}
+	}
+
+	// Load progress
+	progress, _ := sessionStore.LoadProgress(sessionID) // Ignore error, empty progress is fine
+
+	// Write <context> section
+	buf.WriteString("<context>\n")
+	if juggleSession.Description != "" {
+		buf.WriteString("# " + juggleSession.Description + "\n\n")
+	}
+	if juggleSession.Context != "" {
+		buf.WriteString(juggleSession.Context)
+		if !strings.HasSuffix(juggleSession.Context, "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString("</context>\n\n")
+
+	// Write <progress> section
+	buf.WriteString("<progress>\n")
+	if progress != "" {
+		buf.WriteString(progress)
+		if !strings.HasSuffix(progress, "\n") {
+			buf.WriteString("\n")
+		}
+	}
+	buf.WriteString("</progress>\n\n")
+
+	// Write <tasks> section
+	buf.WriteString("<tasks>\n")
+	for i, ball := range balls {
+		if i > 0 {
+			buf.WriteString("\n")
+		}
+		writeBallForRalph(&buf, ball)
+	}
+	buf.WriteString("</tasks>\n")
+
+	return []byte(buf.String()), nil
+}
+
+// writeBallForRalph writes a single ball in Ralph format
+func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
+	// Task header with ID, state, and priority
+	buf.WriteString(fmt.Sprintf("## %s [%s] (priority: %s)\n", ball.ID, ball.State, ball.Priority))
+
+	// Intent
+	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+
+	// Description if present
+	if ball.Description != "" {
+		buf.WriteString(fmt.Sprintf("Description: %s\n", ball.Description))
+	}
+
+	// Blocked reason if blocked
+	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
+		buf.WriteString(fmt.Sprintf("Blocked: %s\n", ball.BlockedReason))
+	}
+
+	// Todos
+	if len(ball.Todos) > 0 {
+		buf.WriteString("Todos:\n")
+		for i, todo := range ball.Todos {
+			checkbox := "[ ]"
+			if todo.Done {
+				checkbox = "[x]"
+			}
+			buf.WriteString(fmt.Sprintf("  %d. %s %s\n", i+1, checkbox, todo.Text))
+			if todo.Description != "" {
+				buf.WriteString(fmt.Sprintf("     %s\n", todo.Description))
+			}
+		}
+	}
+
+	// Tags
+	if len(ball.Tags) > 0 {
+		buf.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(ball.Tags, ", ")))
+	}
 }
