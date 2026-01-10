@@ -39,6 +39,15 @@ func renderBallDetail(ball *session.Session) string {
 		b.WriteString(renderField("Tags", strings.Join(ball.Tags, ", ")))
 	}
 
+	// Acceptance Criteria
+	if len(ball.AcceptanceCriteria) > 0 {
+		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria:") + "\n")
+		for i, ac := range ball.AcceptanceCriteria {
+			acLine := fmt.Sprintf("  %d. %s", i+1, ac)
+			b.WriteString(acLine + "\n")
+		}
+	}
+
 	// Todos
 	if len(ball.Todos) > 0 {
 		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Todos:") + "\n")

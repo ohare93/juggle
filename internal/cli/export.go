@@ -551,9 +551,12 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
 	// Intent
 	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
 
-	// Description if present
-	if ball.Description != "" {
-		buf.WriteString(fmt.Sprintf("Description: %s\n", ball.Description))
+	// Acceptance criteria (preferred over deprecated Description)
+	if len(ball.AcceptanceCriteria) > 0 {
+		buf.WriteString("Acceptance Criteria:\n")
+		for i, ac := range ball.AcceptanceCriteria {
+			buf.WriteString(fmt.Sprintf("  %d. %s\n", i+1, ac))
+		}
 	}
 
 	// Blocked reason if blocked

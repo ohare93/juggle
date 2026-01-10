@@ -66,24 +66,25 @@ const (
 
 // Session represents a work session (ball) being tracked
 type Session struct {
-	ID             string      `json:"id"`
-	WorkingDir     string      `json:"-"` // Computed from file location, not stored
-	Intent         string      `json:"intent"`
-	Description    string      `json:"description,omitempty"`
-	Priority       Priority    `json:"priority"`
-	State          BallState   `json:"state"`                    // New simplified state
-	BlockedReason  string      `json:"blocked_reason,omitempty"` // Reason when state is blocked
-	StartedAt      time.Time   `json:"started_at"`
-	LastActivity   time.Time   `json:"last_activity"`
-	CompletedAt    *time.Time  `json:"completed_at,omitempty"`
-	UpdateCount    int         `json:"update_count"`
-	Todos          []Todo      `json:"todos,omitempty"`
-	Tags           []string    `json:"tags,omitempty"`
-	CompletionNote string      `json:"completion_note,omitempty"`
-	ModelSize      ModelSize   `json:"model_size,omitempty"` // Preferred LLM model size for cost optimization
+	ID                 string      `json:"id"`
+	WorkingDir         string      `json:"-"` // Computed from file location, not stored
+	Intent             string      `json:"intent"`
+	AcceptanceCriteria []string    `json:"acceptance_criteria,omitempty"` // List of acceptance criteria
+	Priority           Priority    `json:"priority"`
+	State              BallState   `json:"state"`                    // New simplified state
+	BlockedReason      string      `json:"blocked_reason,omitempty"` // Reason when state is blocked
+	StartedAt          time.Time   `json:"started_at"`
+	LastActivity       time.Time   `json:"last_activity"`
+	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
+	UpdateCount        int         `json:"update_count"`
+	Todos              []Todo      `json:"todos,omitempty"`
+	Tags               []string    `json:"tags,omitempty"`
+	CompletionNote     string      `json:"completion_note,omitempty"`
+	ModelSize          ModelSize   `json:"model_size,omitempty"` // Preferred LLM model size for cost optimization
 
 	// Legacy fields - kept for backward compatibility with existing code
 	// TODO: Remove after full migration
+	Description  string       `json:"-"` // DEPRECATED: Use AcceptanceCriteria instead
 	ActiveState  ActiveState  `json:"-"` // Computed from State for legacy code
 	JuggleState  *JuggleState `json:"-"` // Always nil in new model
 	StateMessage string       `json:"-"` // Maps to BlockedReason for legacy code
@@ -99,7 +100,6 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 	// Copy all standard fields
 	s.ID = sj.ID
 	s.Intent = sj.Intent
-	s.Description = sj.Description
 	s.Priority = sj.Priority
 	s.StartedAt = sj.StartedAt
 	s.LastActivity = sj.LastActivity
@@ -107,6 +107,19 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 	s.Tags = sj.Tags
 	s.CompletionNote = sj.CompletionNote
 	s.ModelSize = sj.ModelSize
+
+	// Handle acceptance criteria with migration from description
+	if len(sj.AcceptanceCriteria) > 0 {
+		// New format - use acceptance criteria directly
+		s.AcceptanceCriteria = sj.AcceptanceCriteria
+	} else if sj.Description != "" {
+		// Migrate legacy description to first acceptance criterion
+		s.AcceptanceCriteria = []string{sj.Description}
+	}
+	// Populate legacy Description field for backward compatibility
+	if len(s.AcceptanceCriteria) > 0 {
+		s.Description = s.AcceptanceCriteria[0]
+	}
 
 	// Migrate state from various formats to new BallState
 	if sj.State != "" {
@@ -211,28 +224,29 @@ func (s *Session) syncLegacyFields() {
 
 // sessionJSON is used for custom JSON unmarshaling to handle migration from old format
 type sessionJSON struct {
-	ID             string          `json:"id"`
-	Intent         string          `json:"intent"`
-	Description    string          `json:"description,omitempty"`
-	Priority       Priority        `json:"priority"`
+	ID                 string          `json:"id"`
+	Intent             string          `json:"intent"`
+	AcceptanceCriteria []string        `json:"acceptance_criteria,omitempty"` // New: list of acceptance criteria
+	Description        string          `json:"description,omitempty"`         // Legacy: single description
+	Priority           Priority        `json:"priority"`
 	// Newest format (v3)
-	State          string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked
-	BlockedReason  string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
+	State              string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked
+	BlockedReason      string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
 	// Previous format (v2)
-	ActiveState    string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
-	JuggleState    *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
-	StateMessage   string          `json:"state_message,omitempty"`    // Old state context message
+	ActiveState        string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
+	JuggleState        *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
+	StateMessage       string          `json:"state_message,omitempty"`    // Old state context message
 	// Oldest format (v1)
-	Status         string          `json:"status,omitempty"`           // Old: planned/active/blocked/needs-review/done
-	Blocker        string          `json:"blocker,omitempty"`          // Old blocker field
+	Status             string          `json:"status,omitempty"`           // Old: planned/active/blocked/needs-review/done
+	Blocker            string          `json:"blocker,omitempty"`          // Old blocker field
 	// Common fields
-	StartedAt      time.Time       `json:"started_at"`
-	LastActivity   time.Time       `json:"last_activity"`
-	UpdateCount    int             `json:"update_count"`
-	Todos          json.RawMessage `json:"todos,omitempty"`
-	Tags           []string        `json:"tags,omitempty"`
-	CompletionNote string          `json:"completion_note,omitempty"`
-	ModelSize      ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
+	StartedAt          time.Time       `json:"started_at"`
+	LastActivity       time.Time       `json:"last_activity"`
+	UpdateCount        int             `json:"update_count"`
+	Todos              json.RawMessage `json:"todos,omitempty"`
+	Tags               []string        `json:"tags,omitempty"`
+	CompletionNote     string          `json:"completion_note,omitempty"`
+	ModelSize          ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
 }
 
 // New creates a new session with the given parameters in pending state
@@ -407,9 +421,54 @@ func (s *Session) SetTodoDescription(index int, description string) error {
 }
 
 // SetDescription sets the session's description
+// DEPRECATED: Use SetAcceptanceCriteria or AddAcceptanceCriterion instead
 func (s *Session) SetDescription(description string) {
 	s.Description = description
+	// Also set as first acceptance criterion for forward compatibility
+	if len(s.AcceptanceCriteria) == 0 {
+		s.AcceptanceCriteria = []string{description}
+	} else {
+		s.AcceptanceCriteria[0] = description
+	}
 	s.UpdateActivity()
+}
+
+// SetAcceptanceCriteria sets the complete list of acceptance criteria
+func (s *Session) SetAcceptanceCriteria(criteria []string) {
+	s.AcceptanceCriteria = criteria
+	// Populate legacy Description field for backward compatibility
+	if len(criteria) > 0 {
+		s.Description = criteria[0]
+	} else {
+		s.Description = ""
+	}
+	s.UpdateActivity()
+}
+
+// AddAcceptanceCriterion adds a single acceptance criterion to the list
+func (s *Session) AddAcceptanceCriterion(criterion string) {
+	s.AcceptanceCriteria = append(s.AcceptanceCriteria, criterion)
+	// Update legacy Description if this is the first criterion
+	if len(s.AcceptanceCriteria) == 1 {
+		s.Description = criterion
+	}
+	s.UpdateActivity()
+}
+
+// RemoveAcceptanceCriterion removes an acceptance criterion by index (0-based)
+func (s *Session) RemoveAcceptanceCriterion(index int) error {
+	if index < 0 || index >= len(s.AcceptanceCriteria) {
+		return fmt.Errorf("invalid acceptance criterion index: %d (have %d criteria)", index, len(s.AcceptanceCriteria))
+	}
+	s.AcceptanceCriteria = append(s.AcceptanceCriteria[:index], s.AcceptanceCriteria[index+1:]...)
+	// Update legacy Description field
+	if len(s.AcceptanceCriteria) > 0 {
+		s.Description = s.AcceptanceCriteria[0]
+	} else {
+		s.Description = ""
+	}
+	s.UpdateActivity()
+	return nil
 }
 
 // ToggleTodo marks a todo as done or undone by index (0-based)

@@ -256,6 +256,32 @@ func (m Model) renderBallsPanel(width, height int) string {
 
 	// Render todos section if ball is selected and in todos panel
 	if m.selectedBall != nil && todosHeight > 0 {
+		// Show acceptance criteria first
+		acHeight := 0
+		if len(m.selectedBall.AcceptanceCriteria) > 0 {
+			b.WriteString("\n")
+			b.WriteString(panelTitleStyle.Render("Acceptance Criteria") + "\n")
+			b.WriteString(strings.Repeat("─", width) + "\n")
+
+			for i, ac := range m.selectedBall.AcceptanceCriteria {
+				acLine := fmt.Sprintf("  %d. %s", i+1, truncate(ac, width-6))
+				b.WriteString(acLine + "\n")
+				acHeight++
+				if acHeight >= 3 && len(m.selectedBall.AcceptanceCriteria) > 3 {
+					remaining := len(m.selectedBall.AcceptanceCriteria) - 3
+					b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
+					acHeight++
+					break
+				}
+			}
+		}
+
+		// Adjust todos height
+		adjustedTodosHeight := todosHeight - acHeight - 4
+		if adjustedTodosHeight < 3 {
+			adjustedTodosHeight = 3
+		}
+
 		b.WriteString("\n")
 		if m.activePanel == TodosPanel {
 			b.WriteString(activePanelTitleStyle.Render("Todos") + "\n")
@@ -268,9 +294,11 @@ func (m Model) renderBallsPanel(width, height int) string {
 			b.WriteString(helpStyle.Render("  No todos") + "\n")
 		} else {
 			for i, todo := range m.selectedBall.Todos {
-				if i >= todosHeight-3 {
-					remaining := len(m.selectedBall.Todos) - (todosHeight - 3)
-					b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
+				if i >= adjustedTodosHeight-3 {
+					remaining := len(m.selectedBall.Todos) - (adjustedTodosHeight - 3)
+					if remaining > 0 {
+						b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
+					}
 					break
 				}
 

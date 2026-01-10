@@ -27,9 +27,12 @@ Planned balls can be started later with: juggle <ball-id>`,
 	RunE: runPlan,
 }
 
+var acceptanceCriteriaFlag []string
+
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
-	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "Additional context or details")
+	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "a", []string{}, "Acceptance criteria (can be specified multiple times)")
+	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -a/--ac instead. Sets first acceptance criterion.")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "medium", "Priority: low, medium, high, urgent")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
@@ -74,14 +77,28 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid priority %q, must be one of: low, medium, high, urgent", priority)
 	}
 
-	// Get description from: 1) --description flag, 2) prompt if not provided
-	description := descriptionFlag
-	if description == "" {
+	// Get acceptance criteria from: 1) --ac flags, 2) legacy --description flag, 3) prompt
+	var acceptanceCriteria []string
+	if len(acceptanceCriteriaFlag) > 0 {
+		acceptanceCriteria = acceptanceCriteriaFlag
+	} else if descriptionFlag != "" {
+		// Legacy: treat description as first acceptance criterion
+		acceptanceCriteria = []string{descriptionFlag}
+	} else {
+		// Prompt for acceptance criteria line by line
 		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Add a description for context? (optional, press Enter to skip): ")
-		input, err := reader.ReadString('\n')
-		if err == nil {
-			description = strings.TrimSpace(input)
+		fmt.Println("Enter acceptance criteria (one per line, empty line to finish):")
+		for {
+			fmt.Print("  > ")
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			criterion := strings.TrimSpace(input)
+			if criterion == "" {
+				break
+			}
+			acceptanceCriteria = append(acceptanceCriteria, criterion)
 		}
 	}
 
@@ -90,11 +107,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create planned session: %w", err)
 	}
-	ball.ActiveState = session.ActiveReady
+	ball.State = session.StatePending
 
-	// Set description if provided
-	if description != "" {
-		ball.SetDescription(description)
+	// Set acceptance criteria if provided
+	if len(acceptanceCriteria) > 0 {
+		ball.SetAcceptanceCriteria(acceptanceCriteria)
 	}
 
 	// Add tags if provided
@@ -126,14 +143,17 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✓ Planned ball added: %s\n", ball.ID)
 	fmt.Printf("  Intent: %s\n", ball.Intent)
-	if ball.Description != "" {
-		fmt.Printf("  Description: %s\n", ball.Description)
+	if len(ball.AcceptanceCriteria) > 0 {
+		fmt.Printf("  Acceptance Criteria:\n")
+		for i, ac := range ball.AcceptanceCriteria {
+			fmt.Printf("    %d. %s\n", i+1, ac)
+		}
 	}
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))
 	}
-	fmt.Printf("\nStart working on this ball with: juggle %s in-air\n", ball.ID)
+	fmt.Printf("\nStart working on this ball with: juggle %s in-progress\n", ball.ID)
 
 	return nil
 }
