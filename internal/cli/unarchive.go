@@ -43,7 +43,7 @@ func runUnarchive(cmd *cobra.Command, args []string) error {
 
 	// Show success message
 	fmt.Printf("✓ Unarchived ball: %s\n", StyleHighlight.Render(restoredBall.ID))
-	fmt.Printf("  State: %s\n", StyleReady.Render(string(restoredBall.ActiveState)))
+	fmt.Printf("  State: %s\n", StyleReady.Render(string(restoredBall.State)))
 	fmt.Printf("  Intent: %s\n", restoredBall.Intent)
 
 	return nil
@@ -51,13 +51,13 @@ func runUnarchive(cmd *cobra.Command, args []string) error {
 
 // handleBallUnarchive handles the ball-specific unarchive command (juggle <ball-id> unarchive)
 func handleBallUnarchive(ball *session.Session, store *session.Store) error {
-	// Check if ball is already archived
-	if ball.ActiveState != session.ActiveComplete {
-		return fmt.Errorf("ball %s is not archived (current state: %s)", ball.ID, ball.ActiveState)
+	// Check if ball is complete (in archive)
+	if ball.State != session.StateComplete {
+		return fmt.Errorf("ball %s is not archived (current state: %s)", ball.ID, ball.State)
 	}
 
-	// The ball parameter here is from active balls, but we need to check archive
-	// So we'll just call UnarchiveBall directly which will find it in the archive
+	// The ball parameter here is from archived balls
+	// Call UnarchiveBall to restore it
 	restoredBall, err := store.UnarchiveBall(ball.ID)
 	if err != nil {
 		return fmt.Errorf("failed to unarchive ball: %w", err)
@@ -65,7 +65,7 @@ func handleBallUnarchive(ball *session.Session, store *session.Store) error {
 
 	// Show success message
 	fmt.Printf("✓ Unarchived ball: %s\n", StyleHighlight.Render(restoredBall.ID))
-	fmt.Printf("  State: %s\n", StyleReady.Render(string(restoredBall.ActiveState)))
+	fmt.Printf("  State: %s\n", StyleReady.Render(string(restoredBall.State)))
 	fmt.Printf("  Intent: %s\n", restoredBall.Intent)
 
 	return nil

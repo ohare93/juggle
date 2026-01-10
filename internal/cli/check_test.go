@@ -72,12 +72,12 @@ func TestCheckCommand_NoJugglingBalls(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	// Create a ready ball
-	ball, err := session.New(projectDir, "Test ready ball", session.PriorityMedium)
+	// Create a pending ball
+	ball, err := session.New(projectDir, "Test pending ball", session.PriorityMedium)
 	if err != nil {
 		t.Fatalf("failed to create ball: %v", err)
 	}
-	ball.ActiveState = session.ActiveReady
+	// New balls are already in pending state
 
 	if err := store.AppendBall(ball); err != nil {
 		t.Fatalf("failed to save ball: %v", err)
@@ -131,12 +131,9 @@ func TestCheckCommand_SingleJugglingBall(t *testing.T) {
 		t.Fatalf("failed to save ball: %v", err)
 	}
 
-	// Verify ball is in juggling state
-	if ball.ActiveState != session.ActiveJuggling {
-		t.Errorf("expected ActiveJuggling, got %s", ball.ActiveState)
-	}
-	if ball.JuggleState == nil || *ball.JuggleState != session.JuggleNeedsThrown {
-		t.Errorf("expected JuggleNeedsThrown state")
+	// Verify ball is in in_progress state
+	if ball.State != session.StateInProgress {
+		t.Errorf("expected StateInProgress, got %s", ball.State)
 	}
 }
 
@@ -258,26 +255,25 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	// Ready ball
-	readyBall, err := session.New(projectDir, "Ready ball", session.PriorityMedium)
+	// Pending ball (new balls are already in pending state)
+	pendingBall, err := session.New(projectDir, "Pending ball", session.PriorityMedium)
 	if err != nil {
-		t.Fatalf("failed to create ready ball: %v", err)
+		t.Fatalf("failed to create pending ball: %v", err)
 	}
-	readyBall.ActiveState = session.ActiveReady
-	if err := store.AppendBall(readyBall); err != nil {
-		t.Fatalf("failed to save ready ball: %v", err)
+	if err := store.AppendBall(pendingBall); err != nil {
+		t.Fatalf("failed to save pending ball: %v", err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
 
-	// Dropped ball (should not affect check command)
-	droppedBall, err := session.New(projectDir, "Dropped ball", session.PriorityLow)
+	// Blocked ball (should not affect check command)
+	blockedBall, err := session.New(projectDir, "Blocked ball", session.PriorityLow)
 	if err != nil {
-		t.Fatalf("failed to create dropped ball: %v", err)
+		t.Fatalf("failed to create blocked ball: %v", err)
 	}
-	droppedBall.SetActiveState(session.ActiveDropped)
-	if err := store.AppendBall(droppedBall); err != nil {
-		t.Fatalf("failed to save dropped ball: %v", err)
+	blockedBall.SetBlocked("blocked reason")
+	if err := store.AppendBall(blockedBall); err != nil {
+		t.Fatalf("failed to save blocked ball: %v", err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
@@ -302,20 +298,20 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 		t.Fatalf("failed to discover projects: %v", err)
 	}
 
-	jugglingBalls, err := session.LoadJugglingBalls(projects)
+	inProgressBalls, err := session.LoadInProgressBalls(projects)
 	if err != nil {
-		t.Fatalf("failed to load juggling balls: %v", err)
+		t.Fatalf("failed to load in_progress balls: %v", err)
 	}
-	if len(jugglingBalls) != 1 {
-		t.Errorf("expected 1 juggling ball, got %d", len(jugglingBalls))
+	if len(inProgressBalls) != 1 {
+		t.Errorf("expected 1 in_progress ball, got %d", len(inProgressBalls))
 	}
 
-	readyBalls, err := session.LoadReadyBalls(projects)
+	pendingBalls, err := session.LoadPendingBalls(projects)
 	if err != nil {
-		t.Fatalf("failed to load ready balls: %v", err)
+		t.Fatalf("failed to load pending balls: %v", err)
 	}
-	if len(readyBalls) != 1 {
-		t.Errorf("expected 1 ready ball, got %d", len(readyBalls))
+	if len(pendingBalls) != 1 {
+		t.Errorf("expected 1 pending ball, got %d", len(pendingBalls))
 	}
 }
 
@@ -338,7 +334,7 @@ func TestPluralS(t *testing.T) {
 	}
 }
 
-func TestCheckCommand_DifferentJuggleStates(t *testing.T) {
+func TestCheckCommand_DifferentBallStates(t *testing.T) {
 	// Create temp directory for test project
 	tmpDir := t.TempDir()
 	projectDir := filepath.Join(tmpDir, "test-project")
@@ -371,14 +367,15 @@ func TestCheckCommand_DifferentJuggleStates(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	// Test each juggle state
+	// Test each ball state
 	states := []struct {
-		state   session.JuggleState
-		message string
+		state  session.BallState
+		reason string
 	}{
-		{session.JuggleNeedsThrown, "waiting for input"},
-		{session.JuggleInAir, "agent working"},
-		{session.JuggleNeedsCaught, "needs review"},
+		{session.StatePending, ""},
+		{session.StateInProgress, ""},
+		{session.StateBlocked, "waiting for input"},
+		{session.StateComplete, ""},
 	}
 
 	for i, test := range states {
@@ -386,19 +383,22 @@ func TestCheckCommand_DifferentJuggleStates(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create ball %d: %v", i, err)
 		}
-		ball.StartJuggling()
-		ball.SetJuggleState(test.state, test.message)
+		if test.state == session.StateBlocked {
+			ball.SetBlocked(test.reason)
+		} else {
+			ball.SetState(test.state)
+		}
 
 		if err := store.AppendBall(ball); err != nil {
 			t.Fatalf("failed to save ball %d: %v", i, err)
 		}
 
 		// Verify state
-		if ball.JuggleState == nil || *ball.JuggleState != test.state {
-			t.Errorf("ball %d: expected state %s, got %v", i, test.state, ball.JuggleState)
+		if ball.State != test.state {
+			t.Errorf("ball %d: expected state %s, got %v", i, test.state, ball.State)
 		}
-		if ball.StateMessage != test.message {
-			t.Errorf("ball %d: expected message %q, got %q", i, test.message, ball.StateMessage)
+		if test.state == session.StateBlocked && ball.BlockedReason != test.reason {
+			t.Errorf("ball %d: expected reason %q, got %q", i, test.reason, ball.BlockedReason)
 		}
 
 		time.Sleep(10 * time.Millisecond)

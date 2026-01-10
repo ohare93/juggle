@@ -176,10 +176,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleStartBall() (tea.Model, tea.Cmd) {
 	ball := m.filteredBalls[m.cursor]
 
-	// Update state to juggling:in-air (no validation - allow any state transition)
-	ball.ActiveState = session.ActiveJuggling
-	inAir := session.JuggleInAir
-	ball.JuggleState = &inAir
+	// Update state to in_progress (no validation - allow any state transition)
+	ball.SetState(session.StateInProgress)
 
 	// Get the store for this ball's working directory
 	store, err := session.NewStore(ball.WorkingDir)
@@ -194,8 +192,7 @@ func (m *Model) handleCompleteBall() (tea.Model, tea.Cmd) {
 	ball := m.filteredBalls[m.cursor]
 
 	// Update state to complete (no validation - allow any state transition)
-	ball.ActiveState = session.ActiveComplete
-	ball.JuggleState = nil
+	ball.SetState(session.StateComplete)
 
 	// Get the store for this ball's working directory
 	store, err := session.NewStore(ball.WorkingDir)
@@ -209,9 +206,8 @@ func (m *Model) handleCompleteBall() (tea.Model, tea.Cmd) {
 func (m *Model) handleDropBall() (tea.Model, tea.Cmd) {
 	ball := m.filteredBalls[m.cursor]
 
-	// Update state to dropped (no validation - allow any state transition)
-	ball.ActiveState = session.ActiveDropped
-	ball.JuggleState = nil
+	// Update state to blocked (no validation - allow any state transition)
+	ball.SetBlocked("dropped")
 
 	// Get the store for this ball's working directory
 	store, err := session.NewStore(ball.WorkingDir)
@@ -226,17 +222,17 @@ func (m *Model) handleStateFilter(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "1":
 		// Show all - set all to true
-		m.filterStates["ready"] = true
-		m.filterStates["juggling"] = true
-		m.filterStates["dropped"] = true
+		m.filterStates["pending"] = true
+		m.filterStates["in_progress"] = true
+		m.filterStates["blocked"] = true
 		m.filterStates["complete"] = true
 		m.message = "Filter: showing all states"
 	case "2":
-		m.filterStates["ready"] = !m.filterStates["ready"]
+		m.filterStates["pending"] = !m.filterStates["pending"]
 	case "3":
-		m.filterStates["juggling"] = !m.filterStates["juggling"]
+		m.filterStates["in_progress"] = !m.filterStates["in_progress"]
 	case "4":
-		m.filterStates["dropped"] = !m.filterStates["dropped"]
+		m.filterStates["blocked"] = !m.filterStates["blocked"]
 	case "5":
 		m.filterStates["complete"] = !m.filterStates["complete"]
 	}
@@ -262,7 +258,7 @@ func (m *Model) applyFilters() {
 
 	for _, ball := range m.balls {
 		// Check if this ball's state is visible
-		if m.filterStates[string(ball.ActiveState)] {
+		if m.filterStates[string(ball.State)] {
 			m.filteredBalls = append(m.filteredBalls, ball)
 		}
 	}
@@ -272,30 +268,22 @@ func (m *Model) handleCycleState() (tea.Model, tea.Cmd) {
 	ball := m.filteredBalls[m.cursor]
 
 	// Determine next state
-	var nextState session.ActiveState
-	var nextJuggleState *session.JuggleState
+	var nextState session.BallState
 
-	switch ball.ActiveState {
-	case session.ActiveReady:
-		nextState = session.ActiveJuggling
-		inAir := session.JuggleInAir
-		nextJuggleState = &inAir
-	case session.ActiveJuggling:
-		nextState = session.ActiveComplete
-		nextJuggleState = nil
-	case session.ActiveComplete:
-		nextState = session.ActiveDropped
-		nextJuggleState = nil
-	case session.ActiveDropped:
-		nextState = session.ActiveReady
-		nextJuggleState = nil
+	switch ball.State {
+	case session.StatePending:
+		nextState = session.StateInProgress
+	case session.StateInProgress:
+		nextState = session.StateComplete
+	case session.StateComplete:
+		nextState = session.StateBlocked
+	case session.StateBlocked:
+		nextState = session.StatePending
 	default:
-		nextState = session.ActiveReady
-		nextJuggleState = nil
+		nextState = session.StatePending
 	}
 
-	ball.ActiveState = nextState
-	ball.JuggleState = nextJuggleState
+	ball.SetState(nextState)
 
 	store, err := session.NewStore(ball.WorkingDir)
 	if err != nil {
@@ -310,9 +298,8 @@ func (m *Model) handleCycleState() (tea.Model, tea.Cmd) {
 func (m *Model) handleSetReady() (tea.Model, tea.Cmd) {
 	ball := m.filteredBalls[m.cursor]
 
-	// Set to ready state
-	ball.ActiveState = session.ActiveReady
-	ball.JuggleState = nil
+	// Set to pending state
+	ball.SetState(session.StatePending)
 
 	store, err := session.NewStore(ball.WorkingDir)
 	if err != nil {
@@ -320,7 +307,7 @@ func (m *Model) handleSetReady() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.message = "Ball set to ready"
+	m.message = "Ball set to pending"
 	return m, updateBall(store, ball)
 }
 

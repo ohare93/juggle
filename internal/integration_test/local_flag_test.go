@@ -19,13 +19,12 @@ func TestLocalFlag(t *testing.T) {
 	}
 
 	ball1 := &session.Session{
-		ID:          "test1-1",
-		WorkingDir:  project1,
-		Intent:      "Ball in project 1",
-		Priority:    session.PriorityMedium,
-		ActiveState: session.ActiveJuggling,
+		ID:         "test1-1",
+		WorkingDir: project1,
+		Intent:     "Ball in project 1",
+		Priority:   session.PriorityMedium,
+		State:      session.StateInProgress,
 	}
-	ball1.StartJuggling()
 	if err := store1.Save(ball1); err != nil {
 		t.Fatalf("Failed to save ball1: %v", err)
 	}
@@ -37,13 +36,12 @@ func TestLocalFlag(t *testing.T) {
 	}
 
 	ball2 := &session.Session{
-		ID:          "test2-1",
-		WorkingDir:  project2,
-		Intent:      "Ball in project 2",
-		Priority:    session.PriorityMedium,
-		ActiveState: session.ActiveJuggling,
+		ID:         "test2-1",
+		WorkingDir: project2,
+		Intent:     "Ball in project 2",
+		Priority:   session.PriorityMedium,
+		State:      session.StateInProgress,
 	}
-	ball2.StartJuggling()
 	if err := store2.Save(ball2); err != nil {
 		t.Fatalf("Failed to save ball2: %v", err)
 	}

@@ -46,10 +46,10 @@ func InitialModel(store *session.Store, config *session.Config, localOnly bool) 
 		localOnly: localOnly,
 		mode:      listView,
 		filterStates: map[string]bool{
-			"ready":    true,
-			"juggling": true,
-			"dropped":  true,
-			"complete": true,
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
 		},
 		cursor: 0,
 	}

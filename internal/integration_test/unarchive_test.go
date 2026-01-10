@@ -97,12 +97,11 @@ func testUnarchiveDirectSyntax(t *testing.T) {
 	if activeBalls[0].ID != ballID {
 		t.Fatalf("Expected ball ID %s, got %s", ballID, activeBalls[0].ID)
 	}
-	if activeBalls[0].ActiveState != session.ActiveReady {
-		t.Errorf("Expected state %s, got %s", session.ActiveReady, activeBalls[0].ActiveState)
+	if activeBalls[0].State != session.StatePending {
+		t.Errorf("Expected state %s, got %s", session.StatePending, activeBalls[0].State)
 	}
-	if activeBalls[0].JuggleState != nil {
-		t.Errorf("Expected nil JuggleState, got %v", activeBalls[0].JuggleState)
-	}
+	// JuggleState is a legacy field, no need to check it in new tests
+	// Ball should be in pending state which means not blocked
 
 	// 5. Verify it's removed from archive
 	archived, err = store.LoadArchivedBalls()
@@ -163,8 +162,8 @@ func testUnarchiveBallCommandSyntax(t *testing.T) {
 	if activeBalls[0].ID != ballID {
 		t.Errorf("Expected ball ID %s, got %s", ballID, activeBalls[0].ID)
 	}
-	if activeBalls[0].ActiveState != session.ActiveReady {
-		t.Errorf("Expected state %s, got %s", session.ActiveReady, activeBalls[0].ActiveState)
+	if activeBalls[0].State != session.StatePending {
+		t.Errorf("Expected state %s, got %s", session.StatePending, activeBalls[0].State)
 	}
 
 	// 5. Verify removal from archive
@@ -205,10 +204,8 @@ func testUnarchiveRestoresToReadyState(t *testing.T) {
 	ball := env.CreateSession(t, "State progression test", session.PriorityLow)
 	ballID := ball.ID
 
-	// Set to juggling -> needs-caught -> complete
-	ball.SetActiveState(session.ActiveJuggling)
-	needsCaught := session.JuggleNeedsCaught
-	ball.JuggleState = &needsCaught
+	// Set to in_progress and then complete
+	ball.SetState(session.StateInProgress)
 
 	store := env.GetStore(t)
 	if err := store.UpdateBall(ball); err != nil {
@@ -232,8 +229,8 @@ func testUnarchiveRestoresToReadyState(t *testing.T) {
 	if len(archived) != 1 {
 		t.Fatalf("Expected 1 archived ball, got %d", len(archived))
 	}
-	if archived[0].ActiveState != session.ActiveComplete {
-		t.Errorf("Expected archived state %s, got %s", session.ActiveComplete, archived[0].ActiveState)
+	if archived[0].State != session.StateComplete {
+		t.Errorf("Expected archived state %s, got %s", session.StateComplete, archived[0].State)
 	}
 	// CompletedAt is omitempty in JSON, so it may not round-trip if timezone/precision differs
 	// Just verify the completion note for test setup validation
@@ -254,11 +251,11 @@ func testUnarchiveRestoresToReadyState(t *testing.T) {
 	}
 
 	restoredBall := activeBalls[0]
-	if restoredBall.ActiveState != session.ActiveReady {
-		t.Errorf("Expected state %s, got %s", session.ActiveReady, restoredBall.ActiveState)
+	if restoredBall.State != session.StatePending {
+		t.Errorf("Expected state %s, got %s", session.StatePending, restoredBall.State)
 	}
-	if restoredBall.JuggleState != nil {
-		t.Errorf("Expected nil JuggleState, got %v", restoredBall.JuggleState)
+	if restoredBall.BlockedReason != "" {
+		t.Errorf("Expected empty BlockedReason, got '%s'", restoredBall.BlockedReason)
 	}
 	if restoredBall.CompletedAt != nil {
 		t.Errorf("Expected nil CompletedAt, got %v", restoredBall.CompletedAt)

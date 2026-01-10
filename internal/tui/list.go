@@ -51,25 +51,21 @@ func renderBallList(balls []*session.Session, cursor int, width int) string {
 }
 
 func formatState(ball *session.Session) string {
-	if ball.ActiveState == session.ActiveJuggling && ball.JuggleState != nil {
-		// Return just the substate, not "juggling:substate"
-		return string(*ball.JuggleState)
-	}
-	return string(ball.ActiveState)
+	return string(ball.State)
 }
 
 func styleBallByState(ball *session.Session, line string) string {
 	var color lipgloss.Color
 
 	// Choose color based on state
-	switch ball.ActiveState {
-	case session.ActiveReady:
+	switch ball.State {
+	case session.StatePending:
 		color = readyColor
-	case session.ActiveJuggling:
+	case session.StateInProgress:
 		color = jugglingColor
-	case session.ActiveDropped:
+	case session.StateBlocked:
 		color = droppedColor
-	case session.ActiveComplete:
+	case session.StateComplete:
 		color = completeColor
 	default:
 		color = lipgloss.Color("7") // Default white
@@ -107,7 +103,7 @@ func truncateID(id string, maxLen int) string {
 func countByState(balls []*session.Session, state string) int {
 	count := 0
 	for _, ball := range balls {
-		if string(ball.ActiveState) == state {
+		if string(ball.State) == state {
 			count++
 		}
 	}

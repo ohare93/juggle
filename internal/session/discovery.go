@@ -45,54 +45,69 @@ func LoadAllBalls(projectPaths []string) ([]*Session, error) {
 	return allBalls, nil
 }
 
-// LoadActiveBalls loads all active balls (active, blocked, needs-review) from all projects
-// LoadJugglingBalls loads all balls currently being juggled from all projects
-func LoadJugglingBalls(projectPaths []string) ([]*Session, error) {
+// LoadInProgressBalls loads all in_progress balls from all projects
+func LoadInProgressBalls(projectPaths []string) ([]*Session, error) {
 	allBalls, err := LoadAllBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	juggling := make([]*Session, 0)
+	inProgress := make([]*Session, 0)
 	for _, ball := range allBalls {
-		if ball.ActiveState == ActiveJuggling {
-			juggling = append(juggling, ball)
+		if ball.State == StateInProgress {
+			inProgress = append(inProgress, ball)
 		}
 	}
 
-	return juggling, nil
+	return inProgress, nil
 }
 
-// LoadPlannedBalls loads all planned balls from all projects
-// LoadReadyBalls loads all ready balls from all projects
-func LoadReadyBalls(projectPaths []string) ([]*Session, error) {
+// LoadJugglingBalls loads all balls currently being juggled from all projects
+// DEPRECATED: Use LoadInProgressBalls instead.
+func LoadJugglingBalls(projectPaths []string) ([]*Session, error) {
+	return LoadInProgressBalls(projectPaths)
+}
+
+// LoadPendingBalls loads all pending balls from all projects
+func LoadPendingBalls(projectPaths []string) ([]*Session, error) {
 	allBalls, err := LoadAllBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	readyBalls := make([]*Session, 0)
+	pending := make([]*Session, 0)
 	for _, ball := range allBalls {
-		if ball.ActiveState == ActiveReady {
-			readyBalls = append(readyBalls, ball)
+		if ball.State == StatePending {
+			pending = append(pending, ball)
 		}
 	}
 
-	return readyBalls, nil
+	return pending, nil
+}
+
+// LoadReadyBalls loads all ready balls from all projects
+// DEPRECATED: Use LoadPendingBalls instead.
+func LoadReadyBalls(projectPaths []string) ([]*Session, error) {
+	return LoadPendingBalls(projectPaths)
 }
 
 // ProjectInfo holds information about a project and its balls
 type ProjectInfo struct {
-	Path              string
-	Name              string
-	TotalBalls        int
-	JugglingBalls     int
-	ReadyBalls        int
-	DroppedBalls      int
-	CompleteBalls     int
-	NeedsThrownBalls  int
-	InAirBalls        int
-	NeedsCaughtBalls  int
+	Path            string
+	Name            string
+	TotalBalls      int
+	PendingBalls    int
+	InProgressBalls int
+	BlockedBalls    int
+	CompleteBalls   int
+
+	// Legacy field aliases for backward compatibility
+	JugglingBalls    int // Alias for InProgressBalls
+	ReadyBalls       int // Alias for PendingBalls
+	DroppedBalls     int // Alias for BlockedBalls
+	NeedsThrownBalls int // Deprecated - always 0
+	InAirBalls       int // Deprecated - always 0
+	NeedsCaughtBalls int // Deprecated - always 0
 }
 
 // GetProjectsInfo returns information about all projects
@@ -116,34 +131,28 @@ func GetProjectsInfo(config *Config) ([]*ProjectInfo, error) {
 		}
 
 		info := &ProjectInfo{
-			Path: projectPath,
-			Name: filepath.Base(projectPath),
+			Path:       projectPath,
+			Name:       filepath.Base(projectPath),
 			TotalBalls: len(balls),
 		}
 
 		for _, ball := range balls {
-			switch ball.ActiveState {
-			case ActiveReady:
-				info.ReadyBalls++
-			case ActiveJuggling:
-				info.JugglingBalls++
-				// Also count juggle states
-				if ball.JuggleState != nil {
-					switch *ball.JuggleState {
-					case JuggleNeedsThrown:
-						info.NeedsThrownBalls++
-					case JuggleInAir:
-						info.InAirBalls++
-					case JuggleNeedsCaught:
-						info.NeedsCaughtBalls++
-					}
-				}
-			case ActiveDropped:
-				info.DroppedBalls++
-			case ActiveComplete:
+			switch ball.State {
+			case StatePending:
+				info.PendingBalls++
+			case StateInProgress:
+				info.InProgressBalls++
+			case StateBlocked:
+				info.BlockedBalls++
+			case StateComplete:
 				info.CompleteBalls++
 			}
 		}
+
+		// Set legacy field aliases
+		info.JugglingBalls = info.InProgressBalls
+		info.ReadyBalls = info.PendingBalls
+		info.DroppedBalls = info.BlockedBalls
 
 		// Only include projects with balls
 		if info.TotalBalls > 0 {

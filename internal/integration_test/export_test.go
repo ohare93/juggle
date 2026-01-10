@@ -30,7 +30,7 @@ func TestExportLocal(t *testing.T) {
 		WorkingDir:   project1,
 		Intent:       "Ball in project 1",
 		Priority:     session.PriorityMedium,
-		ActiveState:  session.ActiveJuggling,
+		State:        session.StateInProgress,
 		StartedAt:    time.Now(),
 		LastActivity: time.Now(),
 	}
@@ -49,7 +49,7 @@ func TestExportLocal(t *testing.T) {
 		WorkingDir:   project2,
 		Intent:       "Ball in project 2",
 		Priority:     session.PriorityHigh,
-		ActiveState:  session.ActiveJuggling,
+		State:        session.StateInProgress,
 		StartedAt:    time.Now(),
 		LastActivity: time.Now(),
 	}
@@ -124,14 +124,14 @@ func TestExportBallIDs(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	// Create multiple balls
+	// Create multiple balls using new state model
 	balls := []*session.Session{
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
 			Intent:       "Ball 1",
 			Priority:     session.PriorityMedium,
-			ActiveState:  session.ActiveJuggling,
+			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
@@ -140,7 +140,7 @@ func TestExportBallIDs(t *testing.T) {
 			WorkingDir:   project,
 			Intent:       "Ball 2",
 			Priority:     session.PriorityHigh,
-			ActiveState:  session.ActiveReady,
+			State:        session.StatePending,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
@@ -149,7 +149,7 @@ func TestExportBallIDs(t *testing.T) {
 			WorkingDir:   project,
 			Intent:       "Ball 3",
 			Priority:     session.PriorityLow,
-			ActiveState:  session.ActiveJuggling,
+			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
@@ -315,48 +315,44 @@ func TestExportFilterState(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	// Create balls in different states
-	inAir := session.JuggleInAir
-	needsCaught := session.JuggleNeedsCaught
-
+	// Create balls in different states using new simplified state model
 	balls := []*session.Session{
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Ready ball",
+			Intent:       "Pending ball",
 			Priority:     session.PriorityMedium,
-			ActiveState:  session.ActiveReady,
+			State:        session.StatePending,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "Juggling in-air",
+			Intent:       "In progress ball 1",
 			Priority:     session.PriorityHigh,
-			ActiveState:  session.ActiveJuggling,
-			JuggleState:  &inAir,
+			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
 		{
 			ID:           "project-3",
 			WorkingDir:   project,
-			Intent:       "Juggling needs-caught",
+			Intent:       "In progress ball 2",
 			Priority:     session.PriorityLow,
-			ActiveState:  session.ActiveJuggling,
-			JuggleState:  &needsCaught,
+			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
 		{
-			ID:           "project-4",
-			WorkingDir:   project,
-			Intent:       "Dropped ball",
-			Priority:     session.PriorityMedium,
-			ActiveState:  session.ActiveDropped,
-			StartedAt:    time.Now(),
-			LastActivity: time.Now(),
+			ID:            "project-4",
+			WorkingDir:    project,
+			Intent:        "Blocked ball",
+			Priority:      session.PriorityMedium,
+			State:         session.StateBlocked,
+			BlockedReason: "waiting for input",
+			StartedAt:     time.Now(),
+			LastActivity:  time.Now(),
 		},
 	}
 
@@ -372,42 +368,42 @@ func TestExportFilterState(t *testing.T) {
 		t.Fatalf("Failed to load balls: %v", err)
 	}
 
-	// Test filtering by active state only
-	t.Run("FilterByJuggling", func(t *testing.T) {
-		filtered, err := filterBallsByState(allBalls, "juggling")
+	// Test filtering by in_progress state
+	t.Run("FilterByInProgress", func(t *testing.T) {
+		filtered, err := filterBallsByState(allBalls, "in_progress")
 		if err != nil {
 			t.Fatalf("Failed to filter balls: %v", err)
 		}
 
 		if len(filtered) != 2 {
-			t.Errorf("Expected 2 juggling balls, got %d", len(filtered))
+			t.Errorf("Expected 2 in_progress balls, got %d", len(filtered))
 		}
 	})
 
-	// Test filtering by specific juggle state
-	t.Run("FilterByInAir", func(t *testing.T) {
-		filtered, err := filterBallsByState(allBalls, "juggling:in-air")
+	// Test filtering by pending state
+	t.Run("FilterByPending", func(t *testing.T) {
+		filtered, err := filterBallsByState(allBalls, "pending")
 		if err != nil {
 			t.Fatalf("Failed to filter balls: %v", err)
 		}
 
 		if len(filtered) != 1 {
-			t.Errorf("Expected 1 in-air ball, got %d", len(filtered))
+			t.Errorf("Expected 1 pending ball, got %d", len(filtered))
 		}
-		if len(filtered) > 0 && filtered[0].ID != "project-2" {
-			t.Errorf("Expected ball 'project-2', got '%s'", filtered[0].ID)
+		if len(filtered) > 0 && filtered[0].ID != "project-1" {
+			t.Errorf("Expected ball 'project-1', got '%s'", filtered[0].ID)
 		}
 	})
 
 	// Test filtering by multiple states
 	t.Run("FilterByMultipleStates", func(t *testing.T) {
-		filtered, err := filterBallsByState(allBalls, "ready,dropped")
+		filtered, err := filterBallsByState(allBalls, "pending,blocked")
 		if err != nil {
 			t.Fatalf("Failed to filter balls: %v", err)
 		}
 
 		if len(filtered) != 2 {
-			t.Errorf("Expected 2 balls (ready+dropped), got %d", len(filtered))
+			t.Errorf("Expected 2 balls (pending+blocked), got %d", len(filtered))
 		}
 	})
 
@@ -418,24 +414,12 @@ func TestExportFilterState(t *testing.T) {
 			t.Errorf("Expected error for invalid state, got none")
 		}
 	})
-
-	// Test invalid juggle state format
-	t.Run("InvalidJuggleStateFormat", func(t *testing.T) {
-		_, err := filterBallsByState(allBalls, "ready:in-air")
-		if err == nil {
-			t.Errorf("Expected error for juggle state with non-juggling active state, got none")
-		}
-	})
 }
 
-// Helper function to test state filtering logic
+// Helper function to test state filtering logic using new simplified state model
 func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.Session, error) {
 	stateStrs := strings.Split(stateStr, ",")
-	type stateFilter struct {
-		activeState session.ActiveState
-		juggleState string
-	}
-	stateFilters := make([]stateFilter, 0, len(stateStrs))
+	stateFilters := make([]session.BallState, 0, len(stateStrs))
 
 	for _, s := range stateStrs {
 		s = strings.TrimSpace(s)
@@ -443,30 +427,11 @@ func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.S
 			continue
 		}
 
-		parts := strings.Split(s, ":")
-		activeState := parts[0]
-		var juggleState string
-		if len(parts) > 1 {
-			juggleState = parts[1]
+		if !isValidState(s) {
+			return nil, &InvalidStateError{State: s}
 		}
 
-		if !isValidActiveState(activeState) {
-			return nil, &InvalidStateError{State: activeState}
-		}
-
-		if juggleState != "" {
-			if activeState != "juggling" {
-				return nil, &InvalidJuggleStateFormatError{StateStr: s}
-			}
-			if !isValidJuggleState(juggleState) {
-				return nil, &InvalidJuggleStateError{State: juggleState}
-			}
-		}
-
-		stateFilters = append(stateFilters, stateFilter{
-			activeState: session.ActiveState(activeState),
-			juggleState: juggleState,
-		})
+		stateFilters = append(stateFilters, session.BallState(s))
 	}
 
 	if len(stateFilters) == 0 {
@@ -476,7 +441,7 @@ func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.S
 	filteredBalls := make([]*session.Session, 0)
 	for _, ball := range balls {
 		for _, filter := range stateFilters {
-			if matchesStateFilter(ball, filter) {
+			if ball.State == filter {
 				filteredBalls = append(filteredBalls, ball)
 				break
 			}
@@ -486,31 +451,8 @@ func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.S
 	return filteredBalls, nil
 }
 
-func matchesStateFilter(ball *session.Session, filter struct {
-	activeState session.ActiveState
-	juggleState string
-}) bool {
-	if ball.ActiveState != filter.activeState {
-		return false
-	}
-
-	if filter.juggleState == "" {
-		return true
-	}
-
-	if ball.JuggleState == nil {
-		return false
-	}
-
-	return string(*ball.JuggleState) == filter.juggleState
-}
-
-func isValidActiveState(state string) bool {
-	return state == "ready" || state == "juggling" || state == "dropped" || state == "complete"
-}
-
-func isValidJuggleState(state string) bool {
-	return state == "needs-thrown" || state == "in-air" || state == "needs-caught"
+func isValidState(state string) bool {
+	return state == "pending" || state == "in_progress" || state == "blocked" || state == "complete"
 }
 
 type InvalidStateError struct {
@@ -518,23 +460,7 @@ type InvalidStateError struct {
 }
 
 func (e *InvalidStateError) Error() string {
-	return "invalid active state: " + e.State + " (must be ready, juggling, dropped, or complete)"
-}
-
-type InvalidJuggleStateError struct {
-	State string
-}
-
-func (e *InvalidJuggleStateError) Error() string {
-	return "invalid juggle state: " + e.State + " (must be needs-thrown, in-air, or needs-caught)"
-}
-
-type InvalidJuggleStateFormatError struct {
-	StateStr string
-}
-
-func (e *InvalidJuggleStateFormatError) Error() string {
-	return "juggle state can only be specified with 'juggling' active state: " + e.StateStr
+	return "invalid state: " + e.State + " (must be pending, in_progress, blocked, or complete)"
 }
 
 // TestExportIncludeDone verifies --include-done filtering logic
@@ -546,7 +472,7 @@ func TestExportIncludeDone(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	// Create active and completed balls
+	// Create active and completed balls using new state model
 	completedTime := time.Now()
 	balls := []*session.Session{
 		{
@@ -554,7 +480,7 @@ func TestExportIncludeDone(t *testing.T) {
 			WorkingDir:   project,
 			Intent:       "Active ball",
 			Priority:     session.PriorityMedium,
-			ActiveState:  session.ActiveJuggling,
+			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
 			LastActivity: time.Now(),
 		},
@@ -563,7 +489,7 @@ func TestExportIncludeDone(t *testing.T) {
 			WorkingDir:     project,
 			Intent:         "Completed ball",
 			Priority:       session.PriorityHigh,
-			ActiveState:    session.ActiveComplete,
+			State:          session.StateComplete,
 			StartedAt:      time.Now().Add(-1 * time.Hour),
 			LastActivity:   time.Now().Add(-30 * time.Minute),
 			CompletedAt:    &completedTime,
@@ -587,7 +513,7 @@ func TestExportIncludeDone(t *testing.T) {
 	t.Run("ExcludeCompleted", func(t *testing.T) {
 		filtered := make([]*session.Session, 0)
 		for _, ball := range allBalls {
-			if ball.ActiveState != session.ActiveComplete {
+			if ball.State != session.StateComplete {
 				filtered = append(filtered, ball)
 			}
 		}
@@ -614,15 +540,13 @@ func TestExportCSVFormat(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	// Create a ball with todos
-	inAir := session.JuggleInAir
+	// Create a ball with todos using new state model
 	ball := &session.Session{
 		ID:           "project-1",
 		WorkingDir:   project,
 		Intent:       "Ball with todos",
 		Priority:     session.PriorityHigh,
-		ActiveState:  session.ActiveJuggling,
-		JuggleState:  &inAir,
+		State:        session.StateInProgress,
 		StartedAt:    time.Now(),
 		LastActivity: time.Now(),
 		Tags:         []string{"backend", "api"},
@@ -669,9 +593,9 @@ func TestExportCSVFormat(t *testing.T) {
 		t.Fatalf("Expected 2 records (header + 1 ball), got %d", len(records))
 	}
 
-	// Verify header
+	// Verify header (updated for new state model)
 	header := records[0]
-	expectedColumns := []string{"ID", "Project", "Intent", "Priority", "ActiveState", "JuggleState", "StartedAt", "CompletedAt", "LastActivity", "Tags", "TodosTotal", "TodosCompleted", "CompletionNote"}
+	expectedColumns := []string{"ID", "Project", "Intent", "Priority", "State", "BlockedReason", "StartedAt", "CompletedAt", "LastActivity", "Tags", "TodosTotal", "TodosCompleted", "CompletionNote"}
 	if len(header) != len(expectedColumns) {
 		t.Errorf("Expected %d columns, got %d", len(expectedColumns), len(header))
 	}
@@ -687,8 +611,8 @@ func TestExportCSVFormat(t *testing.T) {
 	if row[3] != "high" {
 		t.Errorf("Expected priority 'high', got '%s'", row[3])
 	}
-	if row[5] != "in-air" {
-		t.Errorf("Expected juggle state 'in-air', got '%s'", row[5])
+	if row[4] != "in_progress" {
+		t.Errorf("Expected state 'in_progress', got '%s'", row[4])
 	}
 	if row[9] != "backend;api" {
 		t.Errorf("Expected tags 'backend;api', got '%s'", row[9])
@@ -701,7 +625,7 @@ func TestExportCSVFormat(t *testing.T) {
 	}
 }
 
-// Helper function to export to CSV format
+// Helper function to export to CSV format using new state model
 func exportToCSV(balls []*session.Session) ([]byte, error) {
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
@@ -712,8 +636,8 @@ func exportToCSV(balls []*session.Session) ([]byte, error) {
 		"Project",
 		"Intent",
 		"Priority",
-		"ActiveState",
-		"JuggleState",
+		"State",
+		"BlockedReason",
 		"StartedAt",
 		"CompletedAt",
 		"LastActivity",
@@ -737,17 +661,13 @@ func exportToCSV(balls []*session.Session) ([]byte, error) {
 
 		total, completed := ball.TodoStats()
 
-		juggleState := ""
-		if ball.JuggleState != nil {
-			juggleState = string(*ball.JuggleState)
-		}
 		row := []string{
 			ball.ID,
 			ball.WorkingDir,
 			ball.Intent,
 			string(ball.Priority),
-			string(ball.ActiveState),
-			juggleState,
+			string(ball.State),
+			ball.BlockedReason,
 			ball.StartedAt.Format("2006-01-02 15:04:05"),
 			completedAt,
 			ball.LastActivity.Format("2006-01-02 15:04:05"),
@@ -784,7 +704,7 @@ func TestExportJSONFormat(t *testing.T) {
 		WorkingDir:   project,
 		Intent:       "Test ball",
 		Priority:     session.PriorityMedium,
-		ActiveState:  session.ActiveReady,
+		State:        session.StatePending,
 		StartedAt:    time.Now(),
 		LastActivity: time.Now(),
 	}

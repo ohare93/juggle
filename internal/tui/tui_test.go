@@ -68,29 +68,32 @@ func TestFormatState(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "ready state",
+			name: "pending state",
 			ball: &session.Session{
-				ActiveState: session.ActiveReady,
+				State: session.StatePending,
 			},
-			expected: "ready",
+			expected: "pending",
 		},
 		{
-			name: "juggling with juggle state",
-			ball: func() *session.Session {
-				inAir := session.JuggleInAir
-				return &session.Session{
-					ActiveState: session.ActiveJuggling,
-					JuggleState: &inAir,
-				}
-			}(),
-			expected: "in-air",
+			name: "in_progress state",
+			ball: &session.Session{
+				State: session.StateInProgress,
+			},
+			expected: "in_progress",
 		},
 		{
 			name: "complete state",
 			ball: &session.Session{
-				ActiveState: session.ActiveComplete,
+				State: session.StateComplete,
 			},
 			expected: "complete",
+		},
+		{
+			name: "blocked state",
+			ball: &session.Session{
+				State: session.StateBlocked,
+			},
+			expected: "blocked",
 		},
 	}
 
@@ -106,21 +109,21 @@ func TestFormatState(t *testing.T) {
 
 func TestCountByState(t *testing.T) {
 	balls := []*session.Session{
-		{ActiveState: session.ActiveReady},
-		{ActiveState: session.ActiveReady},
-		{ActiveState: session.ActiveJuggling},
-		{ActiveState: session.ActiveComplete},
-		{ActiveState: session.ActiveDropped},
+		{State: session.StatePending},
+		{State: session.StatePending},
+		{State: session.StateInProgress},
+		{State: session.StateComplete},
+		{State: session.StateBlocked},
 	}
 
 	tests := []struct {
 		state    string
 		expected int
 	}{
-		{"ready", 2},
-		{"juggling", 1},
+		{"pending", 2},
+		{"in_progress", 1},
 		{"complete", 1},
-		{"dropped", 1},
+		{"blocked", 1},
 		{"nonexistent", 0},
 	}
 
@@ -135,16 +138,16 @@ func TestCountByState(t *testing.T) {
 func TestApplyFilters(t *testing.T) {
 	model := Model{
 		balls: []*session.Session{
-			{ID: "1", ActiveState: session.ActiveReady},
-			{ID: "2", ActiveState: session.ActiveReady},
-			{ID: "3", ActiveState: session.ActiveJuggling},
-			{ID: "4", ActiveState: session.ActiveComplete},
+			{ID: "1", State: session.StatePending},
+			{ID: "2", State: session.StatePending},
+			{ID: "3", State: session.StateInProgress},
+			{ID: "4", State: session.StateComplete},
 		},
 		filterStates: map[string]bool{
-			"ready":    true,
-			"juggling": false,
-			"complete": false,
-			"dropped":  false,
+			"pending":     true,
+			"in_progress": false,
+			"complete":    false,
+			"blocked":     false,
 		},
 	}
 
@@ -155,8 +158,8 @@ func TestApplyFilters(t *testing.T) {
 	}
 
 	for _, ball := range model.filteredBalls {
-		if ball.ActiveState != session.ActiveReady {
-			t.Errorf("Expected only ready balls, got ball with state %v", ball.ActiveState)
+		if ball.State != session.StatePending {
+			t.Errorf("Expected only pending balls, got ball with state %v", ball.State)
 		}
 	}
 }
@@ -164,15 +167,15 @@ func TestApplyFilters(t *testing.T) {
 func TestApplyFiltersAll(t *testing.T) {
 	model := Model{
 		balls: []*session.Session{
-			{ID: "1", ActiveState: session.ActiveReady},
-			{ID: "2", ActiveState: session.ActiveJuggling},
-			{ID: "3", ActiveState: session.ActiveComplete},
+			{ID: "1", State: session.StatePending},
+			{ID: "2", State: session.StateInProgress},
+			{ID: "3", State: session.StateComplete},
 		},
 		filterStates: map[string]bool{
-			"ready":    true,
-			"juggling": true,
-			"complete": true,
-			"dropped":  true,
+			"pending":     true,
+			"in_progress": true,
+			"complete":    true,
+			"blocked":     true,
 		},
 	}
 
@@ -186,31 +189,31 @@ func TestApplyFiltersAll(t *testing.T) {
 func TestFilterToggleBehavior(t *testing.T) {
 	model := Model{
 		filterStates: map[string]bool{
-			"ready":    true,
-			"juggling": true,
-			"dropped":  false,
-			"complete": false,
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     false,
+			"complete":    false,
 		},
 	}
 
-	// Test toggling ready off
+	// Test toggling pending off
 	model.handleStateFilter("2")
-	if model.filterStates["ready"] {
-		t.Error("Expected ready to be toggled off")
+	if model.filterStates["pending"] {
+		t.Error("Expected pending to be toggled off")
 	}
 
-	// Test toggling ready back on
+	// Test toggling pending back on
 	model.handleStateFilter("2")
-	if !model.filterStates["ready"] {
-		t.Error("Expected ready to be toggled on")
+	if !model.filterStates["pending"] {
+		t.Error("Expected pending to be toggled on")
 	}
 
 	// Test show all (key "1")
-	model.filterStates["ready"] = false
-	model.filterStates["juggling"] = false
+	model.filterStates["pending"] = false
+	model.filterStates["in_progress"] = false
 	model.handleStateFilter("1")
-	if !model.filterStates["ready"] || !model.filterStates["juggling"] ||
-		!model.filterStates["dropped"] || !model.filterStates["complete"] {
+	if !model.filterStates["pending"] || !model.filterStates["in_progress"] ||
+		!model.filterStates["blocked"] || !model.filterStates["complete"] {
 		t.Error("Expected all states to be visible after pressing '1'")
 	}
 }
@@ -263,51 +266,51 @@ func TestTruncateID(t *testing.T) {
 
 func TestStateTransitionsUnrestricted(t *testing.T) {
 	tests := []struct {
-		name        string
-		initialState session.ActiveState
-		action      string // "start", "complete", "drop"
-		expectError bool
+		name         string
+		initialState session.BallState
+		action       string // "start", "complete", "block"
+		expectError  bool
 	}{
 		{
-			name:         "start from ready",
-			initialState: session.ActiveReady,
+			name:         "start from pending",
+			initialState: session.StatePending,
 			action:       "start",
 			expectError:  false,
 		},
 		{
 			name:         "start from complete",
-			initialState: session.ActiveComplete,
+			initialState: session.StateComplete,
 			action:       "start",
 			expectError:  false,
 		},
 		{
-			name:         "start from dropped",
-			initialState: session.ActiveDropped,
+			name:         "start from blocked",
+			initialState: session.StateBlocked,
 			action:       "start",
 			expectError:  false,
 		},
 		{
-			name:         "complete from juggling",
-			initialState: session.ActiveJuggling,
+			name:         "complete from in_progress",
+			initialState: session.StateInProgress,
 			action:       "complete",
 			expectError:  false,
 		},
 		{
-			name:         "complete from ready",
-			initialState: session.ActiveReady,
+			name:         "complete from pending",
+			initialState: session.StatePending,
 			action:       "complete",
 			expectError:  false,
 		},
 		{
-			name:         "drop from juggling",
-			initialState: session.ActiveJuggling,
-			action:       "drop",
+			name:         "block from in_progress",
+			initialState: session.StateInProgress,
+			action:       "block",
 			expectError:  false,
 		},
 		{
-			name:         "drop from complete",
-			initialState: session.ActiveComplete,
-			action:       "drop",
+			name:         "block from complete",
+			initialState: session.StateComplete,
+			action:       "block",
 			expectError:  false,
 		},
 	}
@@ -317,9 +320,9 @@ func TestStateTransitionsUnrestricted(t *testing.T) {
 			model := Model{
 				filteredBalls: []*session.Session{
 					{
-						ID:          "test-1",
-						ActiveState: tt.initialState,
-						WorkingDir:  "/tmp/test",
+						ID:         "test-1",
+						State:      tt.initialState,
+						WorkingDir: "/tmp/test",
 					},
 				},
 				cursor: 0,
@@ -331,7 +334,7 @@ func TestStateTransitionsUnrestricted(t *testing.T) {
 				newModel, _ = model.handleStartBall()
 			case "complete":
 				newModel, _ = model.handleCompleteBall()
-			case "drop":
+			case "block":
 				newModel, _ = model.handleDropBall()
 			}
 
@@ -347,16 +350,16 @@ func TestStateTransitionsUnrestricted(t *testing.T) {
 			ball := m.filteredBalls[0]
 			switch tt.action {
 			case "start":
-				if ball.ActiveState != session.ActiveJuggling {
-					t.Errorf("Expected state to be juggling, got %v", ball.ActiveState)
+				if ball.State != session.StateInProgress {
+					t.Errorf("Expected state to be in_progress, got %v", ball.State)
 				}
 			case "complete":
-				if ball.ActiveState != session.ActiveComplete {
-					t.Errorf("Expected state to be complete, got %v", ball.ActiveState)
+				if ball.State != session.StateComplete {
+					t.Errorf("Expected state to be complete, got %v", ball.State)
 				}
-			case "drop":
-				if ball.ActiveState != session.ActiveDropped {
-					t.Errorf("Expected state to be dropped, got %v", ball.ActiveState)
+			case "block":
+				if ball.State != session.StateBlocked {
+					t.Errorf("Expected state to be blocked, got %v", ball.State)
 				}
 			}
 		})
@@ -468,101 +471,75 @@ func TestPriorityCycleDefaultCase(t *testing.T) {
 
 func TestCycleState(t *testing.T) {
 	tests := []struct {
-		name               string
-		currentState       session.ActiveState
-		currentJuggleState *session.JuggleState
-		expectedState      session.ActiveState
-		hasJuggleState     bool
+		name          string
+		currentState  session.BallState
+		expectedState session.BallState
 	}{
 		{
-			name:           "ready to juggling",
-			currentState:   session.ActiveReady,
-			expectedState:  session.ActiveJuggling,
-			hasJuggleState: true,
+			name:          "pending to in_progress",
+			currentState:  session.StatePending,
+			expectedState: session.StateInProgress,
 		},
 		{
-			name:           "juggling to complete",
-			currentState:   session.ActiveJuggling,
-			expectedState:  session.ActiveComplete,
-			hasJuggleState: false,
+			name:          "in_progress to complete",
+			currentState:  session.StateInProgress,
+			expectedState: session.StateComplete,
 		},
 		{
-			name:           "complete to dropped",
-			currentState:   session.ActiveComplete,
-			expectedState:  session.ActiveDropped,
-			hasJuggleState: false,
+			name:          "complete to blocked",
+			currentState:  session.StateComplete,
+			expectedState: session.StateBlocked,
 		},
 		{
-			name:           "dropped to ready",
-			currentState:   session.ActiveDropped,
-			expectedState:  session.ActiveReady,
-			hasJuggleState: false,
+			name:          "blocked to pending",
+			currentState:  session.StateBlocked,
+			expectedState: session.StatePending,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate cycling logic from handleCycleState
-			var nextState session.ActiveState
-			var nextJuggleState *session.JuggleState
+			var nextState session.BallState
 
 			switch tt.currentState {
-			case session.ActiveReady:
-				nextState = session.ActiveJuggling
-				inAir := session.JuggleInAir
-				nextJuggleState = &inAir
-			case session.ActiveJuggling:
-				nextState = session.ActiveComplete
-				nextJuggleState = nil
-			case session.ActiveComplete:
-				nextState = session.ActiveDropped
-				nextJuggleState = nil
-			case session.ActiveDropped:
-				nextState = session.ActiveReady
-				nextJuggleState = nil
+			case session.StatePending:
+				nextState = session.StateInProgress
+			case session.StateInProgress:
+				nextState = session.StateComplete
+			case session.StateComplete:
+				nextState = session.StateBlocked
+			case session.StateBlocked:
+				nextState = session.StatePending
 			default:
-				nextState = session.ActiveReady
-				nextJuggleState = nil
+				nextState = session.StatePending
 			}
 
 			if nextState != tt.expectedState {
 				t.Errorf("Expected state %v, got %v", tt.expectedState, nextState)
 			}
-
-			hasJuggleState := nextJuggleState != nil
-			if hasJuggleState != tt.hasJuggleState {
-				t.Errorf("Expected hasJuggleState: %v, got: %v", tt.hasJuggleState, hasJuggleState)
-			}
-
-			if tt.hasJuggleState && *nextJuggleState != session.JuggleInAir {
-				t.Errorf("Expected juggle state to be in-air, got %v", *nextJuggleState)
-			}
 		})
 	}
 }
 
-func TestSetReadyFromAnyState(t *testing.T) {
+func TestSetPendingFromAnyState(t *testing.T) {
 	states := []struct {
 		name  string
-		state session.ActiveState
+		state session.BallState
 	}{
-		{"from juggling", session.ActiveJuggling},
-		{"from complete", session.ActiveComplete},
-		{"from dropped", session.ActiveDropped},
-		{"from ready", session.ActiveReady}, // Should be idempotent
+		{"from in_progress", session.StateInProgress},
+		{"from complete", session.StateComplete},
+		{"from blocked", session.StateBlocked},
+		{"from pending", session.StatePending}, // Should be idempotent
 	}
 
 	for _, tt := range states {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate logic from handleSetReady
-			var nextState session.ActiveState = session.ActiveReady
-			var nextJuggleState *session.JuggleState = nil
+			var nextState session.BallState = session.StatePending
 
-			if nextState != session.ActiveReady {
-				t.Errorf("Failed to set %v to ready, got %v", tt.state, nextState)
-			}
-			if nextJuggleState != nil {
-				t.Error("JuggleState should be nil for ready state")
+			if nextState != session.StatePending {
+				t.Errorf("Failed to set %v to pending, got %v", tt.state, nextState)
 			}
 		})
 	}

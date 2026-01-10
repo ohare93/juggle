@@ -440,11 +440,12 @@ func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
 		return nil, fmt.Errorf("ball not found in archive: %s", ballID)
 	}
 
-	// Change state to ready
-	ball.ActiveState = ActiveReady
-	ball.JuggleState = nil
+	// Change state to pending (ready) using new state model
+	ball.State = StatePending
+	ball.BlockedReason = ""
 	ball.CompletedAt = nil
 	ball.CompletionNote = ""
+	ball.syncLegacyFields() // Update legacy fields for backward compatibility
 
 	// Append to active balls
 	if err := s.AppendBall(ball); err != nil {

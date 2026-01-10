@@ -247,14 +247,10 @@ func TestCrossCommandConsistency(t *testing.T) {
 		// Create a ball and test state transitions
 		ball := env.CreateSession(t, "State transition test", session.PriorityMedium)
 
-		// Test: ready → juggling transition
-		ball.StartJuggling()
-		if ball.ActiveState != session.ActiveJuggling {
-			t.Errorf("StartJuggling should set ActiveState to juggling, got %s", ball.ActiveState)
-		}
-
-		if ball.JuggleState == nil || *ball.JuggleState != session.JuggleNeedsThrown {
-			t.Error("StartJuggling should set JuggleState to needs-thrown")
+		// Test: pending → in_progress transition
+		ball.Start()
+		if ball.State != session.StateInProgress {
+			t.Errorf("Start should set State to in_progress, got %s", ball.State)
 		}
 
 		// Save and verify
@@ -262,16 +258,19 @@ func TestCrossCommandConsistency(t *testing.T) {
 			t.Fatalf("Failed to save ball: %v", err)
 		}
 
-		// Test: juggling state updates
-		ball.SetJuggleState(session.JuggleInAir, "Working on it")
-		if ball.StateMessage != "Working on it" {
-			t.Error("SetJuggleState should update state message")
+		// Test: blocked state with reason
+		ball.SetBlocked("Waiting for review")
+		if ball.BlockedReason != "Waiting for review" {
+			t.Error("SetBlocked should update blocked reason")
+		}
+		if ball.State != session.StateBlocked {
+			t.Errorf("SetBlocked should set State to blocked, got %s", ball.State)
 		}
 
 		// Test: complete transition
 		ball.MarkComplete("All done")
-		if ball.ActiveState != session.ActiveComplete {
-			t.Errorf("MarkComplete should set ActiveState to complete, got %s", ball.ActiveState)
+		if ball.State != session.StateComplete {
+			t.Errorf("MarkComplete should set State to complete, got %s", ball.State)
 		}
 
 		// Save and verify
@@ -285,7 +284,7 @@ func TestCrossCommandConsistency(t *testing.T) {
 			t.Fatalf("Failed to reload ball: %v", err)
 		}
 
-		if reloaded.ActiveState != session.ActiveComplete {
+		if reloaded.State != session.StateComplete {
 			t.Error("State not persisted correctly")
 		}
 	})
