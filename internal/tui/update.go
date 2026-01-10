@@ -21,6 +21,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleInputKey(msg)
 		}
 
+		// Handle session selector mode
+		if m.mode == sessionSelectorView {
+			return m.handleSessionSelectorKey(msg)
+		}
+
 		// Handle panel search input
 		if m.mode == panelSearchView {
 			return m.handlePanelSearchKey(msg)
@@ -1482,7 +1487,68 @@ func (m Model) handleWatcherEvent(event watcher.Event) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// handleTagEditStart opens the tag editor for the selected ball
+// handleSessionSelectorKey handles keyboard input in session selector mode
+func (m Model) handleSessionSelectorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		// Cancel selection
+		m.mode = splitView
+		m.sessionSelectItems = nil
+		m.message = "Cancelled"
+		return m, nil
+
+	case "up", "k":
+		// Move selection up
+		if m.sessionSelectIndex > 0 {
+			m.sessionSelectIndex--
+		}
+		return m, nil
+
+	case "down", "j":
+		// Move selection down
+		if m.sessionSelectIndex < len(m.sessionSelectItems)-1 {
+			m.sessionSelectIndex++
+		}
+		return m, nil
+
+	case "enter", " ":
+		// Select this session
+		return m.submitSessionSelection()
+	}
+	return m, nil
+}
+
+// submitSessionSelection adds the selected session as a tag to the ball
+func (m Model) submitSessionSelection() (tea.Model, tea.Cmd) {
+	if m.editingBall == nil || len(m.sessionSelectItems) == 0 {
+		m.mode = splitView
+		m.sessionSelectItems = nil
+		return m, nil
+	}
+
+	if m.sessionSelectIndex >= len(m.sessionSelectItems) {
+		m.sessionSelectIndex = len(m.sessionSelectItems) - 1
+	}
+
+	selectedSession := m.sessionSelectItems[m.sessionSelectIndex]
+	m.editingBall.AddTag(selectedSession.ID)
+	m.addActivity("Added to session: " + selectedSession.ID)
+	m.message = "Added to session: " + selectedSession.ID
+
+	store, err := session.NewStore(m.editingBall.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		m.mode = splitView
+		m.sessionSelectItems = nil
+		return m, nil
+	}
+
+	m.mode = splitView
+	m.sessionSelectItems = nil
+	return m, updateBall(store, m.editingBall)
+}
+
+// handleTagEditStart opens the session selector for tagging the selected ball
 func (m Model) handleTagEditStart() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
 	if len(balls) == 0 || m.cursor >= len(balls) {
@@ -1492,13 +1558,32 @@ func (m Model) handleTagEditStart() (tea.Model, tea.Cmd) {
 
 	ball := balls[m.cursor]
 	m.editingBall = ball
-	m.tagEditMode = tagModeAdd
-	m.textInput.Reset()
-	m.textInput.Focus()
-	m.textInput.Placeholder = "Enter tag to add (or prefix with - to remove)"
-	m.inputTarget = "tag"
-	m.mode = inputTagView
-	m.addActivity("Editing tags for: " + ball.ID)
+	m.sessionSelectIndex = 0
+
+	// Build list of sessions that ball is not already tagged with
+	// Exclude pseudo-sessions and sessions already tagged
+	existingTags := make(map[string]bool)
+	for _, tag := range ball.Tags {
+		existingTags[tag] = true
+	}
+
+	availableSessions := make([]*session.JuggleSession, 0)
+	for _, sess := range m.sessions {
+		// Skip if ball already has this tag
+		if existingTags[sess.ID] {
+			continue
+		}
+		availableSessions = append(availableSessions, sess)
+	}
+
+	if len(availableSessions) == 0 {
+		m.message = "Ball already in all sessions"
+		return m, nil
+	}
+
+	m.sessionSelectItems = availableSessions
+	m.mode = sessionSelectorView
+	m.addActivity("Selecting session for: " + ball.ID)
 
 	return m, nil
 }

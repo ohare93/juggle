@@ -19,13 +19,14 @@ const (
 	splitView // New three-panel split view
 
 	// Input modes for CRUD operations
-	inputSessionView    // Add/edit session
-	inputBallView       // Add/edit ball
-	inputTodoView       // Add/edit todo
-	inputBlockedView    // Prompt for blocked reason
-	inputTagView        // Add/remove tags
-	confirmSplitDelete  // Delete confirmation in split view
-	panelSearchView     // Search/filter within current panel
+	inputSessionView     // Add/edit session
+	inputBallView        // Add/edit ball
+	inputTodoView        // Add/edit todo
+	inputBlockedView     // Prompt for blocked reason
+	inputTagView         // Add/remove tags (legacy, kept for backwards compatibility)
+	sessionSelectorView  // Session selector for tagging balls
+	confirmSplitDelete   // Delete confirmation in split view
+	panelSearchView      // Search/filter within current panel
 )
 
 // InputAction represents what action triggered the input mode
@@ -109,12 +110,14 @@ type Model struct {
 	confirmAction string // What action is being confirmed (e.g., "delete")
 
 	// Input state for CRUD operations
-	textInput   textinput.Model
-	inputAction InputAction      // Add or Edit
-	inputTarget string           // What we're editing (e.g., "intent", "description")
-	editingBall *session.Session // Ball being edited (for edit action)
-	editingTodo int              // Todo index being edited (-1 for new)
-	tagEditMode TagEditMode      // Whether adding or removing a tag
+	textInput          textinput.Model
+	inputAction        InputAction      // Add or Edit
+	inputTarget        string           // What we're editing (e.g., "intent", "description")
+	editingBall        *session.Session // Ball being edited (for edit action)
+	editingTodo        int              // Todo index being edited (-1 for new)
+	tagEditMode        TagEditMode      // Whether adding or removing a tag
+	sessionSelectItems []*session.JuggleSession // Sessions available for selection
+	sessionSelectIndex int                      // Current selection index in session selector
 
 	// File watcher
 	fileWatcher *watcher.Watcher

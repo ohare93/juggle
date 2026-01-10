@@ -27,6 +27,8 @@ func (m Model) View() string {
 		return m.renderInputView()
 	case inputTagView:
 		return m.renderTagView()
+	case sessionSelectorView:
+		return m.renderSessionSelectorView()
 	case confirmSplitDelete:
 		return m.renderSplitConfirmDelete()
 	case panelSearchView:
@@ -343,6 +345,89 @@ func (m Model) renderPanelSearchView() string {
 			Render("Current filter: " + m.panelSearchQuery + " (Ctrl+U to clear in panel)")
 		b.WriteString(helpClear)
 	}
+
+	return b.String()
+}
+
+// renderSessionSelectorView renders the session selection dialog for tagging
+func (m Model) renderSessionSelectorView() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("6")).
+		Render("Select Session")
+	b.WriteString(title + "\n\n")
+
+	// Show ball context
+	if m.editingBall != nil {
+		b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
+		b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
+
+		// Show current sessions/tags
+		if len(m.editingBall.Tags) > 0 {
+			currentLabel := lipgloss.NewStyle().
+				Faint(true).
+				Render("Current sessions:")
+			b.WriteString(currentLabel + " ")
+
+			tagStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("8"))
+			tags := strings.Join(m.editingBall.Tags, ", ")
+			b.WriteString(tagStyle.Render(tags) + "\n\n")
+		}
+	}
+
+	// Show session list
+	sessionLabel := lipgloss.NewStyle().
+		Bold(true).
+		Render("Available sessions:")
+	b.WriteString(sessionLabel + "\n\n")
+
+	if len(m.sessionSelectItems) == 0 {
+		noSessions := lipgloss.NewStyle().
+			Faint(true).
+			Render("  No sessions available")
+		b.WriteString(noSessions + "\n")
+	} else {
+		selectedStyle := lipgloss.NewStyle().
+			Bold(true).
+			Background(lipgloss.Color("240")).
+			Foreground(lipgloss.Color("15"))
+
+		normalStyle := lipgloss.NewStyle()
+
+		for i, sess := range m.sessionSelectItems {
+			cursor := "  "
+			if i == m.sessionSelectIndex {
+				cursor = "> "
+			}
+
+			line := fmt.Sprintf("%s%s", cursor, sess.ID)
+			if sess.Description != "" {
+				line += fmt.Sprintf(" - %s", truncate(sess.Description, 40))
+			}
+
+			if i == m.sessionSelectIndex {
+				b.WriteString(selectedStyle.Render(line) + "\n")
+			} else {
+				b.WriteString(normalStyle.Render(line) + "\n")
+			}
+		}
+	}
+
+	b.WriteString("\n")
+
+	// Show message if any
+	if m.message != "" {
+		b.WriteString(messageStyle.Render(m.message) + "\n\n")
+	}
+
+	// Help
+	help := lipgloss.NewStyle().
+		Faint(true).
+		Render("j/k or ↑/↓ = navigate | Enter/Space = select | Esc = cancel")
+	b.WriteString(help)
 
 	return b.String()
 }
