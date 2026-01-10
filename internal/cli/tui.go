@@ -6,8 +6,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/ohare93/juggle/internal/tui"
+	"github.com/ohare93/juggle/internal/watcher"
 	"github.com/spf13/cobra"
 )
+
+var tuiSplitView bool
 
 var tuiCmd = &cobra.Command{
 	Use:   "tui",
@@ -17,31 +20,41 @@ var tuiCmd = &cobra.Command{
 The TUI provides a full-screen interface with keyboard navigation,
 filtering, and quick actions.
 
+Use --split flag to launch the new three-panel split view:
+  juggle tui --split
+
 Use --local flag to restrict view to current project only:
   juggle --local tui
 
-Navigation:
-  ↑/k        Move up
-  ↓/j        Move down
-  Enter      View ball details
-  b/Esc      Back to list (or exit from list)
+Navigation (split view):
+  Tab/h/l    Switch between panels
+  ↑/k        Move up within panel
+  ↓/j        Move down within panel
+  Enter      Select item / expand
+  Esc        Go back / deselect
+
+CRUD Operations (split view):
+  a          Add new item (session/ball/todo)
+  e          Edit selected item
+  d          Delete selected item (with confirmation)
+  Space      Toggle todo completion
 
 State Management:
-  Tab        Cycle state (ready → juggling → complete → dropped → ready)
-  s          Start ball (ready → juggling:in-air)
-  r          Set ball to ready
+  s          Start ball
   c          Complete ball
-  d          Drop ball
+  b          Block ball (prompts for reason)
 
-Ball Operations:
-  x          Delete ball (with confirmation)
+Legacy Navigation:
+  Tab        Cycle state (ready → juggling → complete → dropped → ready)
+  r          Set ball to ready
   p          Cycle priority (low → medium → high → urgent → low)
+  x          Delete ball (with confirmation)
 
 Filters (toggleable):
   1          Show all states
-  2          Toggle ready visibility
-  3          Toggle juggling visibility
-  4          Toggle dropped visibility
+  2          Toggle pending visibility
+  3          Toggle in_progress visibility
+  4          Toggle blocked visibility
   5          Toggle complete visibility
 
 Other:
@@ -70,8 +83,36 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Initialize TUI model
-	model := tui.InitialModel(store, config, GlobalOpts.LocalOnly)
+	var model tui.Model
+
+	if tuiSplitView {
+		// Initialize split view with file watcher
+		sessionStore, err := session.NewSessionStore(workingDir)
+		if err != nil {
+			return err
+		}
+
+		// Create file watcher
+		w, err := watcher.New()
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+
+		// Watch the project directory
+		if err := w.WatchProject(workingDir); err != nil {
+			// Non-fatal: continue without watching if it fails
+			w = nil
+		} else {
+			// Start the watcher
+			w.Start()
+		}
+
+		model = tui.InitialSplitModelWithWatcher(store, sessionStore, config, GlobalOpts.LocalOnly, w)
+	} else {
+		// Initialize legacy TUI model
+		model = tui.InitialModel(store, config, GlobalOpts.LocalOnly)
+	}
 
 	// Create program with alternate screen
 	p := tea.NewProgram(model, tea.WithAltScreen())
@@ -85,5 +126,6 @@ func runTUI(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
+	tuiCmd.Flags().BoolVarP(&tuiSplitView, "split", "s", false, "Use split-view layout with sessions, balls, and todos panels")
 	rootCmd.AddCommand(tuiCmd)
 }

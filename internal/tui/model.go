@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/watcher"
 )
 
 type viewMode int
@@ -91,6 +92,9 @@ type Model struct {
 	inputTarget string            // What we're editing (e.g., "intent", "description")
 	editingBall *session.Session  // Ball being edited (for edit action)
 	editingTodo int               // Todo index being edited (-1 for new)
+
+	// File watcher
+	fileWatcher *watcher.Watcher
 }
 
 // InitialModel creates a model for the legacy list view
@@ -119,6 +123,11 @@ func InitialModel(store *session.Store, config *session.Config, localOnly bool) 
 
 // InitialSplitModel creates a model for the new split-view mode
 func InitialSplitModel(store *session.Store, sessionStore *session.SessionStore, config *session.Config, localOnly bool) Model {
+	return InitialSplitModelWithWatcher(store, sessionStore, config, localOnly, nil)
+}
+
+// InitialSplitModelWithWatcher creates a model for the new split-view mode with file watching
+func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.SessionStore, config *session.Config, localOnly bool, w *watcher.Watcher) Model {
 	ti := textinput.New()
 	ti.CharLimit = 256
 	ti.Width = 40
@@ -142,15 +151,21 @@ func InitialSplitModel(store *session.Store, sessionStore *session.SessionStore,
 		activityLog:   make([]ActivityEntry, 0),
 		textInput:     ti,
 		editingTodo:   -1,
+		fileWatcher:   w,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
 	if m.mode == splitView {
-		return tea.Batch(
+		cmds := []tea.Cmd{
 			loadBalls(m.store, m.config, m.localOnly),
 			loadSessions(m.sessionStore),
-		)
+		}
+		// Start file watcher if available
+		if m.fileWatcher != nil {
+			cmds = append(cmds, listenForWatcherEvents(m.fileWatcher))
+		}
+		return tea.Batch(cmds...)
 	}
 	return loadBalls(m.store, m.config, m.localOnly)
 }

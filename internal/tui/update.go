@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/watcher"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -207,6 +208,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Reload balls
 		return m, loadBalls(m.store, m.config, m.localOnly)
+
+	case watcherEventMsg:
+		return m.handleWatcherEvent(msg.event)
+
+	case watcherErrorMsg:
+		m.addActivity("Watcher error: " + msg.err.Error())
+		// Continue listening for more events
+		if m.fileWatcher != nil {
+			return m, listenForWatcherEvents(m.fileWatcher)
+		}
+		return m, nil
 	}
 
 	return m, nil
@@ -1091,4 +1103,39 @@ func (m Model) executeSplitDelete() (tea.Model, tea.Cmd) {
 
 	m.mode = splitView
 	return m, nil
+}
+
+// handleWatcherEvent handles file system change events
+func (m Model) handleWatcherEvent(event watcher.Event) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	switch event.Type {
+	case watcher.BallsChanged:
+		m.addActivity("File changed: balls.jsonl - reloading...")
+		cmds = append(cmds, loadBalls(m.store, m.config, m.localOnly))
+
+	case watcher.SessionChanged:
+		msg := "Session file changed"
+		if event.SessionID != "" {
+			msg += ": " + event.SessionID
+		}
+		m.addActivity(msg + " - reloading...")
+		cmds = append(cmds, loadSessions(m.sessionStore))
+
+	case watcher.ProgressChanged:
+		msg := "Progress updated"
+		if event.SessionID != "" {
+			msg += " for session: " + event.SessionID
+		}
+		m.addActivity(msg)
+		// Progress changes don't require reloading UI data,
+		// but log it for awareness
+	}
+
+	// Continue listening for more events
+	if m.fileWatcher != nil {
+		cmds = append(cmds, listenForWatcherEvents(m.fileWatcher))
+	}
+
+	return m, tea.Batch(cmds...)
 }

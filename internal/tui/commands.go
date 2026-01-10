@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/watcher"
 )
 
 type ballsLoadedMsg struct {
@@ -70,5 +71,26 @@ func loadSessions(sessionStore *session.SessionStore) tea.Cmd {
 		}
 
 		return sessionsLoadedMsg{sessions: sessions}
+	}
+}
+
+// Watcher event messages
+type watcherEventMsg struct {
+	event watcher.Event
+}
+
+type watcherErrorMsg struct {
+	err error
+}
+
+// listenForWatcherEvents creates a command that listens for watcher events
+func listenForWatcherEvents(w *watcher.Watcher) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case event := <-w.Events:
+			return watcherEventMsg{event: event}
+		case err := <-w.Errors:
+			return watcherErrorMsg{err: err}
+		}
 	}
 }
