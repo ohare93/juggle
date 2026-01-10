@@ -198,6 +198,14 @@ func (m *Model) addActivity(msg string) {
 	m.activityLog = append(m.activityLog, entry)
 }
 
+// SelectedSessionID returns the ID of the currently selected session (if any)
+func (m Model) SelectedSessionID() string {
+	if m.selectedSession != nil {
+		return m.selectedSession.ID
+	}
+	return ""
+}
+
 // getBallsForSession returns balls that belong to the selected session (by tag)
 func (m *Model) getBallsForSession() []*session.Session {
 	if m.selectedSession == nil {
