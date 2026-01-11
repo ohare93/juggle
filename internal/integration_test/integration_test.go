@@ -44,19 +44,18 @@ func TestMultipleSessions(t *testing.T) {
 	}
 }
 
-func TestTodoManagement(t *testing.T) {
+func TestAcceptanceCriteriaManagement(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	sess := env.CreateSession(t, "Session with todos", session.PriorityHigh)
+	sess := env.CreateSession(t, "Session with acceptance criteria", session.PriorityHigh)
 	store := env.GetStore(t)
 
-	// Add todos
-	sess.AddTodo("First todo")
-	sess.AddTodo("Second todo")
+	// Set acceptance criteria
+	sess.SetAcceptanceCriteria([]string{"First criterion", "Second criterion"})
 
 	if err := store.UpdateBall(sess); err != nil {
-		t.Fatalf("Failed to save session with todos: %v", err)
+		t.Fatalf("Failed to save session with acceptance criteria: %v", err)
 	}
 
 	// Retrieve and verify
@@ -65,8 +64,8 @@ func TestTodoManagement(t *testing.T) {
 		t.Fatalf("Failed to retrieve session: %v", err)
 	}
 
-	if len(retrieved.Todos) != 2 {
-		t.Fatalf("Expected 2 todos, got %d", len(retrieved.Todos))
+	if len(retrieved.AcceptanceCriteria) != 2 {
+		t.Fatalf("Expected 2 acceptance criteria, got %d", len(retrieved.AcceptanceCriteria))
 	}
 }
 

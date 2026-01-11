@@ -543,20 +543,17 @@ func TestExportCSVFormat(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	// Create a ball with todos using new state model
+	// Create a ball with acceptance criteria using new state model
 	ball := &session.Session{
-		ID:           "project-1",
-		WorkingDir:   project,
-		Intent:       "Ball with todos",
-		Priority:     session.PriorityHigh,
-		State:        session.StateInProgress,
-		StartedAt:    time.Now(),
-		LastActivity: time.Now(),
-		Tags:         []string{"backend", "api"},
-		Todos: []session.Todo{
-			{Text: "Todo 1", Done: true},
-			{Text: "Todo 2", Done: false},
-		},
+		ID:                 "project-1",
+		WorkingDir:         project,
+		Intent:             "Ball with acceptance criteria",
+		Priority:           session.PriorityHigh,
+		State:              session.StateInProgress,
+		StartedAt:          time.Now(),
+		LastActivity:       time.Now(),
+		Tags:               []string{"backend", "api"},
+		AcceptanceCriteria: []string{"Criterion 1", "Criterion 2"},
 	}
 
 	if err := store.Save(ball); err != nil {
@@ -598,7 +595,7 @@ func TestExportCSVFormat(t *testing.T) {
 
 	// Verify header (updated for new state model)
 	header := records[0]
-	expectedColumns := []string{"ID", "Project", "Intent", "Priority", "State", "BlockedReason", "StartedAt", "CompletedAt", "LastActivity", "Tags", "TodosTotal", "TodosCompleted", "CompletionNote"}
+	expectedColumns := []string{"ID", "Project", "Intent", "Priority", "State", "BlockedReason", "StartedAt", "CompletedAt", "LastActivity", "Tags", "AcceptanceCriteria", "CompletionNote"}
 	if len(header) != len(expectedColumns) {
 		t.Errorf("Expected %d columns, got %d", len(expectedColumns), len(header))
 	}
@@ -608,8 +605,8 @@ func TestExportCSVFormat(t *testing.T) {
 	if row[0] != "project-1" {
 		t.Errorf("Expected ID 'project-1', got '%s'", row[0])
 	}
-	if row[2] != "Ball with todos" {
-		t.Errorf("Expected intent 'Ball with todos', got '%s'", row[2])
+	if row[2] != "Ball with acceptance criteria" {
+		t.Errorf("Expected intent 'Ball with acceptance criteria', got '%s'", row[2])
 	}
 	if row[3] != "high" {
 		t.Errorf("Expected priority 'high', got '%s'", row[3])
@@ -621,10 +618,7 @@ func TestExportCSVFormat(t *testing.T) {
 		t.Errorf("Expected tags 'backend;api', got '%s'", row[9])
 	}
 	if row[10] != "2" {
-		t.Errorf("Expected TodosTotal '2', got '%s'", row[10])
-	}
-	if row[11] != "1" {
-		t.Errorf("Expected TodosCompleted '1', got '%s'", row[11])
+		t.Errorf("Expected AcceptanceCriteria count '2', got '%s'", row[10])
 	}
 }
 
@@ -645,8 +639,7 @@ func exportToCSV(balls []*session.Session) ([]byte, error) {
 		"CompletedAt",
 		"LastActivity",
 		"Tags",
-		"TodosTotal",
-		"TodosCompleted",
+		"AcceptanceCriteria",
 		"CompletionNote",
 	}
 	if err := writer.Write(header); err != nil {
@@ -662,8 +655,6 @@ func exportToCSV(balls []*session.Session) ([]byte, error) {
 
 		tags := strings.Join(ball.Tags, ";")
 
-		total, completed := ball.TodoStats()
-
 		row := []string{
 			ball.ID,
 			ball.WorkingDir,
@@ -675,8 +666,7 @@ func exportToCSV(balls []*session.Session) ([]byte, error) {
 			completedAt,
 			ball.LastActivity.Format("2006-01-02 15:04:05"),
 			tags,
-			string(rune('0' + total)),
-			string(rune('0' + completed)),
+			fmt.Sprintf("%d", len(ball.AcceptanceCriteria)),
 			ball.CompletionNote,
 		}
 
@@ -804,19 +794,16 @@ func TestExportRalphFormat(t *testing.T) {
 
 	balls := []*session.Session{
 		{
-			ID:           "project-1",
-			WorkingDir:   project,
-			Intent:       "Implement feature A",
-			Description:  "The first part of the feature",
-			Priority:     session.PriorityHigh,
-			State:        session.StateInProgress,
-			StartedAt:    time.Now(),
-			LastActivity: time.Now(),
-			Tags:         []string{"test-feature", "backend"},
-			Todos: []session.Todo{
-				{Text: "Design API", Done: true},
-				{Text: "Implement logic", Done: false},
-			},
+			ID:                 "project-1",
+			WorkingDir:         project,
+			Intent:             "Implement feature A",
+			Description:        "The first part of the feature",
+			Priority:           session.PriorityHigh,
+			State:              session.StateInProgress,
+			StartedAt:          time.Now(),
+			LastActivity:       time.Now(),
+			Tags:               []string{"test-feature", "backend"},
+			AcceptanceCriteria: []string{"Design API completed", "Logic implemented and tested"},
 		},
 		{
 			ID:            "project-2",
@@ -885,11 +872,11 @@ func TestExportRalphFormat(t *testing.T) {
 	if !strings.Contains(outputStr, "Intent: Implement feature A") {
 		t.Error("Missing intent for project-1")
 	}
-	if !strings.Contains(outputStr, "[x] Design API") {
-		t.Error("Missing completed todo")
+	if !strings.Contains(outputStr, "Design API completed") {
+		t.Error("Missing acceptance criterion 1")
 	}
-	if !strings.Contains(outputStr, "[ ] Implement logic") {
-		t.Error("Missing incomplete todo")
+	if !strings.Contains(outputStr, "Logic implemented and tested") {
+		t.Error("Missing acceptance criterion 2")
 	}
 
 	// Verify blocked ball
@@ -972,17 +959,10 @@ func writeBallForRalphTest(buf *strings.Builder, ball *session.Session) {
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString("Blocked: " + ball.BlockedReason + "\n")
 	}
-	if len(ball.Todos) > 0 {
-		buf.WriteString("Todos:\n")
-		for i, todo := range ball.Todos {
-			checkbox := "[ ]"
-			if todo.Done {
-				checkbox = "[x]"
-			}
-			buf.WriteString("  " + fmt.Sprintf("%d", i+1) + ". " + checkbox + " " + todo.Text + "\n")
-			if todo.Description != "" {
-				buf.WriteString("     " + todo.Description + "\n")
-			}
+	if len(ball.AcceptanceCriteria) > 0 {
+		buf.WriteString("Acceptance Criteria:\n")
+		for i, ac := range ball.AcceptanceCriteria {
+			buf.WriteString("  " + fmt.Sprintf("%d", i+1) + ". " + ac + "\n")
 		}
 	}
 	if len(ball.Tags) > 0 {

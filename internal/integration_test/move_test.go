@@ -160,8 +160,7 @@ func testMovePreservesMetadata(t *testing.T) {
 
 	// Create ball with metadata
 	ball := envA.CreateSession(t, "Complex task", session.PriorityHigh)
-	ball.AddTodo("First todo")
-	ball.AddTodo("Second todo")
+	ball.SetAcceptanceCriteria([]string{"First criterion", "Second criterion"})
 	ball.AddTag("feature")
 	ball.AddTag("urgent")
 
@@ -191,9 +190,9 @@ func testMovePreservesMetadata(t *testing.T) {
 		t.Errorf("Expected priority %s, got %s", session.PriorityHigh, movedBall.Priority)
 	}
 
-	// Verify todos
-	if len(movedBall.Todos) != 2 {
-		t.Errorf("Expected 2 todos, got %d", len(movedBall.Todos))
+	// Verify acceptance criteria
+	if len(movedBall.AcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 acceptance criteria, got %d", len(movedBall.AcceptanceCriteria))
 	}
 
 	// Verify tags

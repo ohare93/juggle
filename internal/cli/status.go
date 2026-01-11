@@ -225,7 +225,7 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd str
 			headerStyle.Render(padRight("ID", 25)) +
 			headerStyle.Render(padRight("STATUS", 12)) +
 			headerStyle.Render(padRight("PRIORITY", 10)) +
-			headerStyle.Render(padRight("TODOS", 10)) +
+			headerStyle.Render(padRight("CRITERIA", 10)) +
 			headerStyle.Render(padRight("INTENT", 40)),
 		)
 
@@ -268,13 +268,12 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd str
 			priorityStr := string(ball.Priority)
 			priorityCell := GetPriorityStyle(priorityStr).Render(padRight(priorityStr, 10))
 
-			// Todos
-			todosCell := "-"
-			if len(ball.Todos) > 0 {
-				total, completed := ball.TodoStats()
-				todosCell = fmt.Sprintf("%d/%d", completed, total)
+			// Acceptance Criteria
+			criteriaCell := "-"
+			if len(ball.AcceptanceCriteria) > 0 {
+				criteriaCell = fmt.Sprintf("%d", len(ball.AcceptanceCriteria))
 			}
-			todosCell = padRight(todosCell, 10)
+			criteriaCell = padRight(criteriaCell, 10)
 
 			// Intent (truncated)
 			intentCell := truncate(ball.Intent, 40)
@@ -291,7 +290,7 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd str
 				ballIDCell + " " +
 				statusCell + " " +
 				priorityCell + " " +
-				todosCell + " " +
+				criteriaCell + " " +
 				intentCell,
 			)
 

@@ -31,8 +31,8 @@ var acceptanceCriteriaFlag []string
 
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
-	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "a", []string{}, "Acceptance criteria (can be specified multiple times)")
-	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -a/--ac instead. Sets first acceptance criterion.")
+	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
+	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -c/--ac instead. Sets first acceptance criterion.")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "medium", "Priority: low, medium, high, urgent")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")

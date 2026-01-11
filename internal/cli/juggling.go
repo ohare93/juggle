@@ -118,25 +118,18 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		statePadded = stateStyle.Render(statePadded)
 		priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-		// Build the line with optional blocked reason and todo count
+		// Build the line with optional blocked reason
 		intentDisplay := ball.Intent
 		if ball.BlockedReason != "" {
 			intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
 		}
 
-		// Add todo completion summary if todos exist
-		todoSummary := ""
-		if len(ball.Todos) > 0 {
-			todoSummary = fmt.Sprintf(" %s", dimStyle.Render("["+ball.TodoCompletionSummary()+"]"))
-		}
-
-		fmt.Printf("  [%s] %s  %s  %s  %s%s\n",
+		fmt.Printf("  [%s] %s  %s  %s  %s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
 			priorityPadded,
 			intentDisplay,
-			todoSummary,
 		)
 
 		// Show description on next line if present
@@ -282,25 +275,18 @@ func listAllBalls(cmd *cobra.Command) error {
 				statePadded = stateStyle.Render(statePadded)
 				priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-				// Build the line with optional blocked reason and todo count
+				// Build the line with optional blocked reason
 				intentDisplay := ball.Intent
 				if ball.BlockedReason != "" {
 					dimStyle := StyleDim
 					intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
 				}
 
-				// Add todo completion summary if todos exist
-				todoSummary := ""
-				if len(ball.Todos) > 0 {
-					todoSummary = fmt.Sprintf(" %s", StyleDim.Render("["+ball.TodoCompletionSummary()+"]"))
-				}
-
-				fmt.Printf("  [%s] %s  %s  %s%s\n",
+				fmt.Printf("  [%s] %s  %s  %s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
-					todoSummary,
 				)
 
 				// Show description on next line if present
@@ -414,8 +400,6 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 		return setBallState(ball, session.StatePending, operationArgs, store)
 	case "drop":
 		return setBallBlocked(ball, operationArgs, store)
-	case "todo", "todos":
-		return handleBallTodo(ball, operationArgs, store)
 	case "tag", "tags":
 		return handleBallTag(ball, operationArgs, store)
 	case "edit":
@@ -506,120 +490,6 @@ func setBallBlocked(ball *session.Session, args []string, store *session.Store) 
 
 	fmt.Printf("✓ Ball %s → blocked\n", ball.ShortID())
 	fmt.Printf("  Reason: %s\n", reason)
-	return nil
-}
-
-// handleBallTodo handles todo operations for a ball
-func handleBallTodo(ball *session.Session, args []string, store *session.Store) error {
-	if len(args) == 0 {
-		// List todos
-		return listBallTodos(ball)
-	}
-
-	subCmd := args[0]
-	subArgs := args[1:]
-
-	switch subCmd {
-	case "add":
-		return addBallTodos(ball, subArgs, store)
-	case "done":
-		return markBallTodoDone(ball, subArgs, store)
-	case "rm", "remove":
-		return removeBallTodo(ball, subArgs, store)
-	default:
-		return fmt.Errorf("unknown todo command: %s", subCmd)
-	}
-}
-
-// listBallTodos lists todos for a ball
-func listBallTodos(ball *session.Session) error {
-	if len(ball.Todos) == 0 {
-		fmt.Println("No todos")
-		return nil
-	}
-
-	total, completed := ball.TodoStats()
-	fmt.Printf("Todos: %d/%d complete (%d%%)\n\n", completed, total, (completed*100)/total)
-
-	for i, todo := range ball.Todos {
-		checkbox := "[ ]"
-		if todo.Done {
-			checkbox = "[✓]"
-		}
-		fmt.Printf("  %d. %s %s\n", i+1, checkbox, todo.Text)
-	}
-
-	return nil
-}
-
-// addBallTodos adds todos to a ball
-func addBallTodos(ball *session.Session, tasks []string, store *session.Store) error {
-	if len(tasks) == 0 {
-		return fmt.Errorf("no tasks provided")
-	}
-
-	ball.AddTodos(tasks)
-	
-	if err := store.Save(ball); err != nil {
-		return fmt.Errorf("failed to save ball: %w", err)
-	}
-
-	fmt.Printf("✓ Added %d todo%s to ball %s\n", len(tasks), pluralize(len(tasks)), ball.ShortID())
-	return nil
-}
-
-// markBallTodoDone marks a todo as done
-func markBallTodoDone(ball *session.Session, args []string, store *session.Store) error {
-	if len(args) == 0 {
-		return fmt.Errorf("todo index required")
-	}
-
-	var index int
-	if _, err := fmt.Sscanf(args[0], "%d", &index); err != nil {
-		return fmt.Errorf("invalid todo index: %s", args[0])
-	}
-
-	// Convert to 0-based
-	index--
-
-	if err := ball.ToggleTodo(index); err != nil {
-		return err
-	}
-
-	if err := store.Save(ball); err != nil {
-		return fmt.Errorf("failed to save ball: %w", err)
-	}
-
-	total, completed := ball.TodoStats()
-	fmt.Printf("✓ Todo %d marked as done\n", index+1)
-	fmt.Printf("Progress: %d/%d complete (%d%%)\n", completed, total, (completed*100)/total)
-
-	return nil
-}
-
-// removeBallTodo removes a todo
-func removeBallTodo(ball *session.Session, args []string, store *session.Store) error {
-	if len(args) == 0 {
-		return fmt.Errorf("todo index required")
-	}
-
-	var index int
-	if _, err := fmt.Sscanf(args[0], "%d", &index); err != nil {
-		return fmt.Errorf("invalid todo index: %s", args[0])
-	}
-
-	// Convert to 0-based
-	index--
-
-	if err := ball.RemoveTodo(index); err != nil {
-		return err
-	}
-
-	if err := store.Save(ball); err != nil {
-		return fmt.Errorf("failed to save ball: %w", err)
-	}
-
-	fmt.Printf("✓ Removed todo %d\n", index+1)
 	return nil
 }
 
@@ -875,8 +745,8 @@ func handleBallDelete(ball *session.Session, args []string, store *session.Store
 	fmt.Printf("  Intent: %s\n", ball.Intent)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
-	if len(ball.Todos) > 0 {
-		fmt.Printf("  Todos: %d items\n", len(ball.Todos))
+	if len(ball.AcceptanceCriteria) > 0 {
+		fmt.Printf("  Acceptance Criteria: %d items\n", len(ball.AcceptanceCriteria))
 	}
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))

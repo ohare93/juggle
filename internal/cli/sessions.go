@@ -33,7 +33,9 @@ Commands:
 
 var (
 	sessionDescriptionFlag string
+	sessionContextFlag     string
 	sessionEditFlag        bool
+	sessionSetFlag         string
 )
 
 var sessionsCreateCmd = &cobra.Command{
@@ -66,8 +68,9 @@ var sessionsContextCmd = &cobra.Command{
 	Short: "View or edit session context",
 	Long: `View or edit the context for a session.
 
-Without --edit, displays the current context.
-With --edit, opens the context in $EDITOR for editing.`,
+Without flags, displays the current context.
+With --edit, opens the context in $EDITOR for editing.
+With --set "text", sets the context directly (agent-friendly).`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSessionsContext,
 }
@@ -86,7 +89,9 @@ Balls tagged with this session ID are not affected.`,
 func init() {
 	// Add flags
 	sessionsCreateCmd.Flags().StringVarP(&sessionDescriptionFlag, "message", "m", "", "Session description")
+	sessionsCreateCmd.Flags().StringVar(&sessionContextFlag, "context", "", "Initial session context (agent-friendly)")
 	sessionsContextCmd.Flags().BoolVar(&sessionEditFlag, "edit", false, "Open context in $EDITOR")
+	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
 
 	// Add subcommands
 	sessionsCmd.AddCommand(sessionsCreateCmd)
@@ -115,9 +120,19 @@ func runSessionsCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 
+	// Set context if provided
+	if sessionContextFlag != "" {
+		if err := store.UpdateSessionContext(id, sessionContextFlag); err != nil {
+			return fmt.Errorf("failed to set context: %w", err)
+		}
+	}
+
 	fmt.Printf("Created session: %s\n", sess.ID)
 	if description != "" {
 		fmt.Printf("  Description: %s\n", description)
+	}
+	if sessionContextFlag != "" {
+		fmt.Printf("  Context: (set)\n")
 	}
 	fmt.Printf("  Path: .juggler/sessions/%s/\n", id)
 
@@ -304,9 +319,19 @@ func runSessionsContext(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize session store: %w", err)
 	}
 
-	sess, err := store.LoadSession(id)
+	// Verify session exists
+	_, err = store.LoadSession(id)
 	if err != nil {
 		return fmt.Errorf("failed to load session: %w", err)
+	}
+
+	// Handle --set flag (agent-friendly)
+	if sessionSetFlag != "" {
+		if err := store.UpdateSessionContext(id, sessionSetFlag); err != nil {
+			return fmt.Errorf("failed to update context: %w", err)
+		}
+		fmt.Printf("Updated context for session: %s\n", id)
+		return nil
 	}
 
 	if sessionEditFlag {
@@ -314,6 +339,11 @@ func runSessionsContext(cmd *cobra.Command, args []string) error {
 		editor := os.Getenv("EDITOR")
 		if editor == "" {
 			editor = "vi" // Default fallback
+		}
+
+		sess, err := store.LoadSession(id)
+		if err != nil {
+			return fmt.Errorf("failed to load session: %w", err)
 		}
 
 		// Create temp file with current context
@@ -356,9 +386,14 @@ func runSessionsContext(cmd *cobra.Command, args []string) error {
 	}
 
 	// Just display context
+	sess, err := store.LoadSession(id)
+	if err != nil {
+		return fmt.Errorf("failed to load session: %w", err)
+	}
+
 	if sess.Context == "" {
 		fmt.Println("No context set for session:", id)
-		fmt.Println("\nEdit context with: juggle sessions context", id, "--edit")
+		fmt.Println("\nSet context with: juggle sessions context", id, "--set \"text\"")
 		return nil
 	}
 

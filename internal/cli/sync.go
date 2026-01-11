@@ -217,14 +217,9 @@ func mapPassesToState(passes bool, ball *session.Session) session.BallState {
 		return session.StateComplete
 	}
 
-	// If not passing, check if ball has any todos started
-	if ball != nil {
-		for _, todo := range ball.Todos {
-			if todo.Done {
-				// Has started work, mark as in_progress
-				return session.StateInProgress
-			}
-		}
+	// If ball exists and was in progress, preserve that state
+	if ball != nil && ball.State == session.StateInProgress {
+		return session.StateInProgress
 	}
 
 	// Default to pending

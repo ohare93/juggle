@@ -25,7 +25,7 @@ func (m Model) View() string {
 		return m.renderSplitView()
 	case splitHelpView:
 		return m.renderSplitHelpView()
-	case inputSessionView, inputBallView, inputTodoView, inputBlockedView:
+	case inputSessionView, inputBallView, inputBlockedView:
 		return m.renderInputView()
 	case inputTagView:
 		return m.renderTagView()
@@ -180,12 +180,6 @@ func (m Model) renderInputView() string {
 		} else {
 			title = "Edit Ball"
 		}
-	case inputTodoView:
-		if m.inputAction == actionAdd {
-			title = "Add Todo"
-		} else {
-			title = "Edit Todo"
-		}
 	case inputBlockedView:
 		title = "Block Ball"
 	}
@@ -209,10 +203,6 @@ func (m Model) renderInputView() string {
 		}
 		if m.selectedSession != nil && m.inputAction == actionAdd {
 			b.WriteString(fmt.Sprintf("Session: %s\n\n", m.selectedSession.ID))
-		}
-	case inputTodoView:
-		if m.selectedBall != nil {
-			b.WriteString(fmt.Sprintf("Ball: %s\n\n", m.selectedBall.ID))
 		}
 	case inputBlockedView:
 		if m.editingBall != nil {
@@ -272,13 +262,7 @@ func (m Model) renderSplitConfirmDelete() string {
 			b.WriteString(fmt.Sprintf("Ball: %s\n", ball.ID))
 			b.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
 			b.WriteString(fmt.Sprintf("State: %s\n", ball.State))
-			b.WriteString(fmt.Sprintf("Todos: %d\n", len(ball.Todos)))
-		}
-	case "delete_todo":
-		if m.selectedBall != nil && m.todoCursor < len(m.selectedBall.Todos) {
-			todo := m.selectedBall.Todos[m.todoCursor]
-			b.WriteString(fmt.Sprintf("Ball: %s\n", m.selectedBall.ID))
-			b.WriteString(fmt.Sprintf("Todo: %s\n", todo.Text))
+			b.WriteString(fmt.Sprintf("Criteria: %d\n", len(ball.AcceptanceCriteria)))
 		}
 	}
 
@@ -354,8 +338,6 @@ func (m Model) renderPanelSearchView() string {
 		panelName = "Sessions"
 	case BallsPanel:
 		panelName = "Balls"
-	case TodosPanel:
-		panelName = "Todos"
 	}
 
 	title := lipgloss.NewStyle().
@@ -558,7 +540,7 @@ func (m Model) renderSplitHelpView() string {
 		{
 			title: "Global Navigation",
 			items: []helpItem{
-				{"Tab / l", "Next panel (Sessions → Balls → Todos → Activity)"},
+				{"Tab / l", "Next panel (Sessions → Balls → Activity)"},
 				{"Shift+Tab / h", "Previous panel"},
 				{"j / ↓", "Move down / Scroll down"},
 				{"k / ↑", "Move up / Scroll up"},
@@ -586,7 +568,7 @@ func (m Model) renderSplitHelpView() string {
 				{"j/k", "Navigate balls"},
 				{"[ / ]", "Switch session (previous / next)"},
 				{"Space", "Go back to sessions panel"},
-				{"Enter", "Select ball and show todos"},
+				{"Enter", "Select ball"},
 				{"a", "Add new ball (tagged to current session)"},
 				{"e", "Edit ball in $EDITOR (YAML format)"},
 				{"d", "Delete ball (with confirmation)"},
@@ -595,18 +577,6 @@ func (m Model) renderSplitHelpView() string {
 				{"c", "Complete ball (→ complete, archives)"},
 				{"b", "Block ball (prompts for reason)"},
 				{"/", "Filter balls"},
-				{"Ctrl+U", "Clear filter"},
-			},
-		},
-		{
-			title: "Todos Panel",
-			items: []helpItem{
-				{"j/k", "Navigate todos"},
-				{"Enter / Space", "Toggle todo completion"},
-				{"a", "Add new todo"},
-				{"e", "Edit todo text"},
-				{"d", "Delete todo (with confirmation)"},
-				{"/", "Filter todos"},
 				{"Ctrl+U", "Clear filter"},
 			},
 		},

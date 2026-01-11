@@ -22,7 +22,6 @@ const (
 	// Input modes for CRUD operations
 	inputSessionView     // Add/edit session
 	inputBallView        // Add/edit ball
-	inputTodoView        // Add/edit todo
 	inputBlockedView     // Prompt for blocked reason
 	inputTagView         // Add/remove tags (legacy, kept for backwards compatibility)
 	sessionSelectorView  // Session selector for tagging balls
@@ -53,7 +52,6 @@ type Panel int
 const (
 	SessionsPanel Panel = iota
 	BallsPanel
-	TodosPanel
 	ActivityPanel
 )
 
@@ -94,7 +92,6 @@ type Model struct {
 	mode         viewMode
 	cursor       int
 	selectedBall *session.Session
-	todoCursor   int // cursor position in todos panel
 
 	// Panel state (for split view)
 	activePanel Panel
@@ -128,7 +125,6 @@ type Model struct {
 	inputAction        InputAction      // Add or Edit
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
 	editingBall        *session.Session // Ball being edited (for edit action)
-	editingTodo        int              // Todo index being edited (-1 for new)
 	tagEditMode        TagEditMode      // Whether adding or removing a tag
 	sessionSelectItems []*session.JuggleSession // Sessions available for selection
 	sessionSelectIndex int                      // Current selection index in session selector
@@ -160,7 +156,6 @@ func InitialModel(store *session.Store, config *session.Config, localOnly bool) 
 		cursor:      0,
 		activityLog: make([]ActivityEntry, 0),
 		textInput:   ti,
-		editingTodo: -1,
 	}
 }
 
@@ -191,10 +186,8 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 		},
 		cursor:        0,
 		sessionCursor: 0,
-		todoCursor:    0,
 		activityLog:   make([]ActivityEntry, 0),
 		textInput:     ti,
-		editingTodo:   -1,
 		fileWatcher:   w,
 	}
 }

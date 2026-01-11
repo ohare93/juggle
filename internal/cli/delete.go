@@ -46,8 +46,8 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Intent: %s\n", foundBall.Intent)
 	fmt.Printf("  Priority: %s\n", foundBall.Priority)
 	fmt.Printf("  State: %s\n", foundBall.State)
-	if len(foundBall.Todos) > 0 {
-		fmt.Printf("  Todos: %d items\n", len(foundBall.Todos))
+	if len(foundBall.AcceptanceCriteria) > 0 {
+		fmt.Printf("  Acceptance Criteria: %d items\n", len(foundBall.AcceptanceCriteria))
 	}
 	if len(foundBall.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(foundBall.Tags, ", "))

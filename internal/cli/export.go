@@ -38,12 +38,12 @@ Filters are applied in order:
 The Ralph format (--format ralph) is designed for agent loops and includes:
 - <context> section from the session's context
 - <progress> section from the session's progress.txt
-- <tasks> section with balls, their state, priority, and todos
+- <tasks> section with balls, their state, priority, and acceptance criteria
 
 The Agent format (--format agent) is a self-contained prompt for AI agents:
 - <context> section from the session's context
 - <progress> section with last 50 lines of progress.txt
-- <balls> section with all session balls (state, todos, acceptance criteria)
+- <balls> section with all session balls (state, acceptance criteria)
 - <instructions> section with the agent prompt template
 Can be piped directly to 'claude -p'.
 
@@ -356,32 +356,15 @@ func isValidBallState(state string) bool {
 }
 
 func exportJSON(balls []*session.Session) ([]byte, error) {
-	// Create enhanced ball exports with computed fields
-	type ballExport struct {
-		*session.Session
-		TodosCompleted int `json:"todos_completed"`
-		TodosTotal     int `json:"todos_total"`
-	}
-
-	enhancedBalls := make([]*ballExport, len(balls))
-	for i, ball := range balls {
-		total, completed := ball.TodoStats()
-		enhancedBalls[i] = &ballExport{
-			Session:        ball,
-			TodosCompleted: completed,
-			TodosTotal:     total,
-		}
-	}
-
 	// Create export structure
 	export := struct {
-		ExportedAt string        `json:"exported_at"`
-		TotalBalls int           `json:"total_balls"`
-		Balls      []*ballExport `json:"balls"`
+		ExportedAt string             `json:"exported_at"`
+		TotalBalls int                `json:"total_balls"`
+		Balls      []*session.Session `json:"balls"`
 	}{
 		ExportedAt: fmt.Sprintf("%d", 1),
 		TotalBalls: len(balls),
-		Balls:      enhancedBalls,
+		Balls:      balls,
 	}
 
 	data, err := json.MarshalIndent(export, "", "  ")
@@ -409,8 +392,6 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 		"CompletedAt",
 		"LastActivity",
 		"Tags",
-		"TodosTotal",
-		"TodosCompleted",
 		"CompletionNote",
 	}
 	if err := writer.Write(header); err != nil {
@@ -426,8 +407,6 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 
 		tags := strings.Join(ball.Tags, ";")
 
-		total, completed := ball.TodoStats()
-
 		row := []string{
 			ball.ID,
 			ball.WorkingDir,
@@ -440,8 +419,6 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 			completedAt,
 			ball.LastActivity.Format("2006-01-02 15:04:05"),
 			tags,
-			fmt.Sprintf("%d", total),
-			fmt.Sprintf("%d", completed),
 			ball.CompletionNote,
 		}
 
@@ -469,7 +446,7 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 // </progress>
 //
 // <tasks>
-// [balls with todos]
+// [balls with acceptance criteria]
 // </tasks>
 func exportRalph(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
 	var buf strings.Builder
@@ -556,21 +533,6 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
 		buf.WriteString(fmt.Sprintf("Blocked: %s\n", ball.BlockedReason))
 	}
 
-	// Todos
-	if len(ball.Todos) > 0 {
-		buf.WriteString("Todos:\n")
-		for i, todo := range ball.Todos {
-			checkbox := "[ ]"
-			if todo.Done {
-				checkbox = "[x]"
-			}
-			buf.WriteString(fmt.Sprintf("  %d. %s %s\n", i+1, checkbox, todo.Text))
-			if todo.Description != "" {
-				buf.WriteString(fmt.Sprintf("     %s\n", todo.Description))
-			}
-		}
-	}
-
 	// Tags
 	if len(ball.Tags) > 0 {
 		buf.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(ball.Tags, ", ")))
@@ -588,7 +550,7 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
 // </progress>
 //
 // <balls>
-// [balls with state, todos, and acceptance criteria]
+// [balls with state and acceptance criteria]
 // </balls>
 //
 // <instructions>
@@ -705,21 +667,6 @@ func writeBallForAgent(buf *strings.Builder, ball *session.Session) {
 	// Blocked reason if blocked
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString(fmt.Sprintf("Blocked: %s\n", ball.BlockedReason))
-	}
-
-	// Todos
-	if len(ball.Todos) > 0 {
-		buf.WriteString("Todos:\n")
-		for i, todo := range ball.Todos {
-			checkbox := "[ ]"
-			if todo.Done {
-				checkbox = "[x]"
-			}
-			buf.WriteString(fmt.Sprintf("  %d. %s %s\n", i+1, checkbox, todo.Text))
-			if todo.Description != "" {
-				buf.WriteString(fmt.Sprintf("     %s\n", todo.Description))
-			}
-		}
 	}
 
 	// Tags

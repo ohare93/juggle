@@ -11,7 +11,7 @@ You are implementing features tracked by juggler balls. You must autonomously se
 The context sections below contain:
 - `<context>`: Epic-level goals, constraints, and background
 - `<progress>`: Prior work, learnings, and patterns
-- `<balls>`: Current balls with state, todos, and acceptance criteria
+- `<balls>`: Current balls with state and acceptance criteria
 
 Review these sections to understand the current state.
 
@@ -19,7 +19,7 @@ Review these sections to understand the current state.
 
 1. Find the highest-priority ball where state is NOT `complete`
 2. YOU decide which has highest priority based on dependencies and complexity
-3. If a ball is `in_progress` with incomplete todos, continue that ball
+3. If a ball is `in_progress`, continue that ball
 4. Note the ball's **acceptance criteria** - these determine what tools you'll need
 
 **IMPORTANT: Only work on ONE BALL per iteration.**
@@ -60,7 +60,7 @@ Review these sections to understand the current state.
 - Follow existing code patterns in the codebase
 - Keep changes minimal and focused
 - Do not refactor unrelated code
-- Complete all todos for the selected ball before marking it complete
+- Complete all acceptance criteria for the selected ball before marking it complete
 
 ### 4. Verify
 
@@ -73,12 +73,6 @@ Run the verification commands required by the ball's acceptance criteria:
 ### 5. Update Juggler State
 
 Use juggler CLI commands to update state (all support `--json` for structured output):
-
-**Mark todos complete:**
-```bash
-juggle todo complete <ball-id> <index>
-# Example: juggle todo complete myapp-5 1
-```
 
 **Update ball state:**
 ```bash
@@ -126,7 +120,6 @@ If the commit fails or is permission-denied, output exactly:
 | `juggle show <id> [--json]` | Show ball details |
 | `juggle update <id> --state <state>` | Update ball state (pending/in_progress/blocked/complete) |
 | `juggle update <id> --state blocked --reason "..."` | Mark ball as blocked with reason |
-| `juggle todo complete <id> <index> [--json]` | Mark todo as complete (1-based index) |
 | `juggle progress append <session> "text" [--json]` | Append timestamped entry to session progress |
 
 ## Completion Signals

@@ -79,13 +79,6 @@ func renderSessionDetails(sess *session.Session) {
 		fmt.Println(labelStyle.Render("Blocked:"), valueStyle.Render(sess.BlockedReason))
 	}
 
-	if len(sess.AcceptanceCriteria) > 0 {
-		fmt.Println(labelStyle.Render("Acceptance Criteria:"))
-		for i, criterion := range sess.AcceptanceCriteria {
-			fmt.Printf("  %d. %s\n", i+1, criterion)
-		}
-	}
-
 	fmt.Println(labelStyle.Render("Started:"), valueStyle.Render(sess.StartedAt.Format("2006-01-02 15:04:05")))
 	fmt.Println(labelStyle.Render("Last Activity:"), valueStyle.Render(sess.LastActivity.Format("2006-01-02 15:04:05")))
 	fmt.Println(labelStyle.Render("Updates:"), valueStyle.Render(fmt.Sprintf("%d", sess.UpdateCount)))
@@ -94,23 +87,10 @@ func renderSessionDetails(sess *session.Session) {
 		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(sess.Tags, ", ")))
 	}
 
-	if len(sess.Todos) > 0 {
-		total, completed := sess.TodoStats()
-		percentage := 0.0
-		if total > 0 {
-			percentage = float64(completed) / float64(total) * 100
-		}
-		fmt.Printf("\n%s %d/%d complete (%.0f%%)\n", labelStyle.Render("Todos:"), completed, total, percentage)
-		
-		for i, todo := range sess.Todos {
-			checkbox := "[ ]"
-			if todo.Done {
-				checkbox = "[✓]"
-			}
-			fmt.Printf("  %d. %s %s\n", i+1, checkbox, todo.Text)
-			if todo.Description != "" {
-				fmt.Printf("      %s\n", todo.Description)
-			}
+	if len(sess.AcceptanceCriteria) > 0 {
+		fmt.Printf("\n%s\n", labelStyle.Render("Acceptance Criteria:"))
+		for i, ac := range sess.AcceptanceCriteria {
+			fmt.Printf("  %d. %s\n", i+1, ac)
 		}
 	}
 

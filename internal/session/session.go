@@ -28,14 +28,6 @@ const (
 	ModelSizeLarge  ModelSize = "large"  // Maps to opus or equivalent capable model
 )
 
-// Todo represents a single todo item with completion status
-type Todo struct {
-	Text        string    `json:"text"`
-	Description string    `json:"description,omitempty"`
-	Done        bool      `json:"done"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 // BallState represents the lifecycle state of a ball
 type BallState string
 
@@ -60,7 +52,6 @@ type Session struct {
 	LastActivity       time.Time   `json:"last_activity"`
 	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
 	UpdateCount        int         `json:"update_count"`
-	Todos              []Todo      `json:"todos,omitempty"`
 	Tags               []string    `json:"tags,omitempty"`
 	CompletionNote     string      `json:"completion_note,omitempty"`
 	ModelSize          ModelSize   `json:"model_size,omitempty"` // Preferred LLM model size for cost optimization
@@ -152,29 +143,6 @@ func (s *Session) UnmarshalJSON(data []byte) error {
 		s.State = StatePending
 	}
 
-	// Handle todos migration: support both []string (old) and []Todo (new)
-	if len(sj.Todos) > 0 {
-		// Try parsing as []Todo first
-		var newTodos []Todo
-		if err := json.Unmarshal(sj.Todos, &newTodos); err == nil {
-			s.Todos = newTodos
-		} else {
-			// Fall back to []string (old format)
-			var oldTodos []string
-			if err := json.Unmarshal(sj.Todos, &oldTodos); err == nil {
-				// Migrate old format to new format
-				s.Todos = make([]Todo, len(oldTodos))
-				for i, text := range oldTodos {
-					s.Todos[i] = Todo{
-						Text:      text,
-						Done:      false,
-						CreatedAt: s.StartedAt, // Use session start as approximate creation time
-					}
-				}
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -199,7 +167,6 @@ type sessionJSON struct {
 	StartedAt          time.Time       `json:"started_at"`
 	LastActivity       time.Time       `json:"last_activity"`
 	UpdateCount        int             `json:"update_count"`
-	Todos              json.RawMessage `json:"todos,omitempty"`
 	Tags               []string        `json:"tags,omitempty"`
 	CompletionNote     string          `json:"completion_note,omitempty"`
 	ModelSize          ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
@@ -222,7 +189,6 @@ func New(workingDir, intent string, priority Priority) (*Session, error) {
 		StartedAt:    now,
 		LastActivity: now,
 		UpdateCount:  0,
-		Todos:        []Todo{},
 		Tags:         []string{},
 	}
 	return sess, nil
@@ -290,49 +256,6 @@ func (s *Session) Start() {
 	}
 }
 
-// AddTodo adds a todo item to the session
-func (s *Session) AddTodo(text string) {
-	s.Todos = append(s.Todos, Todo{
-		Text:      text,
-		Done:      false,
-		CreatedAt: time.Now(),
-	})
-	s.UpdateActivity()
-}
-
-// AddTodos adds multiple todo items at once (useful for batch operations)
-func (s *Session) AddTodos(texts []string) {
-	for _, text := range texts {
-		s.Todos = append(s.Todos, Todo{
-			Text:      text,
-			Done:      false,
-			CreatedAt: time.Now(),
-		})
-	}
-	s.UpdateActivity()
-}
-
-// AddTodoWithDescription adds a todo item with a description to the session
-func (s *Session) AddTodoWithDescription(text, description string) {
-	s.Todos = append(s.Todos, Todo{
-		Text:        text,
-		Description: description,
-		Done:        false,
-		CreatedAt:   time.Now(),
-	})
-	s.UpdateActivity()
-}
-
-// SetTodoDescription sets or updates the description of a todo by index (0-based)
-func (s *Session) SetTodoDescription(index int, description string) error {
-	if index < 0 || index >= len(s.Todos) {
-		return fmt.Errorf("invalid todo index: %d (have %d todos)", index, len(s.Todos))
-	}
-	s.Todos[index].Description = description
-	s.UpdateActivity()
-	return nil
-}
-
 // SetDescription sets the session's description
 // DEPRECATED: Use SetAcceptanceCriteria or AddAcceptanceCriterion instead
 func (s *Session) SetDescription(description string) {
@@ -382,59 +305,6 @@ func (s *Session) RemoveAcceptanceCriterion(index int) error {
 	}
 	s.UpdateActivity()
 	return nil
-}
-
-// ToggleTodo marks a todo as done or undone by index (0-based)
-func (s *Session) ToggleTodo(index int) error {
-	if index < 0 || index >= len(s.Todos) {
-		return fmt.Errorf("invalid todo index: %d (have %d todos)", index, len(s.Todos))
-	}
-	s.Todos[index].Done = !s.Todos[index].Done
-	s.UpdateActivity()
-	return nil
-}
-
-// RemoveTodo removes a todo by index (0-based)
-func (s *Session) RemoveTodo(index int) error {
-	if index < 0 || index >= len(s.Todos) {
-		return fmt.Errorf("invalid todo index: %d (have %d todos)", index, len(s.Todos))
-	}
-	s.Todos = append(s.Todos[:index], s.Todos[index+1:]...)
-	s.UpdateActivity()
-	return nil
-}
-
-// EditTodo updates the text of a todo by index (0-based)
-func (s *Session) EditTodo(index int, newText string) error {
-	if index < 0 || index >= len(s.Todos) {
-		return fmt.Errorf("invalid todo index: %d (have %d todos)", index, len(s.Todos))
-	}
-	s.Todos[index].Text = newText
-	s.UpdateActivity()
-	return nil
-}
-
-// ClearTodos removes all todos
-func (s *Session) ClearTodos() {
-	s.Todos = []Todo{}
-	s.UpdateActivity()
-}
-
-// TodoStats returns counts of total and completed todos
-func (s *Session) TodoStats() (total, completed int) {
-	total = len(s.Todos)
-	for _, todo := range s.Todos {
-		if todo.Done {
-			completed++
-		}
-	}
-	return
-}
-
-// TodoCompletionSummary returns a string like "3/5" showing completed/total todos
-func (s *Session) TodoCompletionSummary() string {
-	total, completed := s.TodoStats()
-	return fmt.Sprintf("%d/%d", completed, total)
 }
 
 // AddTag adds a tag to the session

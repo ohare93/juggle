@@ -99,29 +99,12 @@ func renderCurrentSession(sess *session.Session) {
 		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(sess.Tags, ", ")))
 	}
 
-	// Todos section
-	if len(sess.Todos) > 0 {
-		total, completed := sess.TodoStats()
-		percentage := 0.0
-		if total > 0 {
-			percentage = float64(completed) / float64(total) * 100
+	// Acceptance Criteria section
+	if len(sess.AcceptanceCriteria) > 0 {
+		fmt.Printf("\n%s\n", labelStyle.Render("Acceptance Criteria:"))
+		for i, ac := range sess.AcceptanceCriteria {
+			fmt.Printf("  %d. %s\n", i+1, ac)
 		}
-		fmt.Printf("\n%s %d/%d complete (%.0f%%)\n", 
-			labelStyle.Render("Todos:"), completed, total, percentage)
-		
-		for i, todo := range sess.Todos {
-			checkbox := "[ ]"
-			checkStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-			if todo.Done {
-				checkbox = "[✓]"
-				checkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-			}
-			fmt.Printf("  %d. %s %s\n", i+1, checkStyle.Render(checkbox), todo.Text)
-		}
-	} else {
-		fmt.Println()
-		fmt.Println(labelStyle.Render("Todos:"), valueStyle.Render("none"))
-		fmt.Println("  Add todos with: juggler session todo add <text>")
 	}
 
 	if sess.UpdateCount > 0 {

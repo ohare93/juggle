@@ -48,21 +48,6 @@ func renderBallDetail(ball *session.Session) string {
 		}
 	}
 
-	// Todos
-	if len(ball.Todos) > 0 {
-		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Todos:") + "\n")
-		for i, todo := range ball.Todos {
-			status := "[ ]"
-			style := lipgloss.NewStyle()
-			if todo.Done {
-				status = "[✓]"
-				style = style.Foreground(lipgloss.Color("8")).Strikethrough(true)
-			}
-			todoLine := fmt.Sprintf("  %s %d. %s", status, i+1, todo.Text)
-			b.WriteString(style.Render(todoLine) + "\n")
-		}
-	}
-
 	// Footer
 	b.WriteString("\n" + helpStyle.Render("Press 'b' to go back, 'q' to quit") + "\n")
 

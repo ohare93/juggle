@@ -355,10 +355,8 @@ func testUnarchivePreservesMetadata(t *testing.T) {
 	ball := env.CreateSession(t, "Rich metadata ball", session.PriorityUrgent)
 	ballID := ball.ID
 
-	// Add todos
-	ball.AddTodo("First todo")
-	ball.AddTodo("Second todo")
-	ball.ToggleTodo(0) // Complete first todo
+	// Set acceptance criteria
+	ball.SetAcceptanceCriteria([]string{"First criterion", "Second criterion"})
 
 	// Add tags
 	ball.Tags = []string{"feature", "backend", "urgent"}
@@ -408,21 +406,15 @@ func testUnarchivePreservesMetadata(t *testing.T) {
 		t.Errorf("Expected priority %s, got %s", session.PriorityUrgent, restored.Priority)
 	}
 
-	// Check todos are preserved
-	if len(restored.Todos) != 2 {
-		t.Fatalf("Expected 2 todos, got %d", len(restored.Todos))
+	// Check acceptance criteria are preserved
+	if len(restored.AcceptanceCriteria) != 2 {
+		t.Fatalf("Expected 2 acceptance criteria, got %d", len(restored.AcceptanceCriteria))
 	}
-	if restored.Todos[0].Text != "First todo" {
-		t.Errorf("Expected first todo 'First todo', got '%s'", restored.Todos[0].Text)
+	if restored.AcceptanceCriteria[0] != "First criterion" {
+		t.Errorf("Expected first criterion 'First criterion', got '%s'", restored.AcceptanceCriteria[0])
 	}
-	if !restored.Todos[0].Done {
-		t.Error("Expected first todo to be marked done")
-	}
-	if restored.Todos[1].Text != "Second todo" {
-		t.Errorf("Expected second todo 'Second todo', got '%s'", restored.Todos[1].Text)
-	}
-	if restored.Todos[1].Done {
-		t.Error("Expected second todo to NOT be marked done")
+	if restored.AcceptanceCriteria[1] != "Second criterion" {
+		t.Errorf("Expected second criterion 'Second criterion', got '%s'", restored.AcceptanceCriteria[1])
 	}
 
 	// Check tags are preserved

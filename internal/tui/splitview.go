@@ -11,7 +11,7 @@ import (
 // Panel dimensions as fractions of available space
 const (
 	leftPanelRatio   = 0.25 // 25% for sessions
-	rightPanelRatio  = 0.75 // 75% for balls+todos
+	rightPanelRatio  = 0.75 // 75% for balls
 	bottomPanelRows  = 6    // Fixed height for activity log
 	minLeftWidth     = 20
 	minRightWidth    = 40
@@ -91,7 +91,7 @@ func (m Model) renderSplitView() string {
 		sessionsBorder = panelBorderStyle.Width(leftWidth).Height(mainHeight)
 	}
 
-	if m.activePanel == BallsPanel || m.activePanel == TodosPanel {
+	if m.activePanel == BallsPanel {
 		ballsBorder = activePanelBorderStyle.Width(rightWidth).Height(mainHeight)
 	} else {
 		ballsBorder = panelBorderStyle.Width(rightWidth).Height(mainHeight)
@@ -239,15 +239,8 @@ func (m Model) renderBallsPanel(width, height int) string {
 		return b.String()
 	}
 
-	// Split height between balls and todos if a ball is selected
-	var ballsHeight, todosHeight int
-	if m.selectedBall != nil && m.activePanel == TodosPanel {
-		ballsHeight = (height - 4) / 2
-		todosHeight = height - 4 - ballsHeight
-	} else {
-		ballsHeight = height - 4
-		todosHeight = 0
-	}
+	// Calculate available height for balls
+	ballsHeight := height - 4
 
 	// Render balls list
 	for i, ball := range balls {
@@ -299,72 +292,6 @@ func (m Model) renderBallsPanel(width, height int) string {
 			b.WriteString(lipgloss.NewStyle().Background(lipgloss.Color("235")).Render(line) + "\n")
 		} else {
 			b.WriteString(ballStyle.Render(line) + "\n")
-		}
-	}
-
-	// Render todos section if ball is selected and in todos panel
-	if m.selectedBall != nil && todosHeight > 0 {
-		// Show acceptance criteria first
-		acHeight := 0
-		if len(m.selectedBall.AcceptanceCriteria) > 0 {
-			b.WriteString("\n")
-			b.WriteString(panelTitleStyle.Render("Acceptance Criteria") + "\n")
-			b.WriteString(strings.Repeat("─", width) + "\n")
-
-			for i, ac := range m.selectedBall.AcceptanceCriteria {
-				acLine := fmt.Sprintf("  %d. %s", i+1, truncate(ac, width-6))
-				b.WriteString(acLine + "\n")
-				acHeight++
-				if acHeight >= 3 && len(m.selectedBall.AcceptanceCriteria) > 3 {
-					remaining := len(m.selectedBall.AcceptanceCriteria) - 3
-					b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
-					acHeight++
-					break
-				}
-			}
-		}
-
-		// Adjust todos height
-		adjustedTodosHeight := todosHeight - acHeight - 4
-		if adjustedTodosHeight < 3 {
-			adjustedTodosHeight = 3
-		}
-
-		b.WriteString("\n")
-		if m.activePanel == TodosPanel {
-			b.WriteString(activePanelTitleStyle.Render("Todos") + "\n")
-		} else {
-			b.WriteString(panelTitleStyle.Render("Todos") + "\n")
-		}
-		b.WriteString(strings.Repeat("─", width) + "\n")
-
-		if len(m.selectedBall.Todos) == 0 {
-			b.WriteString(helpStyle.Render("  No todos") + "\n")
-		} else {
-			for i, todo := range m.selectedBall.Todos {
-				if i >= adjustedTodosHeight-3 {
-					remaining := len(m.selectedBall.Todos) - (adjustedTodosHeight - 3)
-					if remaining > 0 {
-						b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
-					}
-					break
-				}
-
-				checkbox := "[ ]"
-				style := lipgloss.NewStyle()
-				if todo.Done {
-					checkbox = "[x]"
-					style = style.Foreground(lipgloss.Color("8")).Strikethrough(true)
-				}
-
-				todoLine := fmt.Sprintf("%s %s", checkbox, truncate(todo.Text, width-6))
-
-				if i == m.todoCursor && m.activePanel == TodosPanel {
-					b.WriteString(selectedBallStyle.Render(todoLine) + "\n")
-				} else {
-					b.WriteString(style.Render(todoLine) + "\n")
-				}
-			}
 		}
 	}
 
@@ -440,7 +367,7 @@ func (m Model) renderBallDetailPanel(width, height int) string {
 
 	// Get the currently highlighted ball based on active panel
 	var ball *session.Session
-	if m.activePanel == BallsPanel || m.activePanel == TodosPanel {
+	if m.activePanel == BallsPanel {
 		balls := m.filterBallsForSession()
 		if m.cursor < len(balls) {
 			ball = balls[m.cursor]
@@ -490,15 +417,7 @@ func (m Model) renderBallDetailPanel(width, height int) string {
 	}
 	acLabel := labelStyle.Render("Criteria:")
 	acValue := fmt.Sprintf("%d items", len(ball.AcceptanceCriteria))
-	todosLabel := labelStyle.Render("Todos:")
-	doneCount := 0
-	for _, t := range ball.Todos {
-		if t.Done {
-			doneCount++
-		}
-	}
-	todosValue := fmt.Sprintf("%d/%d done", doneCount, len(ball.Todos))
-	b.WriteString(fmt.Sprintf("  %s %s    %s %s    %s %s\n", tagsLabel, valueStyle.Render(tagsValue), acLabel, valueStyle.Render(acValue), todosLabel, valueStyle.Render(todosValue)))
+	b.WriteString(fmt.Sprintf("  %s %s    %s %s\n", tagsLabel, valueStyle.Render(tagsValue), acLabel, valueStyle.Render(acValue)))
 
 	// Footer hint
 	b.WriteString(helpStyle.Render("  Press 'i' to toggle to activity log | 'e' to edit ball in $EDITOR"))
@@ -515,9 +434,7 @@ func (m Model) renderStatusBar() string {
 	case SessionsPanel:
 		hints = []string{"Tab:panels", "j/k:nav", "a:add", "A:agent", "e:edit", "d:del", "/:filter", "i:info", "?:help", "q:quit"}
 	case BallsPanel:
-		hints = []string{"Tab:panels", "j/k:nav", "[/]:session", "Space:back", "Enter:todos", "a:add", "e:edit", "t:tag", "i:info", "?:help"}
-	case TodosPanel:
-		hints = []string{"Tab:panels", "j/k:nav", "Space:toggle", "a:add", "e:edit", "d:del", "i:info", "Esc:back", "?:help"}
+		hints = []string{"Tab:panels", "j/k:nav", "[/]:session", "Space:back", "a:add", "e:edit", "t:tag", "i:info", "?:help"}
 	case ActivityPanel:
 		hints = []string{"Tab:panels", "j/k:scroll", "Ctrl+d/u:page", "gg:top", "G:bottom", "i:info", "?:help", "q:quit"}
 	}

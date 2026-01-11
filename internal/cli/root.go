@@ -31,7 +31,6 @@ Ball states:
 
 Example workflow:
   juggle start "Add login feature"   # Create and start
-  juggle todo add "Design UI"        # Add todos
   juggle blocked "Waiting for API"   # Mark blocked with reason
   juggle in-progress                 # Resume work
   juggle complete                    # Finish and archive`,
@@ -151,7 +150,6 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	fmt.Println("      block (b)          Mark current session as blocked")
 	fmt.Println("      unblock (ub)       Clear blocker from current session")
 	fmt.Println("      done (d, complete) Mark current session as complete")
-	fmt.Println("      todo (t, todos)    Manage todos for a session")
 	fmt.Println("      tag (tags)         Manage tags for a session")
 	fmt.Println()
 	fmt.Println("    Examples: juggler block, juggler session block, juggler ball done")
@@ -192,9 +190,8 @@ func customSessionHelpFunc(cmd *cobra.Command, args []string) {
 	
 	fmt.Println("Available Subcommands:")
 	fmt.Println("  block (b)          Mark current session as blocked")
-	fmt.Println("  unblock (ub)       Clear blocker from current session") 
+	fmt.Println("  unblock (ub)       Clear blocker from current session")
 	fmt.Println("  done (d, complete) Mark current session as complete")
-	fmt.Println("  todo (t, todos)    Manage todos for a session")
 	fmt.Println("  tag (tags)         Manage tags for a session")
 	fmt.Println()
 	
