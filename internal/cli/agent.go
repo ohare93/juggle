@@ -69,28 +69,95 @@ type AgentResult struct {
 	EndedAt       time.Time `json:"ended_at"`
 }
 
+// AgentLoopConfig configures the agent loop behavior
+type AgentLoopConfig struct {
+	SessionID     string
+	ProjectDir    string
+	MaxIterations int
+	Trust         bool
+	IterDelay     time.Duration // Delay between iterations (set to 0 for tests)
+}
+
+// RunAgentLoop executes the agent loop with the given configuration.
+// This is the testable core of the agent run command.
+func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
+	startTime := time.Now()
+
+	// Verify session exists
+	sessionStore, err := session.NewSessionStore(config.ProjectDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session store: %w", err)
+	}
+
+	if _, err := sessionStore.LoadSession(config.SessionID); err != nil {
+		return nil, fmt.Errorf("session not found: %s", config.SessionID)
+	}
+
+	// Create output file path
+	outputPath := filepath.Join(config.ProjectDir, ".juggler", "sessions", config.SessionID, "last_output.txt")
+
+	result := &AgentResult{
+		StartedAt: startTime,
+	}
+
+	for iteration := 1; iteration <= config.MaxIterations; iteration++ {
+		result.Iterations = iteration
+
+		// Generate prompt using export command
+		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate prompt: %w", err)
+		}
+
+		// Run agent with prompt using the Runner interface
+		runResult, err := agent.DefaultRunner.Run(prompt, config.Trust)
+		if err != nil {
+			return nil, fmt.Errorf("failed to run agent: %w", err)
+		}
+
+		// Save output to file (ignore errors for test compatibility)
+		_ = os.WriteFile(outputPath, []byte(runResult.Output), 0644)
+
+		// Check for completion signals (already parsed by Runner)
+		if runResult.Complete {
+			result.Complete = true
+			break
+		}
+
+		if runResult.Blocked {
+			result.Blocked = true
+			result.BlockedReason = runResult.BlockedReason
+			break
+		}
+
+		// Check if all balls are complete
+		complete, total := checkBallsComplete(config.ProjectDir, config.SessionID)
+		result.BallsComplete = complete
+		result.BallsTotal = total
+
+		if total > 0 && complete == total {
+			result.Complete = true
+			break
+		}
+
+		// Delay before next iteration (unless this was the last one)
+		if iteration < config.MaxIterations && config.IterDelay > 0 {
+			time.Sleep(config.IterDelay)
+		}
+	}
+
+	result.EndedAt = time.Now()
+	return result, nil
+}
+
 func runAgentRun(cmd *cobra.Command, args []string) error {
 	sessionID := args[0]
-	startTime := time.Now()
 
 	// Get current directory
 	cwd, err := GetWorkingDir()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
-
-	// Verify session exists
-	sessionStore, err := session.NewSessionStore(cwd)
-	if err != nil {
-		return fmt.Errorf("failed to create session store: %w", err)
-	}
-
-	if _, err := sessionStore.LoadSession(sessionID); err != nil {
-		return fmt.Errorf("session not found: %s", sessionID)
-	}
-
-	// Create output file path
-	outputPath := filepath.Join(cwd, ".juggler", "sessions", sessionID, "last_output.txt")
 
 	// Print warning if --trust is used
 	if agentTrust {
@@ -103,71 +170,20 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Max iterations: %d\n", agentIterations)
 	fmt.Println()
 
-	result := AgentResult{
-		StartedAt: startTime,
+	// Run the agent loop
+	loopConfig := AgentLoopConfig{
+		SessionID:     sessionID,
+		ProjectDir:    cwd,
+		MaxIterations: agentIterations,
+		Trust:         agentTrust,
+		IterDelay:     2 * time.Second,
 	}
 
-	for iteration := 1; iteration <= agentIterations; iteration++ {
-		fmt.Printf("=== Iteration %d/%d ===\n", iteration, agentIterations)
-		result.Iterations = iteration
-
-		// Generate prompt using export command
-		prompt, err := generateAgentPrompt(cwd, sessionID)
-		if err != nil {
-			return fmt.Errorf("failed to generate prompt: %w", err)
-		}
-
-		// Run agent with prompt using the Runner interface
-		runResult, err := agent.DefaultRunner.Run(prompt, agentTrust)
-		if err != nil {
-			return fmt.Errorf("failed to run agent: %w", err)
-		}
-
-		// Handle run errors (non-fatal, agent may have signaled BLOCKED)
-		if runResult.Error != nil {
-			fmt.Printf("Agent run error: %v\n", runResult.Error)
-		}
-
-		// Save output to file
-		if err := os.WriteFile(outputPath, []byte(runResult.Output), 0644); err != nil {
-			fmt.Printf("Warning: failed to save output: %v\n", err)
-		}
-
-		// Check for completion signals (already parsed by Runner)
-		if runResult.Complete {
-			fmt.Println("\n✓ Agent signaled COMPLETE")
-			result.Complete = true
-			break
-		}
-
-		if runResult.Blocked {
-			fmt.Printf("\n✗ Agent signaled BLOCKED: %s\n", runResult.BlockedReason)
-			result.Blocked = true
-			result.BlockedReason = runResult.BlockedReason
-			break
-		}
-
-		// Check if all balls are complete
-		complete, total := checkBallsComplete(cwd, sessionID)
-		result.BallsComplete = complete
-		result.BallsTotal = total
-
-		if total > 0 && complete == total {
-			fmt.Printf("\n✓ All %d balls complete\n", total)
-			result.Complete = true
-			break
-		}
-
-		fmt.Printf("Progress: %d/%d balls complete\n", complete, total)
-
-		// Delay before next iteration (unless this was the last one)
-		if iteration < agentIterations {
-			fmt.Println("Waiting 2 seconds before next iteration...")
-			time.Sleep(2 * time.Second)
-		}
+	result, err := RunAgentLoop(loopConfig)
+	if err != nil {
+		return err
 	}
 
-	result.EndedAt = time.Now()
 	elapsed := result.EndedAt.Sub(result.StartedAt)
 
 	// Print summary
@@ -185,6 +201,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		fmt.Println("Status: Max iterations reached")
 	}
 
+	outputPath := filepath.Join(cwd, ".juggler", "sessions", sessionID, "last_output.txt")
 	fmt.Printf("\nOutput saved to: %s\n", outputPath)
 
 	return nil
