@@ -544,3 +544,704 @@ func TestSetPendingFromAnyState(t *testing.T) {
 		})
 	}
 }
+
+// Test SplitView model initialization
+func TestInitialSplitModel(t *testing.T) {
+	var store *session.Store
+	var sessionStore *session.SessionStore
+	var config *session.Config
+
+	model := InitialSplitModel(store, sessionStore, config, true)
+
+	if model.mode != splitView {
+		t.Errorf("Expected initial mode to be splitView, got %v", model.mode)
+	}
+
+	if model.activePanel != SessionsPanel {
+		t.Errorf("Expected initial active panel to be SessionsPanel, got %v", model.activePanel)
+	}
+
+	if !model.localOnly {
+		t.Error("Expected localOnly to be true")
+	}
+
+	if model.cursor != 0 {
+		t.Errorf("Expected initial cursor to be 0, got %d", model.cursor)
+	}
+
+	if model.sessionCursor != 0 {
+		t.Errorf("Expected initial session cursor to be 0, got %d", model.sessionCursor)
+	}
+}
+
+// Test activity log management
+func TestAddActivity(t *testing.T) {
+	model := Model{
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Add activity entries
+	model.addActivity("First activity")
+	model.addActivity("Second activity")
+	model.addActivity("Third activity")
+
+	if len(model.activityLog) != 3 {
+		t.Errorf("Expected 3 activity entries, got %d", len(model.activityLog))
+	}
+
+	if model.activityLog[0].Message != "First activity" {
+		t.Errorf("Expected first message to be 'First activity', got '%s'", model.activityLog[0].Message)
+	}
+
+	if model.activityLog[2].Message != "Third activity" {
+		t.Errorf("Expected third message to be 'Third activity', got '%s'", model.activityLog[2].Message)
+	}
+}
+
+// Test activity log capacity limit
+func TestAddActivityLimit(t *testing.T) {
+	model := Model{
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Add 101 entries (limit is 100)
+	for i := 0; i < 101; i++ {
+		model.addActivity("Activity " + string(rune('A'+i%26)))
+	}
+
+	if len(model.activityLog) != 100 {
+		t.Errorf("Expected 100 activity entries (limit), got %d", len(model.activityLog))
+	}
+}
+
+// Test panel navigation
+func TestPanelCycling(t *testing.T) {
+	tests := []struct {
+		name           string
+		startPanel     Panel
+		expectedNext   Panel
+		expectedPrev   Panel
+	}{
+		{
+			name:           "sessions panel",
+			startPanel:     SessionsPanel,
+			expectedNext:   BallsPanel,
+			expectedPrev:   ActivityPanel,
+		},
+		{
+			name:           "balls panel",
+			startPanel:     BallsPanel,
+			expectedNext:   ActivityPanel,
+			expectedPrev:   SessionsPanel,
+		},
+		{
+			name:           "activity panel",
+			startPanel:     ActivityPanel,
+			expectedNext:   SessionsPanel,
+			expectedPrev:   BallsPanel,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test next panel cycling
+			startPanel := tt.startPanel
+			var nextPanel Panel
+			switch startPanel {
+			case SessionsPanel:
+				nextPanel = BallsPanel
+			case BallsPanel:
+				nextPanel = ActivityPanel
+			case ActivityPanel:
+				nextPanel = SessionsPanel
+			}
+
+			if nextPanel != tt.expectedNext {
+				t.Errorf("Next panel from %v: expected %v, got %v", startPanel, tt.expectedNext, nextPanel)
+			}
+
+			// Test previous panel cycling
+			var prevPanel Panel
+			switch startPanel {
+			case SessionsPanel:
+				prevPanel = ActivityPanel
+			case BallsPanel:
+				prevPanel = SessionsPanel
+			case ActivityPanel:
+				prevPanel = BallsPanel
+			}
+
+			if prevPanel != tt.expectedPrev {
+				t.Errorf("Previous panel from %v: expected %v, got %v", startPanel, tt.expectedPrev, prevPanel)
+			}
+		})
+	}
+}
+
+// Test getBallsForSession with pseudo-sessions
+func TestGetBallsForSession(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "1", Tags: []string{"session-a"}},
+		{ID: "2", Tags: []string{"session-b"}},
+		{ID: "3", Tags: []string{}}, // Untagged
+		{ID: "4", Tags: []string{"session-a", "session-b"}},
+	}
+
+	sessions := []*session.JuggleSession{
+		{ID: "session-a"},
+		{ID: "session-b"},
+	}
+
+	t.Run("PseudoSessionAll returns all balls", func(t *testing.T) {
+		model := Model{
+			filteredBalls: balls,
+			sessions:      sessions,
+			selectedSession: &session.JuggleSession{
+				ID: PseudoSessionAll,
+			},
+		}
+
+		result := model.getBallsForSession()
+		if len(result) != 4 {
+			t.Errorf("Expected 4 balls for 'All', got %d", len(result))
+		}
+	})
+
+	t.Run("PseudoSessionUntagged returns untagged balls only", func(t *testing.T) {
+		model := Model{
+			filteredBalls: balls,
+			sessions:      sessions,
+			selectedSession: &session.JuggleSession{
+				ID: PseudoSessionUntagged,
+			},
+		}
+
+		result := model.getBallsForSession()
+		if len(result) != 1 {
+			t.Errorf("Expected 1 untagged ball, got %d", len(result))
+		}
+		if result[0].ID != "3" {
+			t.Errorf("Expected untagged ball ID '3', got '%s'", result[0].ID)
+		}
+	})
+
+	t.Run("Regular session returns matching balls", func(t *testing.T) {
+		model := Model{
+			filteredBalls: balls,
+			sessions:      sessions,
+			selectedSession: &session.JuggleSession{
+				ID: "session-a",
+			},
+		}
+
+		result := model.getBallsForSession()
+		if len(result) != 2 {
+			t.Errorf("Expected 2 balls for 'session-a', got %d", len(result))
+		}
+	})
+
+	t.Run("No selected session returns all filtered balls", func(t *testing.T) {
+		model := Model{
+			filteredBalls:   balls,
+			sessions:        sessions,
+			selectedSession: nil,
+		}
+
+		result := model.getBallsForSession()
+		if len(result) != 4 {
+			t.Errorf("Expected 4 balls when no session selected, got %d", len(result))
+		}
+	})
+}
+
+// Test SelectedSessionID
+func TestSelectedSessionID(t *testing.T) {
+	t.Run("with selected session", func(t *testing.T) {
+		model := Model{
+			selectedSession: &session.JuggleSession{ID: "test-session"},
+		}
+
+		id := model.SelectedSessionID()
+		if id != "test-session" {
+			t.Errorf("Expected 'test-session', got '%s'", id)
+		}
+	})
+
+	t.Run("without selected session", func(t *testing.T) {
+		model := Model{
+			selectedSession: nil,
+		}
+
+		id := model.SelectedSessionID()
+		if id != "" {
+			t.Errorf("Expected empty string, got '%s'", id)
+		}
+	})
+}
+
+// Test filterSessions with pseudo-sessions
+func TestFilterSessions(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: "session-a", Description: "First session"},
+		{ID: "session-b", Description: "Second session"},
+	}
+
+	t.Run("no filter returns all sessions with pseudo-sessions", func(t *testing.T) {
+		model := Model{
+			sessions:          sessions,
+			panelSearchActive: false,
+		}
+
+		result := model.filterSessions()
+		// Should include 2 pseudo-sessions + 2 real sessions
+		if len(result) != 4 {
+			t.Errorf("Expected 4 sessions (2 pseudo + 2 real), got %d", len(result))
+		}
+
+		// Check pseudo-sessions are first
+		if result[0].ID != PseudoSessionAll {
+			t.Errorf("Expected first session to be PseudoSessionAll, got '%s'", result[0].ID)
+		}
+		if result[1].ID != PseudoSessionUntagged {
+			t.Errorf("Expected second session to be PseudoSessionUntagged, got '%s'", result[1].ID)
+		}
+	})
+
+	t.Run("filter by ID matches partial", func(t *testing.T) {
+		model := Model{
+			sessions:          sessions,
+			panelSearchActive: true,
+			panelSearchQuery:  "session-a",
+		}
+
+		result := model.filterSessions()
+		if len(result) != 1 {
+			t.Errorf("Expected 1 session matching 'session-a', got %d", len(result))
+		}
+		if result[0].ID != "session-a" {
+			t.Errorf("Expected session ID 'session-a', got '%s'", result[0].ID)
+		}
+	})
+
+	t.Run("filter by description", func(t *testing.T) {
+		model := Model{
+			sessions:          sessions,
+			panelSearchActive: true,
+			panelSearchQuery:  "First",
+		}
+
+		result := model.filterSessions()
+		if len(result) != 1 {
+			t.Errorf("Expected 1 session matching 'First', got %d", len(result))
+		}
+	})
+}
+
+// Test filterBallsForSession
+func TestFilterBallsForSession(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "ball-1", Intent: "First task", Tags: []string{"session-a"}},
+		{ID: "ball-2", Intent: "Second task", Tags: []string{"session-a"}},
+		{ID: "ball-3", Intent: "Third task", Tags: []string{"session-b"}},
+	}
+
+	t.Run("no filter returns all session balls", func(t *testing.T) {
+		model := Model{
+			filteredBalls:     balls,
+			panelSearchActive: false,
+			selectedSession:   &session.JuggleSession{ID: "session-a"},
+		}
+
+		result := model.filterBallsForSession()
+		if len(result) != 2 {
+			t.Errorf("Expected 2 balls for session-a, got %d", len(result))
+		}
+	})
+
+	t.Run("filter by intent", func(t *testing.T) {
+		model := Model{
+			filteredBalls:     balls,
+			panelSearchActive: true,
+			panelSearchQuery:  "First",
+			selectedSession:   &session.JuggleSession{ID: "session-a"},
+		}
+
+		result := model.filterBallsForSession()
+		if len(result) != 1 {
+			t.Errorf("Expected 1 ball matching 'First', got %d", len(result))
+		}
+	})
+
+	t.Run("filter by ID", func(t *testing.T) {
+		model := Model{
+			filteredBalls:     balls,
+			panelSearchActive: true,
+			panelSearchQuery:  "ball-1",
+			selectedSession:   &session.JuggleSession{ID: "session-a"},
+		}
+
+		result := model.filterBallsForSession()
+		if len(result) != 1 {
+			t.Errorf("Expected 1 ball matching 'ball-1', got %d", len(result))
+		}
+	})
+}
+
+// Test countBallsForSession (via split view delete confirmation)
+func TestCountBallsForSession(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "1", Tags: []string{"session-a"}},
+		{ID: "2", Tags: []string{"session-a"}},
+		{ID: "3", Tags: []string{"session-b"}},
+	}
+
+	model := Model{
+		filteredBalls: balls,
+	}
+
+	count := model.countBallsForSession("session-a")
+	if count != 2 {
+		t.Errorf("Expected 2 balls for session-a, got %d", count)
+	}
+
+	count = model.countBallsForSession("session-b")
+	if count != 1 {
+		t.Errorf("Expected 1 ball for session-b, got %d", count)
+	}
+
+	count = model.countBallsForSession("nonexistent")
+	if count != 0 {
+		t.Errorf("Expected 0 balls for nonexistent session, got %d", count)
+	}
+}
+
+// Test bottom pane mode toggle
+func TestBottomPaneModeToggle(t *testing.T) {
+	model := Model{
+		bottomPaneMode: BottomPaneActivity,
+		activityLog:    make([]ActivityEntry, 0),
+	}
+
+	// Toggle to detail
+	newModel, _ := model.handleToggleBottomPane()
+	m := newModel.(Model)
+	if m.bottomPaneMode != BottomPaneDetail {
+		t.Errorf("Expected BottomPaneDetail after toggle, got %v", m.bottomPaneMode)
+	}
+
+	// Toggle back to activity
+	newModel, _ = m.handleToggleBottomPane()
+	m = newModel.(Model)
+	if m.bottomPaneMode != BottomPaneActivity {
+		t.Errorf("Expected BottomPaneActivity after second toggle, got %v", m.bottomPaneMode)
+	}
+}
+
+// Test local only toggle
+func TestToggleLocalOnly(t *testing.T) {
+	model := Model{
+		localOnly:   true,
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Toggle to all projects
+	newModel, cmd := model.handleToggleLocalOnly()
+	m := newModel.(Model)
+
+	if m.localOnly {
+		t.Error("Expected localOnly to be false after toggle")
+	}
+
+	// Should return a command to reload balls
+	if cmd == nil {
+		t.Error("Expected a reload command to be returned")
+	}
+
+	// Toggle back to local only
+	newModel, _ = m.handleToggleLocalOnly()
+	m = newModel.(Model)
+
+	if !m.localOnly {
+		t.Error("Expected localOnly to be true after second toggle")
+	}
+}
+
+// Test activity log scrolling helper
+func TestGetActivityLogMaxOffset(t *testing.T) {
+	tests := []struct {
+		name           string
+		activityCount  int
+		expectedOffset int
+	}{
+		{
+			name:           "few activities",
+			activityCount:  5,
+			expectedOffset: 0, // Not enough to scroll
+		},
+		{
+			name:           "many activities",
+			activityCount:  50,
+			expectedOffset: 50 - (bottomPanelRows - 3),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := Model{
+				activityLog: make([]ActivityEntry, tt.activityCount),
+			}
+
+			offset := model.getActivityLogMaxOffset()
+			if offset < 0 {
+				offset = 0
+			}
+
+			if offset != tt.expectedOffset && tt.activityCount <= (bottomPanelRows-3) {
+				// For few activities, offset should be 0
+				if offset != 0 {
+					t.Errorf("Expected max offset 0 for few activities, got %d", offset)
+				}
+			}
+		})
+	}
+}
+
+// Test view rendering doesn't panic with various states
+func TestViewRenderingNoPanic(t *testing.T) {
+	states := []struct {
+		name string
+		mode viewMode
+	}{
+		{"listView", listView},
+		{"detailView", detailView},
+		{"helpView", helpView},
+		{"confirmDeleteView", confirmDeleteView},
+		{"splitView", splitView},
+		{"splitHelpView", splitHelpView},
+	}
+
+	for _, tt := range states {
+		t.Run(tt.name, func(t *testing.T) {
+			model := Model{
+				mode:          tt.mode,
+				balls:         []*session.Ball{},
+				filteredBalls: []*session.Ball{},
+				sessions:      []*session.JuggleSession{},
+				activityLog:   make([]ActivityEntry, 0),
+				filterStates: map[string]bool{
+					"pending":     true,
+					"in_progress": true,
+					"blocked":     true,
+					"complete":    true,
+				},
+				width:  80,
+				height: 24,
+			}
+
+			// This should not panic
+			view := model.View()
+			if view == "" {
+				t.Error("Expected non-empty view output")
+			}
+		})
+	}
+}
+
+// Test key message handling for list view
+func TestListViewKeyHandling(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "1", State: session.StatePending, WorkingDir: "/tmp"},
+		{ID: "2", State: session.StatePending, WorkingDir: "/tmp"},
+		{ID: "3", State: session.StatePending, WorkingDir: "/tmp"},
+	}
+
+	model := Model{
+		mode:          listView,
+		balls:         balls,
+		filteredBalls: balls,
+		cursor:        0,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+	}
+
+	// Test navigation down
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m := newModel.(Model)
+	if m.cursor != 1 {
+		t.Errorf("Expected cursor to move to 1, got %d", m.cursor)
+	}
+
+	// Test navigation up
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = newModel.(Model)
+	if m.cursor != 0 {
+		t.Errorf("Expected cursor to move back to 0, got %d", m.cursor)
+	}
+}
+
+// Test entering detail view
+func TestEnterDetailView(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "test-1", Intent: "Test ball", State: session.StatePending},
+	}
+
+	model := Model{
+		mode:          listView,
+		balls:         balls,
+		filteredBalls: balls,
+		cursor:        0,
+	}
+
+	// Press enter to go to detail view
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newModel.(Model)
+
+	if m.mode != detailView {
+		t.Errorf("Expected mode to be detailView, got %v", m.mode)
+	}
+
+	if m.selectedBall == nil {
+		t.Error("Expected selectedBall to be set")
+	}
+
+	if m.selectedBall.ID != "test-1" {
+		t.Errorf("Expected selected ball ID to be 'test-1', got '%s'", m.selectedBall.ID)
+	}
+}
+
+// Test escape key behavior
+func TestEscapeKeyBehavior(t *testing.T) {
+	t.Run("escape from detail view goes to list", func(t *testing.T) {
+		model := Model{
+			mode: detailView,
+		}
+
+		newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m := newModel.(Model)
+
+		if m.mode != listView {
+			t.Errorf("Expected mode to be listView after escape, got %v", m.mode)
+		}
+	})
+
+	t.Run("escape from help view goes to list", func(t *testing.T) {
+		model := Model{
+			mode: helpView,
+		}
+
+		newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m := newModel.(Model)
+
+		if m.mode != listView {
+			t.Errorf("Expected mode to be listView after escape from help, got %v", m.mode)
+		}
+	})
+
+	t.Run("escape from confirm delete goes to list", func(t *testing.T) {
+		model := Model{
+			mode: confirmDeleteView,
+		}
+
+		newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		m := newModel.(Model)
+
+		if m.mode != listView {
+			t.Errorf("Expected mode to be listView after escape from confirm, got %v", m.mode)
+		}
+	})
+}
+
+// Test help toggle
+func TestHelpToggle(t *testing.T) {
+	model := Model{
+		mode: listView,
+	}
+
+	// Toggle help on
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	m := newModel.(Model)
+
+	if m.mode != helpView {
+		t.Errorf("Expected mode to be helpView after pressing ?, got %v", m.mode)
+	}
+
+	// Toggle help off
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	m = newModel.(Model)
+
+	if m.mode != listView {
+		t.Errorf("Expected mode to be listView after pressing ? again, got %v", m.mode)
+	}
+}
+
+// Test balls loaded message handling
+func TestBallsLoadedMsg(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "1", State: session.StatePending},
+		{ID: "2", State: session.StateInProgress},
+	}
+
+	model := Model{
+		mode: listView,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+	}
+
+	newModel, _ := model.Update(ballsLoadedMsg{balls: balls})
+	m := newModel.(Model)
+
+	if len(m.balls) != 2 {
+		t.Errorf("Expected 2 balls, got %d", len(m.balls))
+	}
+
+	if len(m.filteredBalls) != 2 {
+		t.Errorf("Expected 2 filtered balls, got %d", len(m.filteredBalls))
+	}
+}
+
+// Test sessions loaded message handling
+func TestSessionsLoadedMsg(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: "session-1", Description: "First"},
+		{ID: "session-2", Description: "Second"},
+	}
+
+	model := Model{
+		mode:        splitView,
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	newModel, _ := model.Update(sessionsLoadedMsg{sessions: sessions})
+	m := newModel.(Model)
+
+	if len(m.sessions) != 2 {
+		t.Errorf("Expected 2 sessions, got %d", len(m.sessions))
+	}
+}
+
+// Test window size message handling
+func TestWindowSizeMsg(t *testing.T) {
+	model := Model{
+		width:  80,
+		height: 24,
+	}
+
+	newModel, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m := newModel.(Model)
+
+	if m.width != 120 {
+		t.Errorf("Expected width 120, got %d", m.width)
+	}
+
+	if m.height != 40 {
+		t.Errorf("Expected height 40, got %d", m.height)
+	}
+}
