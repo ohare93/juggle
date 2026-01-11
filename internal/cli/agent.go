@@ -1,15 +1,12 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/ohare93/juggle/internal/agent"
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -120,35 +117,34 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to generate prompt: %w", err)
 		}
 
-		// Run claude with prompt
-		output, err := runClaude(prompt, agentTrust)
+		// Run agent with prompt using the Runner interface
+		runResult, err := agent.DefaultRunner.Run(prompt, agentTrust)
 		if err != nil {
-			fmt.Printf("Error running claude: %v\n", err)
-			// Don't fail immediately, save output and continue
+			return fmt.Errorf("failed to run agent: %w", err)
+		}
+
+		// Handle run errors (non-fatal, agent may have signaled BLOCKED)
+		if runResult.Error != nil {
+			fmt.Printf("Agent run error: %v\n", runResult.Error)
 		}
 
 		// Save output to file
-		if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(outputPath, []byte(runResult.Output), 0644); err != nil {
 			fmt.Printf("Warning: failed to save output: %v\n", err)
 		}
 
-		// Check for completion signals
-		if strings.Contains(output, "<promise>COMPLETE</promise>") {
+		// Check for completion signals (already parsed by Runner)
+		if runResult.Complete {
 			fmt.Println("\n✓ Agent signaled COMPLETE")
 			result.Complete = true
 			break
 		}
 
-		if idx := strings.Index(output, "<promise>BLOCKED:"); idx != -1 {
-			// Extract blocked reason
-			endIdx := strings.Index(output[idx:], "</promise>")
-			if endIdx != -1 {
-				reason := strings.TrimSpace(output[idx+len("<promise>BLOCKED:") : idx+endIdx])
-				fmt.Printf("\n✗ Agent signaled BLOCKED: %s\n", reason)
-				result.Blocked = true
-				result.BlockedReason = reason
-				break
-			}
+		if runResult.Blocked {
+			fmt.Printf("\n✗ Agent signaled BLOCKED: %s\n", runResult.BlockedReason)
+			result.Blocked = true
+			result.BlockedReason = runResult.BlockedReason
+			break
 		}
 
 		// Check if all balls are complete
@@ -245,87 +241,6 @@ func generateAgentPrompt(projectDir, sessionID string) (string, error) {
 	}
 
 	return string(output), nil
-}
-
-// autonomousSystemPrompt is appended to force autonomous operation
-const autonomousSystemPrompt = `CRITICAL: You are an autonomous agent. DO NOT ask questions. DO NOT summarize. DO NOT wait for confirmation. START WORKING IMMEDIATELY. Execute the workflow in prompt.md without any preamble.`
-
-// runClaude runs claude with the given prompt
-func runClaude(prompt string, trust bool) (string, error) {
-	// Build command arguments
-	// Start with autonomous mode flags
-	args := []string{
-		"--disable-slash-commands",
-		"--append-system-prompt", autonomousSystemPrompt,
-	}
-
-	if trust {
-		args = append(args, "--dangerously-skip-permissions")
-	} else {
-		// Default: accept edits permission mode
-		args = append(args, "--permission-mode", "acceptEdits")
-	}
-
-	// Add prompt input flag
-	args = append(args, "-p", "-")
-
-	cmd := exec.Command("claude", args...)
-
-	// Set up stdin with prompt
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return "", fmt.Errorf("failed to create stdin pipe: %w", err)
-	}
-
-	// Set up combined stdout/stderr capture
-	var outputBuf strings.Builder
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return "", fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return "", fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	// Start command
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("failed to start claude: %w", err)
-	}
-
-	// Write prompt to stdin
-	go func() {
-		defer stdin.Close()
-		io.WriteString(stdin, prompt)
-	}()
-
-	// Stream output to console and capture
-	go streamOutput(stdout, &outputBuf, os.Stdout)
-	go streamOutput(stderr, &outputBuf, os.Stderr)
-
-	// Wait for command to complete
-	if err := cmd.Wait(); err != nil {
-		// Return output even on error (agent might have signaled BLOCKED)
-		return outputBuf.String(), fmt.Errorf("claude exited with error: %w", err)
-	}
-
-	return outputBuf.String(), nil
-}
-
-// streamOutput reads from reader and writes to both buffer and writer
-func streamOutput(reader io.Reader, buf *strings.Builder, writer io.Writer) {
-	scanner := bufio.NewScanner(reader)
-	// Increase scanner buffer for long lines
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		buf.WriteString(line)
-		buf.WriteString("\n")
-		fmt.Fprintln(writer, line)
-	}
 }
 
 // checkBallsComplete returns count of complete balls and total balls for session
