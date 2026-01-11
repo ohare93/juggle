@@ -90,7 +90,7 @@ func TestCalculateProjectMetrics(t *testing.T) {
 	staleTime := now.Add(-35 * 24 * time.Hour) // 35 days ago
 	recentTime := now.Add(-10 * 24 * time.Hour) // 10 days ago
 
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		// Project A
 		createTestBall(t, "project-a", "/path/to/a", session.StatePending, recentTime),
 		createTestBall(t, "project-a", "/path/to/a", session.StatePending, staleTime),
@@ -357,7 +357,7 @@ func TestStalePendingDetection(t *testing.T) {
 	staleTime := now.Add(-35 * 24 * time.Hour)   // 35 days ago - stale
 	veryStaleTime := now.Add(-90 * 24 * time.Hour) // 90 days ago - very stale
 
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		createTestBall(t, "project", "/path/to/project", session.StatePending, recentTime),
 		createTestBall(t, "project", "/path/to/project", session.StatePending, staleTime),
 		createTestBall(t, "project", "/path/to/project", session.StatePending, veryStaleTime),
@@ -382,9 +382,9 @@ func TestStalePendingDetection(t *testing.T) {
 
 // Helper functions
 
-func createTestBall(t *testing.T, name, workingDir string, state session.BallState, startedAt time.Time) *session.Session {
+func createTestBall(t *testing.T, name, workingDir string, state session.BallState, startedAt time.Time) *session.Ball {
 	t.Helper()
-	return &session.Session{
+	return &session.Ball{
 		ID:         name + "-1",
 		WorkingDir: workingDir,
 		Intent:     "Test ball",

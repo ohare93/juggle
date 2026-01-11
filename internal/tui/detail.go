@@ -9,7 +9,7 @@ import (
 	"github.com/ohare93/juggle/internal/session"
 )
 
-func renderBallDetail(ball *session.Session) string {
+func renderBallDetail(ball *session.Ball) string {
 	var b strings.Builder
 
 	// Header

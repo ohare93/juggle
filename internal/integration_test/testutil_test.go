@@ -71,8 +71,8 @@ func CleanupTestEnv(t *testing.T, env *TestEnv) {
 	}
 }
 
-// CreateSession creates a new session for testing
-func (env *TestEnv) CreateSession(t *testing.T, intent string, priority session.Priority) *session.Session {
+// CreateBall creates a new ball for testing
+func (env *TestEnv) CreateBall(t *testing.T, intent string, priority session.Priority) *session.Ball {
 	t.Helper()
 
 	store, err := cli.NewStoreForCommand(env.ProjectDir)
@@ -80,16 +80,16 @@ func (env *TestEnv) CreateSession(t *testing.T, intent string, priority session.
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	sess, err := session.New(env.ProjectDir, intent, priority)
+	ball, err := session.NewBall(env.ProjectDir, intent, priority)
 	if err != nil {
-		t.Fatalf("Failed to create session: %v", err)
+		t.Fatalf("Failed to create ball: %v", err)
 	}
 
-	if err := store.AppendBall(sess); err != nil {
-		t.Fatalf("Failed to save session: %v", err)
+	if err := store.AppendBall(ball); err != nil {
+		t.Fatalf("Failed to save ball: %v", err)
 	}
 
-	return sess
+	return ball
 }
 
 // GetStore returns a store configured for the test environment
@@ -104,42 +104,42 @@ func (env *TestEnv) GetStore(t *testing.T) *session.Store {
 	return store
 }
 
-// AssertSessionExists checks that a session with the given ID exists
-func (env *TestEnv) AssertSessionExists(t *testing.T, sessionID string) *session.Session {
+// AssertBallExists checks that a ball with the given ID exists
+func (env *TestEnv) AssertBallExists(t *testing.T, ballID string) *session.Ball {
 	t.Helper()
 
 	store := env.GetStore(t)
-	sess, err := store.GetBallByID(sessionID)
+	ball, err := store.GetBallByID(ballID)
 	if err != nil {
-		t.Fatalf("Expected session %s to exist, but got error: %v", sessionID, err)
+		t.Fatalf("Expected ball %s to exist, but got error: %v", ballID, err)
 	}
 
-	return sess
+	return ball
 }
 
-// AssertState checks that a session has the expected state
-func (env *TestEnv) AssertState(t *testing.T, sessionID string, expectedState session.BallState) {
+// AssertState checks that a ball has the expected state
+func (env *TestEnv) AssertState(t *testing.T, ballID string, expectedState session.BallState) {
 	t.Helper()
 
-	sess := env.AssertSessionExists(t, sessionID)
-	if sess.State != expectedState {
-		t.Fatalf("Expected session %s to have state %s, but got %s", sessionID, expectedState, sess.State)
+	ball := env.AssertBallExists(t, ballID)
+	if ball.State != expectedState {
+		t.Fatalf("Expected ball %s to have state %s, but got %s", ballID, expectedState, ball.State)
 	}
 }
 
-// AssertSessionNotExists checks that a session with the given ID does not exist in active sessions
-func (env *TestEnv) AssertSessionNotExists(t *testing.T, sessionID string) {
+// AssertBallNotExists checks that a ball with the given ID does not exist in active balls
+func (env *TestEnv) AssertBallNotExists(t *testing.T, ballID string) {
 	t.Helper()
 
 	store := env.GetStore(t)
-	_, err := store.GetBallByID(sessionID)
+	_, err := store.GetBallByID(ballID)
 	if err == nil {
-		t.Fatalf("Expected session %s to not exist, but it was found", sessionID)
+		t.Fatalf("Expected ball %s to not exist, but it was found", ballID)
 	}
 }
 
-// AssertSessionArchived checks that a session is in the archive
-func (env *TestEnv) AssertSessionArchived(t *testing.T, sessionID string) {
+// AssertBallArchived checks that a ball is in the archive
+func (env *TestEnv) AssertBallArchived(t *testing.T, ballID string) {
 	t.Helper()
 
 	archivePath := filepath.Join(env.JugglerDir, "archive")
@@ -149,7 +149,6 @@ func (env *TestEnv) AssertSessionArchived(t *testing.T, sessionID string) {
 		t.Fatalf("Expected archive file to exist at %s", archiveFile)
 	}
 }
-
 
 // SetEnvVar sets an environment variable for the test and ensures cleanup
 func (env *TestEnv) SetEnvVar(t *testing.T, key, value string) {
@@ -193,31 +192,31 @@ func (env *TestEnv) ClearEnvVar(t *testing.T, key string) {
 	})
 }
 
-// CreateInProgressBall creates a new session in in_progress state for testing
-func (env *TestEnv) CreateInProgressBall(t *testing.T, intent string, priority session.Priority) *session.Session {
+// CreateInProgressBall creates a new ball in in_progress state for testing
+func (env *TestEnv) CreateInProgressBall(t *testing.T, intent string, priority session.Priority) *session.Ball {
 	t.Helper()
 
 	store := env.GetStore(t)
 
-	sess, err := session.New(env.ProjectDir, intent, priority)
+	ball, err := session.NewBall(env.ProjectDir, intent, priority)
 	if err != nil {
-		t.Fatalf("Failed to create session: %v", err)
+		t.Fatalf("Failed to create ball: %v", err)
 	}
 
 	// Set to in_progress state
-	sess.Start()
+	ball.Start()
 
-	if err := store.AppendBall(sess); err != nil {
-		t.Fatalf("Failed to save in-progress session: %v", err)
+	if err := store.AppendBall(ball); err != nil {
+		t.Fatalf("Failed to save in-progress ball: %v", err)
 	}
 
-	return sess
+	return ball
 }
 
 // GetBallUpdateCount retrieves the current update count for a ball
 func (env *TestEnv) GetBallUpdateCount(t *testing.T, ballID string) int {
 	t.Helper()
 
-	sess := env.AssertSessionExists(t, ballID)
-	return sess.UpdateCount
+	ball := env.AssertBallExists(t, ballID)
+	return ball.UpdateCount
 }

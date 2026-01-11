@@ -61,7 +61,7 @@ func runSession(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func renderCurrentSession(sess *session.Session) {
+func renderCurrentSession(sess *session.Ball) {
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	valueStyle := lipgloss.NewStyle()
 

@@ -24,7 +24,7 @@ type BallYAML struct {
 }
 
 // ballToYAML converts a ball to YAML format for editing
-func ballToYAML(ball *session.Session) (string, error) {
+func ballToYAML(ball *session.Ball) (string, error) {
 	yamlBall := BallYAML{
 		ID:                 ball.ID,
 		Intent:             ball.Intent,
@@ -52,7 +52,7 @@ func ballToYAML(ball *session.Session) (string, error) {
 }
 
 // yamlToBall parses edited YAML and applies changes to a ball
-func yamlToBall(yamlContent string, ball *session.Session) error {
+func yamlToBall(yamlContent string, ball *session.Ball) error {
 	var yamlBall BallYAML
 	if err := yaml.Unmarshal([]byte(yamlContent), &yamlBall); err != nil {
 		return fmt.Errorf("failed to parse YAML: %w", err)
@@ -92,12 +92,6 @@ func yamlToBall(yamlContent string, ball *session.Session) error {
 
 	// Update acceptance criteria
 	ball.AcceptanceCriteria = yamlBall.AcceptanceCriteria
-	// Keep legacy Description field in sync
-	if len(yamlBall.AcceptanceCriteria) > 0 {
-		ball.Description = yamlBall.AcceptanceCriteria[0]
-	} else {
-		ball.Description = ""
-	}
 
 	// Update model size
 	if yamlBall.ModelSize != "" {
@@ -118,14 +112,14 @@ func yamlToBall(yamlContent string, ball *session.Session) error {
 
 // editorResultMsg is the message returned after editor closes
 type editorResultMsg struct {
-	ball        *session.Session
+	ball        *session.Ball
 	editedYAML  string
 	cancelled   bool
 	err         error
 }
 
 // openEditorCmd creates a tea.Cmd that opens an external editor for ball editing
-func openEditorCmd(ball *session.Session) tea.Cmd {
+func openEditorCmd(ball *session.Ball) tea.Cmd {
 	// Get editor from environment
 	editor := os.Getenv("EDITOR")
 	if editor == "" {

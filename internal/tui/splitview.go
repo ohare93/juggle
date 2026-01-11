@@ -366,7 +366,7 @@ func (m Model) renderBallDetailPanel(width, height int) string {
 	}
 
 	// Get the currently highlighted ball based on active panel
-	var ball *session.Session
+	var ball *session.Ball
 	if m.activePanel == BallsPanel {
 		balls := m.filterBallsForSession()
 		if m.cursor < len(balls) {

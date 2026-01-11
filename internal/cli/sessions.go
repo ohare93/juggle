@@ -169,7 +169,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 	balls, err := ballStore.LoadBalls()
 	if err != nil {
-		balls = []*session.Session{} // Continue even if no balls
+		balls = []*session.Ball{} // Continue even if no balls
 	}
 
 	// Count balls per session (by tag)
@@ -228,11 +228,11 @@ func runSessionsShow(cmd *cobra.Command, args []string) error {
 
 	allBalls, err := ballStore.LoadBalls()
 	if err != nil {
-		allBalls = []*session.Session{}
+		allBalls = []*session.Ball{}
 	}
 
 	// Filter balls by tag matching session ID
-	var sessionBalls []*session.Session
+	var sessionBalls []*session.Ball
 	for _, ball := range allBalls {
 		for _, tag := range ball.Tags {
 			if tag == id {

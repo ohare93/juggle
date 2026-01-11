@@ -26,7 +26,7 @@ func TestExportLocal(t *testing.T) {
 		t.Fatalf("Failed to create store1: %v", err)
 	}
 
-	ball1 := &session.Session{
+	ball1 := &session.Ball{
 		ID:           "test1-1",
 		WorkingDir:   project1,
 		Intent:       "Ball in project 1",
@@ -45,7 +45,7 @@ func TestExportLocal(t *testing.T) {
 		t.Fatalf("Failed to create store2: %v", err)
 	}
 
-	ball2 := &session.Session{
+	ball2 := &session.Ball{
 		ID:           "test2-1",
 		WorkingDir:   project2,
 		Intent:       "Ball in project 2",
@@ -128,7 +128,7 @@ func TestExportBallIDs(t *testing.T) {
 	}
 
 	// Create multiple balls using new state model
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
@@ -234,7 +234,7 @@ func TestExportBallIDs(t *testing.T) {
 }
 
 // Helper function to test ball ID filtering logic
-func filterBallsByIDs(balls []*session.Session, ballIDsStr string) ([]*session.Session, error) {
+func filterBallsByIDs(balls []*session.Ball, ballIDsStr string) ([]*session.Ball, error) {
 	idStrs := strings.Split(ballIDsStr, ",")
 	requestedIDs := make([]string, 0, len(idStrs))
 	for _, id := range idStrs {
@@ -244,8 +244,8 @@ func filterBallsByIDs(balls []*session.Session, ballIDsStr string) ([]*session.S
 		}
 	}
 
-	ballsByID := make(map[string]*session.Session)
-	ballsByShortID := make(map[string][]*session.Session)
+	ballsByID := make(map[string]*session.Ball)
+	ballsByShortID := make(map[string][]*session.Ball)
 
 	for _, ball := range balls {
 		ballsByID[ball.ID] = ball
@@ -257,7 +257,7 @@ func filterBallsByIDs(balls []*session.Session, ballIDsStr string) ([]*session.S
 		}
 	}
 
-	filteredBalls := make([]*session.Session, 0)
+	filteredBalls := make([]*session.Ball, 0)
 	seenBalls := make(map[string]bool)
 
 	for _, requestedID := range requestedIDs {
@@ -319,7 +319,7 @@ func TestExportFilterState(t *testing.T) {
 	}
 
 	// Create balls in different states using new simplified state model
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
@@ -420,7 +420,7 @@ func TestExportFilterState(t *testing.T) {
 }
 
 // Helper function to test state filtering logic using new simplified state model
-func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.Session, error) {
+func filterBallsByState(balls []*session.Ball, stateStr string) ([]*session.Ball, error) {
 	stateStrs := strings.Split(stateStr, ",")
 	stateFilters := make([]session.BallState, 0, len(stateStrs))
 
@@ -441,7 +441,7 @@ func filterBallsByState(balls []*session.Session, stateStr string) ([]*session.S
 		return balls, nil
 	}
 
-	filteredBalls := make([]*session.Session, 0)
+	filteredBalls := make([]*session.Ball, 0)
 	for _, ball := range balls {
 		for _, filter := range stateFilters {
 			if ball.State == filter {
@@ -477,7 +477,7 @@ func TestExportIncludeDone(t *testing.T) {
 
 	// Create active and completed balls using new state model
 	completedTime := time.Now()
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
@@ -514,7 +514,7 @@ func TestExportIncludeDone(t *testing.T) {
 
 	// Test without --include-done (exclude complete)
 	t.Run("ExcludeCompleted", func(t *testing.T) {
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range allBalls {
 			if ball.State != session.StateComplete {
 				filtered = append(filtered, ball)
@@ -544,7 +544,7 @@ func TestExportCSVFormat(t *testing.T) {
 	}
 
 	// Create a ball with acceptance criteria using new state model
-	ball := &session.Session{
+	ball := &session.Ball{
 		ID:                 "project-1",
 		WorkingDir:         project,
 		Intent:             "Ball with acceptance criteria",
@@ -623,7 +623,7 @@ func TestExportCSVFormat(t *testing.T) {
 }
 
 // Helper function to export to CSV format using new state model
-func exportToCSV(balls []*session.Session) ([]byte, error) {
+func exportToCSV(balls []*session.Ball) ([]byte, error) {
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
 
@@ -692,7 +692,7 @@ func TestExportJSONFormat(t *testing.T) {
 		t.Fatalf("Failed to create store: %v", err)
 	}
 
-	ball := &session.Session{
+	ball := &session.Ball{
 		ID:           "project-1",
 		WorkingDir:   project,
 		Intent:       "Test ball",
@@ -721,7 +721,7 @@ func TestExportJSONFormat(t *testing.T) {
 	// Verify JSON structure
 	var result struct {
 		TotalBalls int                `json:"total_balls"`
-		Balls      []*session.Session `json:"balls"`
+		Balls      []*session.Ball `json:"balls"`
 	}
 	if err := json.Unmarshal(jsonData, &result); err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
@@ -741,11 +741,11 @@ func TestExportJSONFormat(t *testing.T) {
 }
 
 // Helper function to export to JSON format
-func exportToJSON(balls []*session.Session) ([]byte, error) {
+func exportToJSON(balls []*session.Ball) ([]byte, error) {
 	export := struct {
 		ExportedAt string             `json:"exported_at"`
 		TotalBalls int                `json:"total_balls"`
-		Balls      []*session.Session `json:"balls"`
+		Balls      []*session.Ball `json:"balls"`
 	}{
 		ExportedAt: time.Now().Format(time.RFC3339),
 		TotalBalls: len(balls),
@@ -792,12 +792,11 @@ func TestExportRalphFormat(t *testing.T) {
 		t.Fatalf("Failed to create ball store: %v", err)
 	}
 
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		{
 			ID:                 "project-1",
 			WorkingDir:         project,
 			Intent:             "Implement feature A",
-			Description:        "The first part of the feature",
 			Priority:           session.PriorityHigh,
 			State:              session.StateInProgress,
 			StartedAt:          time.Now(),
@@ -891,7 +890,7 @@ func TestExportRalphFormat(t *testing.T) {
 }
 
 // Helper function to export to Ralph format
-func exportToRalph(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
+func exportToRalph(projectDir, sessionID string, balls []*session.Ball) ([]byte, error) {
 	var buf strings.Builder
 
 	// Load session store to get context and progress
@@ -950,12 +949,9 @@ func exportToRalph(projectDir, sessionID string, balls []*session.Session) ([]by
 }
 
 // writeBallForRalphTest writes a single ball in Ralph format (test helper)
-func writeBallForRalphTest(buf *strings.Builder, ball *session.Session) {
+func writeBallForRalphTest(buf *strings.Builder, ball *session.Ball) {
 	buf.WriteString("## " + ball.ID + " [" + string(ball.State) + "] (priority: " + string(ball.Priority) + ")\n")
 	buf.WriteString("Intent: " + ball.Intent + "\n")
-	if ball.Description != "" {
-		buf.WriteString("Description: " + ball.Description + "\n")
-	}
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString("Blocked: " + ball.BlockedReason + "\n")
 	}

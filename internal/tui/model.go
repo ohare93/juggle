@@ -80,8 +80,8 @@ type Model struct {
 	sessionStore  *session.SessionStore
 	config        *session.Config
 	localOnly     bool // restrict to local project only
-	balls         []*session.Session
-	filteredBalls []*session.Session
+	balls         []*session.Ball
+	filteredBalls []*session.Ball
 
 	// Session state (for split view)
 	sessions        []*session.JuggleSession
@@ -91,7 +91,7 @@ type Model struct {
 	// View state
 	mode         viewMode
 	cursor       int
-	selectedBall *session.Session
+	selectedBall *session.Ball
 
 	// Panel state (for split view)
 	activePanel Panel
@@ -124,7 +124,7 @@ type Model struct {
 	textInput          textinput.Model
 	inputAction        InputAction      // Add or Edit
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
-	editingBall        *session.Session // Ball being edited (for edit action)
+	editingBall        *session.Ball // Ball being edited (for edit action)
 	tagEditMode        TagEditMode      // Whether adding or removing a tag
 	sessionSelectItems []*session.JuggleSession // Sessions available for selection
 	sessionSelectIndex int                      // Current selection index in session selector
@@ -239,7 +239,7 @@ func (m Model) SelectedSessionID() string {
 }
 
 // getBallsForSession returns balls that belong to the selected session (by tag)
-func (m *Model) getBallsForSession() []*session.Session {
+func (m *Model) getBallsForSession() []*session.Ball {
 	if m.selectedSession == nil {
 		return m.filteredBalls
 	}
@@ -251,7 +251,7 @@ func (m *Model) getBallsForSession() []*session.Session {
 		return m.filteredBalls
 	case PseudoSessionUntagged:
 		// Return balls with no session tags (no tags that match any real session)
-		untaggedBalls := make([]*session.Session, 0)
+		untaggedBalls := make([]*session.Ball, 0)
 		sessionIDs := make(map[string]bool)
 		for _, sess := range m.sessions {
 			sessionIDs[sess.ID] = true
@@ -271,7 +271,7 @@ func (m *Model) getBallsForSession() []*session.Session {
 		return untaggedBalls
 	default:
 		// Regular session - return balls with matching tag
-		sessionBalls := make([]*session.Session, 0)
+		sessionBalls := make([]*session.Ball, 0)
 		for _, ball := range m.filteredBalls {
 			for _, tag := range ball.Tags {
 				if tag == m.selectedSession.ID {

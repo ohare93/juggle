@@ -115,9 +115,9 @@ func testCompleteAllBallsEmptyPrefix(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create several test balls
-	env.CreateSession(t, "First task", session.PriorityMedium)
-	env.CreateSession(t, "Second task", session.PriorityHigh)
-	env.CreateSession(t, "Third task", session.PriorityLow)
+	env.CreateBall(t, "First task", session.PriorityMedium)
+	env.CreateBall(t, "Second task", session.PriorityHigh)
+	env.CreateBall(t, "Third task", session.PriorityLow)
 
 	// Verify balls are created
 	store := env.GetStore(t)
@@ -145,8 +145,8 @@ func testCompleteWithFullPrefix(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create test balls
-	env.CreateSession(t, "Task one", session.PriorityMedium)
-	env.CreateSession(t, "Task two", session.PriorityMedium)
+	env.CreateBall(t, "Task one", session.PriorityMedium)
+	env.CreateBall(t, "Task two", session.PriorityMedium)
 
 	store := env.GetStore(t)
 	balls, err := store.LoadBalls()
@@ -161,7 +161,7 @@ func testCompleteWithFullPrefix(t *testing.T) {
 	projectPrefix := strings.Split(balls[0].ID, "-")[0] + "-"
 
 	// Filter balls by prefix
-	var matchingBalls []*session.Session
+	var matchingBalls []*session.Ball
 	for _, ball := range balls {
 		if strings.HasPrefix(ball.ID, projectPrefix) {
 			matchingBalls = append(matchingBalls, ball)
@@ -178,7 +178,7 @@ func testCompleteWithPartialPrefix(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create a ball
-	ball := env.CreateSession(t, "Test task", session.PriorityMedium)
+	ball := env.CreateBall(t, "Test task", session.PriorityMedium)
 	ballID := ball.ID
 
 	// Get the first few characters of the ID
@@ -199,7 +199,7 @@ func testCompleteNoMatches(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create a ball
-	env.CreateSession(t, "Test task", session.PriorityMedium)
+	env.CreateBall(t, "Test task", session.PriorityMedium)
 
 	store := env.GetStore(t)
 	balls, err := store.LoadBalls()
@@ -209,7 +209,7 @@ func testCompleteNoMatches(t *testing.T) {
 
 	// Filter with a prefix that doesn't match
 	nonMatchingPrefix := "nonexistent-project-"
-	var matchingBalls []*session.Session
+	var matchingBalls []*session.Ball
 	for _, ball := range balls {
 		if strings.HasPrefix(ball.ID, nonMatchingPrefix) {
 			matchingBalls = append(matchingBalls, ball)
@@ -229,8 +229,8 @@ func testCompleteAcrossMultipleProjects(t *testing.T) {
 	defer CleanupTestEnv(t, envB)
 
 	// Create balls in both projects
-	envA.CreateSession(t, "Task in project A", session.PriorityMedium)
-	envB.CreateSession(t, "Task in project B", session.PriorityHigh)
+	envA.CreateBall(t, "Task in project A", session.PriorityMedium)
+	envB.CreateBall(t, "Task in project B", session.PriorityHigh)
 
 	// Manually load balls from both projects
 	// (Discovery requires structured directory trees which temp dirs don't have)
@@ -270,7 +270,7 @@ func testCompleteFiltersByState(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create and complete a ball
-	ball := env.CreateSession(t, "Task to complete", session.PriorityMedium)
+	ball := env.CreateBall(t, "Task to complete", session.PriorityMedium)
 
 	// Complete the ball
 	ball.MarkComplete("Done")
@@ -292,7 +292,7 @@ func testCompleteFiltersByState(t *testing.T) {
 	}
 
 	// Create a new active ball
-	env.CreateSession(t, "Active task", session.PriorityMedium)
+	env.CreateBall(t, "Active task", session.PriorityMedium)
 
 	balls, err = store.LoadBalls()
 	if err != nil {
@@ -308,7 +308,7 @@ func testCompleteShowsIntent(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	intent := "Important task with detailed description"
-	ball := env.CreateSession(t, intent, session.PriorityHigh)
+	ball := env.CreateBall(t, intent, session.PriorityHigh)
 
 	// Verify intent is available for completion display
 	if ball.Intent != intent {
@@ -321,7 +321,7 @@ func testCompleteWithShortID(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create a ball
-	ball := env.CreateSession(t, "Test task", session.PriorityMedium)
+	ball := env.CreateBall(t, "Test task", session.PriorityMedium)
 	fullID := ball.ID
 
 	// Extract short ID (number part)

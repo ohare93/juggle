@@ -273,14 +273,9 @@ func createAndStartBall(store *session.Store, cwd, intent string) error {
 	}
 
 	// Create the ball
-	ball, err := session.New(cwd, intent, session.Priority(priority))
+	ball, err := session.NewBall(cwd, intent, session.Priority(priority))
 	if err != nil {
 		return fmt.Errorf("failed to create ball: %w", err)
-	}
-
-	// Set description if provided
-	if description != "" {
-		ball.SetDescription(description)
 	}
 
 	// Add tags if provided
@@ -317,9 +312,6 @@ func createAndStartBall(store *session.Store, cwd, intent string) error {
 	fmt.Printf("export JUGGLER_CURRENT_BALL=%s\n", ball.ID)
 	fmt.Printf("\n✓ Started ball: %s\n", ball.ID)
 	fmt.Printf("  Intent: %s\n", ball.Intent)
-	if ball.Description != "" {
-		fmt.Printf("  Description: %s\n", ball.Description)
-	}
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))

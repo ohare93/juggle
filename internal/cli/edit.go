@@ -71,9 +71,9 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	}
 
 	if editDescription != "" {
-		foundBall.SetDescription(editDescription)
+		foundBall.SetAcceptanceCriteria([]string{editDescription})
 		modified = true
-		fmt.Printf("✓ Updated description: %s\n", editDescription)
+		fmt.Printf("✓ Updated acceptance criteria: %s\n", editDescription)
 	}
 
 	if editPriority != "" {
@@ -128,7 +128,7 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runInteractiveEdit(ball *session.Session, store *session.Store) error {
+func runInteractiveEdit(ball *session.Ball, store *session.Store) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Printf("Editing ball: %s\n", ball.ID)
@@ -141,18 +141,6 @@ func runInteractiveEdit(ball *session.Session, store *session.Store) error {
 	input = strings.TrimSpace(input)
 	if input != "" {
 		ball.Intent = input
-	}
-
-	// Edit description
-	currentDesc := ball.Description
-	if currentDesc == "" {
-		currentDesc = "none"
-	}
-	fmt.Printf("Description [%s]: ", currentDesc)
-	input, _ = reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input != "" {
-		ball.SetDescription(input)
 	}
 
 	// Edit priority
@@ -203,9 +191,6 @@ func runInteractiveEdit(ball *session.Session, store *session.Store) error {
 	fmt.Printf("\n✓ Ball %s updated successfully\n", ball.ID)
 	fmt.Println("\nUpdated values:")
 	fmt.Printf("  Intent: %s\n", ball.Intent)
-	if ball.Description != "" {
-		fmt.Printf("  Description: %s\n", ball.Description)
-	}
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
 	if len(ball.Tags) > 0 {

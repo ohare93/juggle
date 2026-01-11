@@ -360,26 +360,26 @@ func TestLoadBallsBySession(t *testing.T) {
 	}
 
 	// Create balls with different tags (simulating session membership)
-	ball1, _ := New(tmpDir, "Ball 1 - belongs to session-a", PriorityMedium)
+	ball1, _ := NewBall(tmpDir, "Ball 1 - belongs to session-a", PriorityMedium)
 	ball1.AddTag("session-a")
 	if err := ballStore.AppendBall(ball1); err != nil {
 		t.Fatalf("failed to save ball1: %v", err)
 	}
 
-	ball2, _ := New(tmpDir, "Ball 2 - belongs to session-a and session-b", PriorityMedium)
+	ball2, _ := NewBall(tmpDir, "Ball 2 - belongs to session-a and session-b", PriorityMedium)
 	ball2.AddTag("session-a")
 	ball2.AddTag("session-b")
 	if err := ballStore.AppendBall(ball2); err != nil {
 		t.Fatalf("failed to save ball2: %v", err)
 	}
 
-	ball3, _ := New(tmpDir, "Ball 3 - belongs to session-b", PriorityMedium)
+	ball3, _ := NewBall(tmpDir, "Ball 3 - belongs to session-b", PriorityMedium)
 	ball3.AddTag("session-b")
 	if err := ballStore.AppendBall(ball3); err != nil {
 		t.Fatalf("failed to save ball3: %v", err)
 	}
 
-	ball4, _ := New(tmpDir, "Ball 4 - no session", PriorityMedium)
+	ball4, _ := NewBall(tmpDir, "Ball 4 - no session", PriorityMedium)
 	if err := ballStore.AppendBall(ball4); err != nil {
 		t.Fatalf("failed to save ball4: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestLoadBallsBySession_MultipleSessions(t *testing.T) {
 	}
 
 	// Create a ball that belongs to multiple sessions
-	ball, _ := New(tmpDir, "Multi-session ball", PriorityMedium)
+	ball, _ := NewBall(tmpDir, "Multi-session ball", PriorityMedium)
 	ball.AddTag("session-1")
 	ball.AddTag("session-2")
 	ball.AddTag("session-3")

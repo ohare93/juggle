@@ -131,7 +131,7 @@ func syncPRDFile(prdPath, projectDir string) error {
 	}
 
 	// Build lookup by title (intent)
-	ballsByTitle := make(map[string]*session.Session)
+	ballsByTitle := make(map[string]*session.Ball)
 	for _, ball := range balls {
 		ballsByTitle[ball.Intent] = ball
 	}
@@ -172,7 +172,7 @@ func syncPRDFile(prdPath, projectDir string) error {
 			}
 		} else {
 			// Create new ball
-			ball, err := session.New(projectDir, story.Title, mapPriorityNumber(story.Priority))
+			ball, err := session.NewBall(projectDir, story.Title, mapPriorityNumber(story.Priority))
 			if err != nil {
 				fmt.Printf("Warning: failed to create ball for %s: %v\n", story.ID, err)
 				continue
@@ -212,7 +212,7 @@ func syncPRDFile(prdPath, projectDir string) error {
 }
 
 // mapPassesToState maps prd.json passes field to ball state
-func mapPassesToState(passes bool, ball *session.Session) session.BallState {
+func mapPassesToState(passes bool, ball *session.Ball) session.BallState {
 	if passes {
 		return session.StateComplete
 	}

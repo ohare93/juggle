@@ -103,7 +103,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create the planned session
-	ball, err := session.New(cwd, intent, session.Priority(priority))
+	ball, err := session.NewBall(cwd, intent, session.Priority(priority))
 	if err != nil {
 		return fmt.Errorf("failed to create planned session: %w", err)
 	}

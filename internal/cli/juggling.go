@@ -132,14 +132,6 @@ func listJugglingBalls(cmd *cobra.Command) error {
 			intentDisplay,
 		)
 
-		// Show description on next line if present
-		if ball.Description != "" {
-			descDisplay := ball.Description
-			if len(descDisplay) > 80 {
-				descDisplay = descDisplay[:77] + "..."
-			}
-			fmt.Printf("      %s\n", dimStyle.Render(descDisplay))
-		}
 	}
 
 	fmt.Println()
@@ -186,7 +178,7 @@ func listAllBalls(cmd *cobra.Command) error {
 	}
 
 	// Group by project (WorkingDir)
-	byProject := make(map[string][]*session.Session)
+	byProject := make(map[string][]*session.Ball)
 	for _, ball := range allBalls {
 		byProject[ball.WorkingDir] = append(byProject[ball.WorkingDir], ball)
 	}
@@ -235,7 +227,7 @@ func listAllBalls(cmd *cobra.Command) error {
 			pluralize(len(balls)))
 
 		// Group by state within project
-		byState := make(map[session.BallState][]*session.Session)
+		byState := make(map[session.BallState][]*session.Ball)
 		for _, ball := range balls {
 			byState[ball.State] = append(byState[ball.State], ball)
 		}
@@ -288,15 +280,6 @@ func listAllBalls(cmd *cobra.Command) error {
 					priorityPadded,
 					intentDisplay,
 				)
-
-				// Show description on next line if present
-				if ball.Description != "" {
-					descDisplay := ball.Description
-					if len(descDisplay) > 80 {
-						descDisplay = descDisplay[:77] + "..."
-					}
-					fmt.Printf("      %s\n", StyleDim.Render(descDisplay))
-				}
 			}
 		}
 	}
@@ -309,7 +292,7 @@ func listAllBalls(cmd *cobra.Command) error {
 // findBallByID searches for a ball by ID in discovered projects
 // By default only searches current project; use --all flag for cross-project search
 // Returns the ball and a store configured for that ball's working directory
-func findBallByID(ballID string) (*session.Session, *session.Store, error) {
+func findBallByID(ballID string) (*session.Ball, *session.Store, error) {
 	config, err := LoadConfigForCommand()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)
@@ -414,10 +397,10 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 }
 
 // activateBall transitions a pending ball to in_progress
-func activateBall(ball *session.Session, store *session.Store) error {
+func activateBall(ball *session.Ball, store *session.Store) error {
 	// If ball is already in progress (or any non-pending state), show its details
 	if ball.State != session.StatePending {
-		renderSessionDetails(ball)
+		renderBallDetails(ball)
 		return nil
 	}
 
@@ -435,7 +418,7 @@ func activateBall(ball *session.Session, store *session.Store) error {
 }
 
 // setBallState sets the ball to a new state (pending, in_progress)
-func setBallState(ball *session.Session, state session.BallState, args []string, store *session.Store) error {
+func setBallState(ball *session.Ball, state session.BallState, args []string, store *session.Store) error {
 	ball.SetState(state)
 
 	if err := store.Save(ball); err != nil {
@@ -447,7 +430,7 @@ func setBallState(ball *session.Session, state session.BallState, args []string,
 }
 
 // setBallComplete marks the ball as complete with optional note and archives it
-func setBallComplete(ball *session.Session, args []string, store *session.Store) error {
+func setBallComplete(ball *session.Ball, args []string, store *session.Store) error {
 	note := ""
 	if len(args) > 0 {
 		note = strings.Join(args, " ")
@@ -472,7 +455,7 @@ func setBallComplete(ball *session.Session, args []string, store *session.Store)
 }
 
 // setBallBlocked marks the ball as blocked with a reason
-func setBallBlocked(ball *session.Session, args []string, store *session.Store) error {
+func setBallBlocked(ball *session.Ball, args []string, store *session.Store) error {
 	reason := ""
 	if len(args) > 0 {
 		reason = strings.Join(args, " ")
@@ -494,7 +477,7 @@ func setBallBlocked(ball *session.Session, args []string, store *session.Store) 
 }
 
 // handleBallTag handles tag operations for a ball
-func handleBallTag(ball *session.Session, args []string, store *session.Store) error {
+func handleBallTag(ball *session.Ball, args []string, store *session.Store) error {
 	if len(args) == 0 {
 		// List tags
 		return listBallTags(ball)
@@ -514,7 +497,7 @@ func handleBallTag(ball *session.Session, args []string, store *session.Store) e
 }
 
 // listBallTags lists tags for a ball
-func listBallTags(ball *session.Session) error {
+func listBallTags(ball *session.Ball) error {
 	if len(ball.Tags) == 0 {
 		fmt.Println("No tags")
 		return nil
@@ -529,7 +512,7 @@ func listBallTags(ball *session.Session) error {
 }
 
 // addBallTags adds tags to a ball
-func addBallTags(ball *session.Session, tags []string, store *session.Store) error {
+func addBallTags(ball *session.Ball, tags []string, store *session.Store) error {
 	if len(tags) == 0 {
 		return fmt.Errorf("no tags provided")
 	}
@@ -547,7 +530,7 @@ func addBallTags(ball *session.Session, tags []string, store *session.Store) err
 }
 
 // removeBallTag removes a tag
-func removeBallTag(ball *session.Session, args []string, store *session.Store) error {
+func removeBallTag(ball *session.Ball, args []string, store *session.Store) error {
 	if len(args) == 0 {
 		return fmt.Errorf("tag name required")
 	}
@@ -567,7 +550,7 @@ func removeBallTag(ball *session.Session, args []string, store *session.Store) e
 }
 
 // handleBallEdit handles editing ball properties
-func handleBallEdit(ball *session.Session, args []string, store *session.Store) error {
+func handleBallEdit(ball *session.Ball, args []string, store *session.Store) error {
 	if len(args) == 0 {
 		return fmt.Errorf("property required (intent, description, priority)")
 	}
@@ -581,14 +564,7 @@ func handleBallEdit(ball *session.Session, args []string, store *session.Store) 
 		}
 		newIntent := strings.Join(args[1:], " ")
 		ball.Intent = newIntent
-		
-	case "description":
-		if len(args) < 2 {
-			return fmt.Errorf("new description text required")
-		}
-		newDescription := strings.Join(args[1:], " ")
-		ball.SetDescription(newDescription)
-		
+
 	case "priority":
 		if len(args) < 2 {
 			return fmt.Errorf("priority value required (low, medium, high, urgent)")
@@ -597,9 +573,9 @@ func handleBallEdit(ball *session.Session, args []string, store *session.Store) 
 			return fmt.Errorf("invalid priority: %s (valid: low, medium, high, urgent)", args[1])
 		}
 		ball.Priority = session.Priority(args[1])
-		
+
 	default:
-		return fmt.Errorf("unknown property: %s (valid: intent, description, priority)", property)
+		return fmt.Errorf("unknown property: %s (valid: intent, priority)", property)
 	}
 	
 	if err := store.Save(ball); err != nil {
@@ -612,7 +588,7 @@ func handleBallEdit(ball *session.Session, args []string, store *session.Store) 
 
 // handleBallUpdate handles updating ball properties via juggle <ball-id> update ...
 // This is a wrapper for the update command that works in the juggle <ball-id> update context
-func handleBallUpdate(ball *session.Session, args []string, store *session.Store) error {
+func handleBallUpdate(ball *session.Ball, args []string, store *session.Store) error {
 	// Parse flags from args
 	modified := false
 	i := 0
@@ -729,7 +705,7 @@ func handleBallUpdate(ball *session.Session, args []string, store *session.Store
 }
 
 // handleBallDelete handles deleting a ball
-func handleBallDelete(ball *session.Session, args []string, store *session.Store) error {
+func handleBallDelete(ball *session.Ball, args []string, store *session.Store) error {
 	// Check for --force flag
 	force := false
 	for _, arg := range args {

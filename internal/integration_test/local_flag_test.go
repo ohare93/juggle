@@ -18,7 +18,7 @@ func TestLocalFlag(t *testing.T) {
 		t.Fatalf("Failed to create store1: %v", err)
 	}
 
-	ball1 := &session.Session{
+	ball1 := &session.Ball{
 		ID:         "test1-1",
 		WorkingDir: project1,
 		Intent:     "Ball in project 1",
@@ -35,7 +35,7 @@ func TestLocalFlag(t *testing.T) {
 		t.Fatalf("Failed to create store2: %v", err)
 	}
 
-	ball2 := &session.Session{
+	ball2 := &session.Ball{
 		ID:         "test2-1",
 		WorkingDir: project2,
 		Intent:     "Ball in project 2",
@@ -223,7 +223,7 @@ func TestLocalFlag(t *testing.T) {
 		}
 
 		// Filter to non-complete balls
-		activeBalls := make([]*session.Session, 0)
+		activeBalls := make([]*session.Ball, 0)
 		for _, ball := range allBalls {
 			if ball.State != session.StateComplete {
 				activeBalls = append(activeBalls, ball)

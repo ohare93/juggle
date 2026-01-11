@@ -40,7 +40,7 @@ type ProjectMetrics struct {
 	CompletedCount     int
 	CompletionRatio    float64
 	StalePendingCount  int
-	StalePendingBalls  []*session.Session
+	StalePendingBalls  []*session.Ball
 	HasCompletedBalls  bool
 }
 
@@ -118,7 +118,7 @@ func runAudit(cmd *cobra.Command, args []string) error {
 }
 
 // calculateProjectMetrics computes all metrics for each project
-func calculateProjectMetrics(balls []*session.Session) map[string]*ProjectMetrics {
+func calculateProjectMetrics(balls []*session.Ball) map[string]*ProjectMetrics {
 	metricsMap := make(map[string]*ProjectMetrics)
 	staleThreshold := time.Now().Add(-staleDays * 24 * time.Hour)
 
@@ -128,7 +128,7 @@ func calculateProjectMetrics(balls []*session.Session) map[string]*ProjectMetric
 			metricsMap[ball.WorkingDir] = &ProjectMetrics{
 				Path:              ball.WorkingDir,
 				Name:              ball.FolderName(),
-				StalePendingBalls: make([]*session.Session, 0),
+				StalePendingBalls: make([]*session.Ball, 0),
 			}
 		}
 

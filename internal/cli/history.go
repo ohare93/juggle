@@ -184,7 +184,7 @@ func runHistory(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func renderArchivedBalls(balls []*session.Session) {
+func renderArchivedBalls(balls []*session.Ball) {
 	// Use consistent styles from styles.go
 	headerStyle := StyleHeader.Padding(0, 1)
 	doneStyle := StyleComplete

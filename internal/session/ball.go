@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Priority levels for sessions
+// Priority levels for balls
 type Priority string
 
 const (
@@ -39,115 +39,106 @@ const (
 )
 
 
-// Session represents a work session (ball) being tracked
-type Session struct {
+// Ball represents a task being tracked
+type Ball struct {
 	ID                 string      `json:"id"`
 	WorkingDir         string      `json:"-"` // Computed from file location, not stored
 	Intent             string      `json:"intent"`
-	AcceptanceCriteria []string    `json:"acceptance_criteria,omitempty"` // List of acceptance criteria
+	AcceptanceCriteria []string    `json:"acceptance_criteria,omitempty"`
 	Priority           Priority    `json:"priority"`
-	State              BallState   `json:"state"`                    // New simplified state
-	BlockedReason      string      `json:"blocked_reason,omitempty"` // Reason when state is blocked
+	State              BallState   `json:"state"`
+	BlockedReason      string      `json:"blocked_reason,omitempty"`
 	StartedAt          time.Time   `json:"started_at"`
 	LastActivity       time.Time   `json:"last_activity"`
 	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
 	UpdateCount        int         `json:"update_count"`
 	Tags               []string    `json:"tags,omitempty"`
 	CompletionNote     string      `json:"completion_note,omitempty"`
-	ModelSize          ModelSize   `json:"model_size,omitempty"` // Preferred LLM model size for cost optimization
-
-	// Legacy field for backward compatibility - use AcceptanceCriteria instead
-	Description  string       `json:"-"` // DEPRECATED: Use AcceptanceCriteria instead
+	ModelSize          ModelSize   `json:"model_size,omitempty"`
 }
 
 // UnmarshalJSON implements custom unmarshaling to handle migration from old format
-func (s *Session) UnmarshalJSON(data []byte) error {
-	var sj sessionJSON
-	if err := json.Unmarshal(data, &sj); err != nil {
+func (b *Ball) UnmarshalJSON(data []byte) error {
+	var bj ballJSON
+	if err := json.Unmarshal(data, &bj); err != nil {
 		return err
 	}
 
 	// Copy all standard fields
-	s.ID = sj.ID
-	s.Intent = sj.Intent
-	s.Priority = sj.Priority
-	s.StartedAt = sj.StartedAt
-	s.LastActivity = sj.LastActivity
-	s.UpdateCount = sj.UpdateCount
-	s.Tags = sj.Tags
-	s.CompletionNote = sj.CompletionNote
-	s.ModelSize = sj.ModelSize
+	b.ID = bj.ID
+	b.Intent = bj.Intent
+	b.Priority = bj.Priority
+	b.StartedAt = bj.StartedAt
+	b.LastActivity = bj.LastActivity
+	b.UpdateCount = bj.UpdateCount
+	b.Tags = bj.Tags
+	b.CompletionNote = bj.CompletionNote
+	b.ModelSize = bj.ModelSize
 
-	// Handle acceptance criteria with migration from description
-	if len(sj.AcceptanceCriteria) > 0 {
-		// New format - use acceptance criteria directly
-		s.AcceptanceCriteria = sj.AcceptanceCriteria
-	} else if sj.Description != "" {
-		// Migrate legacy description to first acceptance criterion
-		s.AcceptanceCriteria = []string{sj.Description}
-	}
-	// Populate legacy Description field for backward compatibility
-	if len(s.AcceptanceCriteria) > 0 {
-		s.Description = s.AcceptanceCriteria[0]
+	// Handle acceptance criteria (migrate from legacy description if needed)
+	if len(bj.AcceptanceCriteria) > 0 {
+		b.AcceptanceCriteria = bj.AcceptanceCriteria
+	} else if bj.Description != "" {
+		b.AcceptanceCriteria = []string{bj.Description}
 	}
 
 	// Migrate state from various formats to new BallState
-	if sj.State != "" {
+	if bj.State != "" {
 		// Newest format - use State directly
-		s.State = BallState(sj.State)
-		s.BlockedReason = sj.BlockedReason
-	} else if sj.ActiveState != "" {
+		b.State = BallState(bj.State)
+		b.BlockedReason = bj.BlockedReason
+	} else if bj.ActiveState != "" {
 		// Previous format with active_state/juggle_state - migrate
-		switch sj.ActiveState {
+		switch bj.ActiveState {
 		case "ready":
-			s.State = StatePending
+			b.State = StatePending
 		case "juggling":
-			s.State = StateInProgress
+			b.State = StateInProgress
 		case "dropped":
-			s.State = StateBlocked
-			if sj.StateMessage != "" {
-				s.BlockedReason = sj.StateMessage
+			b.State = StateBlocked
+			if bj.StateMessage != "" {
+				b.BlockedReason = bj.StateMessage
 			} else {
-				s.BlockedReason = "dropped"
+				b.BlockedReason = "dropped"
 			}
 		case "complete":
-			s.State = StateComplete
+			b.State = StateComplete
 		default:
-			s.State = StatePending
+			b.State = StatePending
 		}
 		// JuggleState substates are collapsed into in_progress
 		// StateMessage becomes BlockedReason only for blocked state
-		if s.State != StateBlocked && sj.StateMessage != "" {
+		if b.State != StateBlocked && bj.StateMessage != "" {
 			// For non-blocked states, preserve message in BlockedReason temporarily
 			// This will be empty on next save unless state is blocked
 		}
-	} else if sj.Status != "" {
+	} else if bj.Status != "" {
 		// Oldest format with status field - migrate
-		switch sj.Status {
+		switch bj.Status {
 		case "planned":
-			s.State = StatePending
+			b.State = StatePending
 		case "active":
-			s.State = StateInProgress
+			b.State = StateInProgress
 		case "blocked":
-			s.State = StateBlocked
-			s.BlockedReason = sj.Blocker
+			b.State = StateBlocked
+			b.BlockedReason = bj.Blocker
 		case "needs-review":
-			s.State = StateInProgress
+			b.State = StateInProgress
 		case "done":
-			s.State = StateComplete
+			b.State = StateComplete
 		default:
-			s.State = StatePending
+			b.State = StatePending
 		}
 	} else {
 		// No state info, default to pending
-		s.State = StatePending
+		b.State = StatePending
 	}
 
 	return nil
 }
 
-// sessionJSON is used for custom JSON unmarshaling to handle migration from old format
-type sessionJSON struct {
+// ballJSON is used for custom JSON unmarshaling to handle migration from old format
+type ballJSON struct {
 	ID                 string          `json:"id"`
 	Intent             string          `json:"intent"`
 	AcceptanceCriteria []string        `json:"acceptance_criteria,omitempty"` // New: list of acceptance criteria
@@ -172,15 +163,15 @@ type sessionJSON struct {
 	ModelSize          ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
 }
 
-// New creates a new session with the given parameters in pending state
-func New(workingDir, intent string, priority Priority) (*Session, error) {
+// NewBall creates a new ball with the given parameters in pending state
+func NewBall(workingDir, intent string, priority Priority) (*Ball, error) {
 	now := time.Now()
 	id, err := generateID(workingDir)
 	if err != nil {
 		return nil, err
 	}
 
-	sess := &Session{
+	ball := &Ball{
 		ID:           id,
 		WorkingDir:   workingDir,
 		Intent:       intent,
@@ -191,11 +182,10 @@ func New(workingDir, intent string, priority Priority) (*Session, error) {
 		UpdateCount:  0,
 		Tags:         []string{},
 	}
-	return sess, nil
+	return ball, nil
 }
 
-// generateID creates a unique session ID from working dir and timestamp
-// generateID creates a unique session ID from working dir and counter
+// generateID creates a unique ball ID from working dir and counter
 func generateID(workingDir string) (string, error) {
 	base := filepath.Base(workingDir)
 	count, err := GetAndIncrementBallCount(workingDir)
@@ -211,118 +201,89 @@ func GetCwd() (string, error) {
 }
 
 // UpdateActivity updates the last activity timestamp
-func (s *Session) UpdateActivity() {
-	s.LastActivity = time.Now()
+func (b *Ball) UpdateActivity() {
+	b.LastActivity = time.Now()
 }
 
 // IncrementUpdateCount increments the update counter
-func (s *Session) IncrementUpdateCount() {
-	s.UpdateCount++
-	s.UpdateActivity()
+func (b *Ball) IncrementUpdateCount() {
+	b.UpdateCount++
+	b.UpdateActivity()
 }
 
 // SetState sets the ball state
-func (s *Session) SetState(state BallState) {
-	s.State = state
+func (b *Ball) SetState(state BallState) {
+	b.State = state
 	if state != StateBlocked {
-		s.BlockedReason = ""
+		b.BlockedReason = ""
 	}
-	s.UpdateActivity()
+	b.UpdateActivity()
 }
 
 // SetBlocked sets the ball to blocked state with a reason
-func (s *Session) SetBlocked(reason string) {
-	s.State = StateBlocked
-	s.BlockedReason = reason
-	s.UpdateActivity()
+func (b *Ball) SetBlocked(reason string) {
+	b.State = StateBlocked
+	b.BlockedReason = reason
+	b.UpdateActivity()
 }
 
-// MarkComplete marks the session as complete
-func (s *Session) MarkComplete(note string) {
-	s.State = StateComplete
-	s.BlockedReason = ""
-	s.CompletionNote = note
+// MarkComplete marks the ball as complete
+func (b *Ball) MarkComplete(note string) {
+	b.State = StateComplete
+	b.BlockedReason = ""
+	b.CompletionNote = note
 	now := time.Now()
-	s.CompletedAt = &now
-	s.UpdateActivity()
+	b.CompletedAt = &now
+	b.UpdateActivity()
 }
 
-// Start transitions a pending session to in_progress
-func (s *Session) Start() {
-	if s.State == StatePending {
-		s.State = StateInProgress
-		s.StartedAt = time.Now()
-		s.UpdateActivity()
+// Start transitions a pending ball to in_progress
+func (b *Ball) Start() {
+	if b.State == StatePending {
+		b.State = StateInProgress
+		b.StartedAt = time.Now()
+		b.UpdateActivity()
 	}
-}
-
-// SetDescription sets the session's description
-// DEPRECATED: Use SetAcceptanceCriteria or AddAcceptanceCriterion instead
-func (s *Session) SetDescription(description string) {
-	s.Description = description
-	// Also set as first acceptance criterion for forward compatibility
-	if len(s.AcceptanceCriteria) == 0 {
-		s.AcceptanceCriteria = []string{description}
-	} else {
-		s.AcceptanceCriteria[0] = description
-	}
-	s.UpdateActivity()
 }
 
 // SetAcceptanceCriteria sets the complete list of acceptance criteria
-func (s *Session) SetAcceptanceCriteria(criteria []string) {
-	s.AcceptanceCriteria = criteria
-	// Populate legacy Description field for backward compatibility
-	if len(criteria) > 0 {
-		s.Description = criteria[0]
-	} else {
-		s.Description = ""
-	}
-	s.UpdateActivity()
+func (b *Ball) SetAcceptanceCriteria(criteria []string) {
+	b.AcceptanceCriteria = criteria
+	b.UpdateActivity()
 }
 
 // AddAcceptanceCriterion adds a single acceptance criterion to the list
-func (s *Session) AddAcceptanceCriterion(criterion string) {
-	s.AcceptanceCriteria = append(s.AcceptanceCriteria, criterion)
-	// Update legacy Description if this is the first criterion
-	if len(s.AcceptanceCriteria) == 1 {
-		s.Description = criterion
-	}
-	s.UpdateActivity()
+func (b *Ball) AddAcceptanceCriterion(criterion string) {
+	b.AcceptanceCriteria = append(b.AcceptanceCriteria, criterion)
+	b.UpdateActivity()
 }
 
 // RemoveAcceptanceCriterion removes an acceptance criterion by index (0-based)
-func (s *Session) RemoveAcceptanceCriterion(index int) error {
-	if index < 0 || index >= len(s.AcceptanceCriteria) {
-		return fmt.Errorf("invalid acceptance criterion index: %d (have %d criteria)", index, len(s.AcceptanceCriteria))
+func (b *Ball) RemoveAcceptanceCriterion(index int) error {
+	if index < 0 || index >= len(b.AcceptanceCriteria) {
+		return fmt.Errorf("invalid acceptance criterion index: %d (have %d criteria)", index, len(b.AcceptanceCriteria))
 	}
-	s.AcceptanceCriteria = append(s.AcceptanceCriteria[:index], s.AcceptanceCriteria[index+1:]...)
-	// Update legacy Description field
-	if len(s.AcceptanceCriteria) > 0 {
-		s.Description = s.AcceptanceCriteria[0]
-	} else {
-		s.Description = ""
-	}
-	s.UpdateActivity()
+	b.AcceptanceCriteria = append(b.AcceptanceCriteria[:index], b.AcceptanceCriteria[index+1:]...)
+	b.UpdateActivity()
 	return nil
 }
 
-// AddTag adds a tag to the session
-func (s *Session) AddTag(tag string) {
-	for _, t := range s.Tags {
+// AddTag adds a tag to the ball
+func (b *Ball) AddTag(tag string) {
+	for _, t := range b.Tags {
 		if t == tag {
 			return // Tag already exists
 		}
 	}
-	s.Tags = append(s.Tags, tag)
+	b.Tags = append(b.Tags, tag)
 }
 
-// RemoveTag removes a tag from the session
-func (s *Session) RemoveTag(tag string) bool {
-	for i, t := range s.Tags {
+// RemoveTag removes a tag from the ball
+func (b *Ball) RemoveTag(tag string) bool {
+	for i, t := range b.Tags {
 		if t == tag {
-			s.Tags = append(s.Tags[:i], s.Tags[i+1:]...)
-			s.UpdateActivity()
+			b.Tags = append(b.Tags[:i], b.Tags[i+1:]...)
+			b.UpdateActivity()
 			return true
 		}
 	}
@@ -330,40 +291,40 @@ func (s *Session) RemoveTag(tag string) bool {
 }
 
 // IdleDuration returns how long since the last activity
-func (s *Session) IdleDuration() time.Duration {
-	return time.Since(s.LastActivity)
+func (b *Ball) IdleDuration() time.Duration {
+	return time.Since(b.LastActivity)
 }
 
-// IsInCurrentDir checks if the session is in the current working directory
-func (s *Session) IsInCurrentDir() bool {
+// IsInCurrentDir checks if the ball is in the current working directory
+func (b *Ball) IsInCurrentDir() bool {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return false
 	}
-	return s.WorkingDir == cwd
+	return b.WorkingDir == cwd
 }
 
 // FolderName returns the base name of the working directory
-func (s *Session) FolderName() string {
-	return filepath.Base(s.WorkingDir)
+func (b *Ball) FolderName() string {
+	return filepath.Base(b.WorkingDir)
 }
 
 
 // ShortID extracts the numeric portion from a ball ID
 // e.g., "myapp-5" -> "5", "myapp-143022" -> "143022"
-func (s *Session) ShortID() string {
+func (b *Ball) ShortID() string {
 	// Find the last hyphen and return everything after it
 	lastHyphen := -1
-	for i := len(s.ID) - 1; i >= 0; i-- {
-		if s.ID[i] == '-' {
+	for i := len(b.ID) - 1; i >= 0; i-- {
+		if b.ID[i] == '-' {
 			lastHyphen = i
 			break
 		}
 	}
-	if lastHyphen >= 0 && lastHyphen < len(s.ID)-1 {
-		return s.ID[lastHyphen+1:]
+	if lastHyphen >= 0 && lastHyphen < len(b.ID)-1 {
+		return b.ID[lastHyphen+1:]
 	}
-	return s.ID
+	return b.ID
 }
 
 // ValidatePriority checks if a priority string is valid
@@ -388,8 +349,8 @@ func ValidateBallState(s string) bool {
 }
 
 // PriorityWeight returns a numeric weight for sorting
-func (s *Session) PriorityWeight() int {
-	switch s.Priority {
+func (b *Ball) PriorityWeight() int {
+	switch b.Priority {
 	case PriorityUrgent:
 		return 4
 	case PriorityHigh:

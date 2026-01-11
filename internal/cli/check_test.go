@@ -73,7 +73,7 @@ func TestCheckCommand_NoJugglingBalls(t *testing.T) {
 	}
 
 	// Create a pending ball
-	ball, err := session.New(projectDir, "Test pending ball", session.PriorityMedium)
+	ball, err := session.NewBall(projectDir, "Test pending ball", session.PriorityMedium)
 	if err != nil {
 		t.Fatalf("failed to create ball: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestCheckCommand_SingleJugglingBall(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	ball, err := session.New(projectDir, "Test juggling ball", session.PriorityHigh)
+	ball, err := session.NewBall(projectDir, "Test juggling ball", session.PriorityHigh)
 	if err != nil {
 		t.Fatalf("failed to create ball: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestCheckCommand_MultipleJugglingBalls(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	ball1, err := session.New(projectDir, "First juggling ball", session.PriorityHigh)
+	ball1, err := session.NewBall(projectDir, "First juggling ball", session.PriorityHigh)
 	if err != nil {
 		t.Fatalf("failed to create ball1: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestCheckCommand_MultipleJugglingBalls(t *testing.T) {
 	// Wait a moment to ensure different IDs
 	time.Sleep(10 * time.Millisecond)
 
-	ball2, err := session.New(projectDir, "Second juggling ball", session.PriorityMedium)
+	ball2, err := session.NewBall(projectDir, "Second juggling ball", session.PriorityMedium)
 	if err != nil {
 		t.Fatalf("failed to create ball2: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 	}
 
 	// Juggling ball
-	jugglingBall, err := session.New(projectDir, "Juggling ball", session.PriorityHigh)
+	jugglingBall, err := session.NewBall(projectDir, "Juggling ball", session.PriorityHigh)
 	if err != nil {
 		t.Fatalf("failed to create juggling ball: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Pending ball (new balls are already in pending state)
-	pendingBall, err := session.New(projectDir, "Pending ball", session.PriorityMedium)
+	pendingBall, err := session.NewBall(projectDir, "Pending ball", session.PriorityMedium)
 	if err != nil {
 		t.Fatalf("failed to create pending ball: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Blocked ball (should not affect check command)
-	blockedBall, err := session.New(projectDir, "Blocked ball", session.PriorityLow)
+	blockedBall, err := session.NewBall(projectDir, "Blocked ball", session.PriorityLow)
 	if err != nil {
 		t.Fatalf("failed to create blocked ball: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestCheckCommand_MixedStates(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Complete ball (should not affect check command)
-	completeBall, err := session.New(projectDir, "Complete ball", session.PriorityLow)
+	completeBall, err := session.NewBall(projectDir, "Complete ball", session.PriorityLow)
 	if err != nil {
 		t.Fatalf("failed to create complete ball: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestCheckCommand_DifferentBallStates(t *testing.T) {
 	}
 
 	for i, test := range states {
-		ball, err := session.New(projectDir, "Test ball "+string(test.state), session.PriorityMedium)
+		ball, err := session.NewBall(projectDir, "Test ball "+string(test.state), session.PriorityMedium)
 		if err != nil {
 			t.Fatalf("failed to create ball %d: %v", i, err)
 		}

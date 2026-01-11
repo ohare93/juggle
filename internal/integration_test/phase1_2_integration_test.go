@@ -19,14 +19,14 @@ func TestEndToEndWorkflow(t *testing.T) {
 	// === Setup: Create test project with balls in various states ===
 
 	// Create some pending balls
-	_ = env.CreateSession(t, "Pending ball 1", session.PriorityHigh)
-	_ = env.CreateSession(t, "Pending ball 2", session.PriorityMedium)
+	_ = env.CreateBall(t, "Pending ball 1", session.PriorityHigh)
+	_ = env.CreateBall(t, "Pending ball 2", session.PriorityMedium)
 
 	// Create an in-progress ball
 	inProgress1 := env.CreateInProgressBall(t, "In-progress ball 1", session.PriorityHigh)
 
 	// Create a completed ball
-	completed := env.CreateSession(t, "Completed ball", session.PriorityLow)
+	completed := env.CreateBall(t, "Completed ball", session.PriorityLow)
 	completed.MarkComplete("Done!")
 	store := env.GetStore(t)
 	if err := store.UpdateBall(completed); err != nil {
@@ -34,7 +34,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	}
 
 	// Create a blocked ball
-	blocked := env.CreateSession(t, "Blocked ball", session.PriorityLow)
+	blocked := env.CreateBall(t, "Blocked ball", session.PriorityLow)
 	blocked.SetState(session.StateBlocked)
 	if err := store.UpdateBall(blocked); err != nil {
 		t.Fatalf("Failed to mark ball blocked: %v", err)
@@ -237,7 +237,7 @@ func TestCrossCommandConsistency(t *testing.T) {
 		store := env.GetStore(t)
 
 		// Create a ball and test state transitions
-		ball := env.CreateSession(t, "State transition test", session.PriorityMedium)
+		ball := env.CreateBall(t, "State transition test", session.PriorityMedium)
 
 		// Test: pending → in_progress transition
 		ball.Start()
@@ -293,7 +293,7 @@ func TestPerformanceMetrics(t *testing.T) {
 		start := time.Now()
 		store := env.GetStore(t)
 		for i := 0; i < 10; i++ {
-			ball, _ := session.New(env.ProjectDir, "Test ball", session.PriorityMedium)
+			ball, _ := session.NewBall(env.ProjectDir, "Test ball", session.PriorityMedium)
 			store.AppendBall(ball)
 		}
 		duration := time.Since(start)
@@ -314,7 +314,7 @@ func TestPerformanceMetrics(t *testing.T) {
 
 		// Create balls sequentially first to establish baseline
 		store := env.GetStore(t)
-		initialBall := env.CreateSession(t, "Initial ball", session.PriorityMedium)
+		initialBall := env.CreateBall(t, "Initial ball", session.PriorityMedium)
 
 		// Now test concurrent reads don't panic
 		done := make(chan error, 5)
@@ -366,7 +366,7 @@ func TestPlanCommand(t *testing.T) {
 		multiWordIntent := "Fix the help text for start command"
 
 		// Create a ball with multi-word intent
-		ball, err := session.New(env.ProjectDir, multiWordIntent, session.PriorityMedium)
+		ball, err := session.NewBall(env.ProjectDir, multiWordIntent, session.PriorityMedium)
 		if err != nil {
 			t.Fatalf("Failed to create ball with multi-word intent: %v", err)
 		}
@@ -401,7 +401,7 @@ func TestPlanCommand(t *testing.T) {
 		// Test that single-word intents still work
 		intent := "Refactor"
 
-		ball, err := session.New(env.ProjectDir, intent, session.PriorityHigh)
+		ball, err := session.NewBall(env.ProjectDir, intent, session.PriorityHigh)
 		if err != nil {
 			t.Fatalf("Failed to create ball: %v", err)
 		}
@@ -420,7 +420,7 @@ func TestPlanCommand(t *testing.T) {
 		// Test that quoted intents still work (backward compatibility)
 		intent := "Add new feature with spaces"
 
-		ball, err := session.New(env.ProjectDir, intent, session.PriorityUrgent)
+		ball, err := session.NewBall(env.ProjectDir, intent, session.PriorityUrgent)
 		if err != nil {
 			t.Fatalf("Failed to create ball: %v", err)
 		}
@@ -439,7 +439,7 @@ func TestPlanCommand(t *testing.T) {
 		// Test that intents with special characters work
 		intent := "Fix bug: API returns 500 on /users endpoint"
 
-		ball, err := session.New(env.ProjectDir, intent, session.PriorityHigh)
+		ball, err := session.NewBall(env.ProjectDir, intent, session.PriorityHigh)
 		if err != nil {
 			t.Fatalf("Failed to create ball: %v", err)
 		}
@@ -457,8 +457,8 @@ func TestPlanCommand(t *testing.T) {
 
 // Helper functions
 
-func filterInProgressBalls(balls []*session.Session) []*session.Session {
-	var inProgress []*session.Session
+func filterInProgressBalls(balls []*session.Ball) []*session.Ball {
+	var inProgress []*session.Ball
 	for _, ball := range balls {
 		if ball.State == session.StateInProgress {
 			inProgress = append(inProgress, ball)

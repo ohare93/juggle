@@ -130,7 +130,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Filter 0: --session (if specified, filter by session tag)
 	if exportSession != "" {
-		filteredBalls := make([]*session.Session, 0)
+		filteredBalls := make([]*session.Ball, 0)
 		for _, ball := range balls {
 			for _, tag := range ball.Tags {
 				if tag == exportSession {
@@ -160,7 +160,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Filter 3: --include-done (always applied, except for ralph/agent formats which always include all)
 	if !exportIncludeDone && exportFormat != "ralph" && exportFormat != "agent" {
-		filteredBalls := make([]*session.Session, 0)
+		filteredBalls := make([]*session.Ball, 0)
 		for _, ball := range balls {
 			if ball.State != session.StateComplete {
 				filteredBalls = append(filteredBalls, ball)
@@ -205,7 +205,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 }
 
 // filterByBallIDs filters balls by specific IDs (supports full and short IDs)
-func filterByBallIDs(balls []*session.Session, ballIDsStr string, projects []string) ([]*session.Session, error) {
+func filterByBallIDs(balls []*session.Ball, ballIDsStr string, projects []string) ([]*session.Ball, error) {
 	// Parse comma-separated list
 	idStrs := strings.Split(ballIDsStr, ",")
 	requestedIDs := make([]string, 0, len(idStrs))
@@ -221,8 +221,8 @@ func filterByBallIDs(balls []*session.Session, ballIDsStr string, projects []str
 	}
 
 	// Build a map of all balls for quick lookup
-	ballsByID := make(map[string]*session.Session)
-	ballsByShortID := make(map[string][]*session.Session)
+	ballsByID := make(map[string]*session.Ball)
+	ballsByShortID := make(map[string][]*session.Ball)
 
 	for _, ball := range balls {
 		ballsByID[ball.ID] = ball
@@ -236,7 +236,7 @@ func filterByBallIDs(balls []*session.Session, ballIDsStr string, projects []str
 	}
 
 	// Resolve each requested ID
-	filteredBalls := make([]*session.Session, 0)
+	filteredBalls := make([]*session.Ball, 0)
 	seenBalls := make(map[string]bool)
 
 	for _, requestedID := range requestedIDs {
@@ -278,7 +278,7 @@ func filterByBallIDs(balls []*session.Session, ballIDsStr string, projects []str
 // filterByState filters balls by state(s)
 // Supports new states: "pending", "in_progress", "blocked", "complete"
 // Also supports legacy states for backward compatibility: "ready", "juggling", "dropped"
-func filterByState(balls []*session.Session, stateStr string) ([]*session.Session, error) {
+func filterByState(balls []*session.Ball, stateStr string) ([]*session.Ball, error) {
 	// Parse comma-separated list
 	stateStrs := strings.Split(stateStr, ",")
 	stateFilters := make([]session.BallState, 0, len(stateStrs))
@@ -329,7 +329,7 @@ func filterByState(balls []*session.Session, stateStr string) ([]*session.Sessio
 	}
 
 	// Filter balls
-	filteredBalls := make([]*session.Session, 0)
+	filteredBalls := make([]*session.Ball, 0)
 	for _, ball := range balls {
 		for _, filter := range stateFilters {
 			if ball.State == filter {
@@ -347,7 +347,7 @@ type stateFilter struct {
 	state session.BallState
 }
 
-func matchesStateFilter(ball *session.Session, filter stateFilter) bool {
+func matchesStateFilter(ball *session.Ball, filter stateFilter) bool {
 	return ball.State == filter.state
 }
 
@@ -355,12 +355,12 @@ func isValidBallState(state string) bool {
 	return session.ValidateBallState(state)
 }
 
-func exportJSON(balls []*session.Session) ([]byte, error) {
+func exportJSON(balls []*session.Ball) ([]byte, error) {
 	// Create export structure
 	export := struct {
 		ExportedAt string             `json:"exported_at"`
 		TotalBalls int                `json:"total_balls"`
-		Balls      []*session.Session `json:"balls"`
+		Balls      []*session.Ball `json:"balls"`
 	}{
 		ExportedAt: fmt.Sprintf("%d", 1),
 		TotalBalls: len(balls),
@@ -375,7 +375,7 @@ func exportJSON(balls []*session.Session) ([]byte, error) {
 	return data, nil
 }
 
-func exportCSV(balls []*session.Session) ([]byte, error) {
+func exportCSV(balls []*session.Ball) ([]byte, error) {
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
 
@@ -384,7 +384,6 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 		"ID",
 		"Project",
 		"Intent",
-		"Description",
 		"Priority",
 		"State",
 		"BlockedReason",
@@ -411,7 +410,6 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 			ball.ID,
 			ball.WorkingDir,
 			ball.Intent,
-			ball.Description,
 			string(ball.Priority),
 			string(ball.State),
 			ball.BlockedReason,
@@ -448,7 +446,7 @@ func exportCSV(balls []*session.Session) ([]byte, error) {
 // <tasks>
 // [balls with acceptance criteria]
 // </tasks>
-func exportRalph(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
+func exportRalph(projectDir, sessionID string, balls []*session.Ball) ([]byte, error) {
 	var buf strings.Builder
 
 	// Load session store to get context and progress
@@ -509,7 +507,7 @@ func exportRalph(projectDir, sessionID string, balls []*session.Session) ([]byte
 }
 
 // writeBallForRalph writes a single ball in Ralph format
-func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
+func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 	// Task header with ID, state, and priority
 	header := fmt.Sprintf("## %s [%s] (priority: %s)", ball.ID, ball.State, ball.Priority)
 	if ball.ModelSize != "" {
@@ -556,7 +554,7 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Session) {
 // <instructions>
 // [agent prompt template]
 // </instructions>
-func exportAgent(projectDir, sessionID string, balls []*session.Session) ([]byte, error) {
+func exportAgent(projectDir, sessionID string, balls []*session.Ball) ([]byte, error) {
 	var buf strings.Builder
 
 	// Load session store to get context and progress
@@ -645,7 +643,7 @@ func limitToLastLines(s string, n int) string {
 }
 
 // writeBallForAgent writes a single ball in agent format
-func writeBallForAgent(buf *strings.Builder, ball *session.Session) {
+func writeBallForAgent(buf *strings.Builder, ball *session.Ball) {
 	// Ball header with ID, state, and priority
 	header := fmt.Sprintf("## %s [%s] (priority: %s)", ball.ID, ball.State, ball.Priority)
 	if ball.ModelSize != "" {

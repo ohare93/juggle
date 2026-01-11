@@ -79,7 +79,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter to non-complete balls
-	activeBalls := make([]*session.Session, 0)
+	activeBalls := make([]*session.Ball, 0)
 	for _, ball := range allBalls {
 		if ball.State != session.StateComplete {
 			activeBalls = append(activeBalls, ball)
@@ -90,7 +90,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	var query string
 	if len(args) > 0 {
 		query = strings.ToLower(args[0])
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			if strings.Contains(strings.ToLower(ball.Intent), query) {
 				filtered = append(filtered, ball)
@@ -106,7 +106,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			tagList[i] = strings.TrimSpace(tagList[i])
 		}
 
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			hasTag := false
 			for _, filterTag := range tagList {
@@ -139,7 +139,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid active state: %s (must be ready|juggling|dropped|complete)", searchStatus)
 		}
 
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			if string(ball.State) == searchStatus {
 				filtered = append(filtered, ball)
@@ -154,7 +154,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid priority: %s (must be low|medium|high|urgent)", searchPriority)
 		}
 
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			if string(ball.Priority) == searchPriority {
 				filtered = append(filtered, ball)
@@ -205,7 +205,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func renderSearchResults(balls []*session.Session) {
+func renderSearchResults(balls []*session.Ball) {
 	// Define styles
 	headerStyle := StyleHeader.Padding(0, 1)
 

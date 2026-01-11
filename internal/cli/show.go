@@ -40,12 +40,12 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return printBallJSON(foundBall)
 	}
 
-	renderSessionDetails(foundBall)
+	renderBallDetails(foundBall)
 	return nil
 }
 
 // printBallJSON outputs the ball as JSON
-func printBallJSON(ball *session.Session) error {
+func printBallJSON(ball *session.Ball) error {
 	data, err := json.MarshalIndent(ball, "", "  ")
 	if err != nil {
 		return printJSONError(err)
@@ -62,39 +62,36 @@ func printJSONError(err error) error {
 	return nil // Return nil so the error is in JSON, not stderr
 }
 
-func renderSessionDetails(sess *session.Session) {
+func renderBallDetails(ball *session.Ball) {
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	valueStyle := lipgloss.NewStyle()
 
-	fmt.Println(labelStyle.Render("Session ID:"), valueStyle.Render(sess.ID))
-	fmt.Println(labelStyle.Render("Working Dir:"), valueStyle.Render(sess.WorkingDir))
-	fmt.Println(labelStyle.Render("Intent:"), valueStyle.Render(sess.Intent))
-	if sess.Description != "" {
-		fmt.Println(labelStyle.Render("Description:"), valueStyle.Render(sess.Description))
-	}
-	fmt.Println(labelStyle.Render("Priority:"), valueStyle.Render(string(sess.Priority)))
-	fmt.Println(labelStyle.Render("State:"), valueStyle.Render(string(sess.State)))
+	fmt.Println(labelStyle.Render("Ball ID:"), valueStyle.Render(ball.ID))
+	fmt.Println(labelStyle.Render("Working Dir:"), valueStyle.Render(ball.WorkingDir))
+	fmt.Println(labelStyle.Render("Intent:"), valueStyle.Render(ball.Intent))
+	fmt.Println(labelStyle.Render("Priority:"), valueStyle.Render(string(ball.Priority)))
+	fmt.Println(labelStyle.Render("State:"), valueStyle.Render(string(ball.State)))
 
-	if sess.BlockedReason != "" {
-		fmt.Println(labelStyle.Render("Blocked:"), valueStyle.Render(sess.BlockedReason))
+	if ball.BlockedReason != "" {
+		fmt.Println(labelStyle.Render("Blocked:"), valueStyle.Render(ball.BlockedReason))
 	}
 
-	fmt.Println(labelStyle.Render("Started:"), valueStyle.Render(sess.StartedAt.Format("2006-01-02 15:04:05")))
-	fmt.Println(labelStyle.Render("Last Activity:"), valueStyle.Render(sess.LastActivity.Format("2006-01-02 15:04:05")))
-	fmt.Println(labelStyle.Render("Updates:"), valueStyle.Render(fmt.Sprintf("%d", sess.UpdateCount)))
+	fmt.Println(labelStyle.Render("Started:"), valueStyle.Render(ball.StartedAt.Format("2006-01-02 15:04:05")))
+	fmt.Println(labelStyle.Render("Last Activity:"), valueStyle.Render(ball.LastActivity.Format("2006-01-02 15:04:05")))
+	fmt.Println(labelStyle.Render("Updates:"), valueStyle.Render(fmt.Sprintf("%d", ball.UpdateCount)))
 
-	if len(sess.Tags) > 0 {
-		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(sess.Tags, ", ")))
+	if len(ball.Tags) > 0 {
+		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(ball.Tags, ", ")))
 	}
 
-	if len(sess.AcceptanceCriteria) > 0 {
+	if len(ball.AcceptanceCriteria) > 0 {
 		fmt.Printf("\n%s\n", labelStyle.Render("Acceptance Criteria:"))
-		for i, ac := range sess.AcceptanceCriteria {
+		for i, ac := range ball.AcceptanceCriteria {
 			fmt.Printf("  %d. %s\n", i+1, ac)
 		}
 	}
 
-	if sess.CompletionNote != "" {
-		fmt.Println(labelStyle.Render("\nCompletion Note:"), valueStyle.Render(sess.CompletionNote))
+	if ball.CompletionNote != "" {
+		fmt.Println(labelStyle.Render("\nCompletion Note:"), valueStyle.Render(ball.CompletionNote))
 	}
 }

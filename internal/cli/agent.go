@@ -228,7 +228,7 @@ func generateAgentPrompt(projectDir, sessionID string) (string, error) {
 	}
 
 	// Filter by session tag
-	balls := make([]*session.Session, 0)
+	balls := make([]*session.Ball, 0)
 	for _, ball := range allBalls {
 		for _, tag := range ball.Tags {
 			if tag == sessionID {

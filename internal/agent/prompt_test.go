@@ -18,7 +18,6 @@ func TestGetPromptTemplate(t *testing.T) {
 		"Juggler Agent Instructions",
 		"<promise>COMPLETE</promise>",
 		"<promise>BLOCKED:",
-		"juggle todo complete",
 		"juggle update",
 		"juggle progress append",
 		"ONE BALL PER ITERATION",

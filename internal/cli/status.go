@@ -79,7 +79,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// Filter to non-complete balls
-	activeBalls := make([]*session.Session, 0)
+	activeBalls := make([]*session.Ball, 0)
 	for _, ball := range allBalls {
 		if ball.State != session.StateComplete {
 			activeBalls = append(activeBalls, ball)
@@ -94,7 +94,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			tagList[i] = strings.TrimSpace(tagList[i])
 		}
 
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			// Check if ball has any of the specified tags (OR logic)
 			hasTag := false
@@ -122,7 +122,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid priority: %s (must be low|medium|high|urgent)", filterPriority)
 		}
 
-		filtered := make([]*session.Session, 0)
+		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
 			if string(ball.Priority) == filterPriority {
 				filtered = append(filtered, ball)
@@ -161,7 +161,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// Group balls by project
-	ballsByProject := make(map[string][]*session.Session)
+	ballsByProject := make(map[string][]*session.Ball)
 	for _, ball := range activeBalls {
 		ballsByProject[ball.WorkingDir] = append(ballsByProject[ball.WorkingDir], ball)
 	}
@@ -172,7 +172,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	var currentBallID string
 	if cwdBalls, ok := ballsByProject[cwd]; ok && len(cwdBalls) > 0 {
 		// Filter in-progress balls in current project
-		activeBalls := make([]*session.Session, 0)
+		activeBalls := make([]*session.Ball, 0)
 		for _, ball := range cwdBalls {
 			if ball.State == session.StateInProgress {
 				activeBalls = append(activeBalls, ball)
@@ -195,7 +195,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 }
 
 
-func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd string, currentBallID string) {
+func renderGroupedSessions(ballsByProject map[string][]*session.Ball, cwd string, currentBallID string) {
 	// Use consistent styles from styles.go
 	headerStyle := StyleHeader
 	activeStyle := StyleInAir        // In-progress (actively working)
@@ -294,15 +294,6 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Session, cwd str
 				intentCell,
 			)
 
-			// Show description on next line if present
-			if ball.Description != "" {
-				descDisplay := ball.Description
-				if len(descDisplay) > 80 {
-					descDisplay = descDisplay[:77] + "..."
-				}
-				dimStyle := StyleDim
-				fmt.Printf("  %s\n", dimStyle.Render(descDisplay))
-			}
 		}
 	}
 

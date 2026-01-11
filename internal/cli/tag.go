@@ -62,7 +62,7 @@ func init() {
 }
 
 // getCurrentBallForTag finds the appropriate ball to operate on
-func getCurrentBallForTag(store *session.Store) (*session.Session, error) {
+func getCurrentBallForTag(store *session.Store) (*session.Ball, error) {
 	// If explicit ball ID provided, use that
 	if tagBallID != "" {
 		ball, err := store.GetBallByID(tagBallID)

@@ -181,7 +181,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 }
 
 // printUpdateJSON outputs the updated ball as JSON (uses show.go's helper)
-func printUpdateJSON(ball *session.Session) error {
+func printUpdateJSON(ball *session.Ball) error {
 	data, err := json.MarshalIndent(ball, "", "  ")
 	if err != nil {
 		return printJSONError(err)
@@ -190,7 +190,7 @@ func printUpdateJSON(ball *session.Session) error {
 	return nil
 }
 
-func runInteractiveUpdate(ball *session.Session, store *session.Store) error {
+func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Printf("Updating ball: %s\n", ball.ID)

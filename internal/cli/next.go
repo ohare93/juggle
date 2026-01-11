@@ -74,10 +74,10 @@ func runNext(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func determineNextSession(sessions []*session.Session) *session.Session {
+func determineNextSession(sessions []*session.Ball) *session.Ball {
 	// Score each session
 	type scored struct {
-		sess  *session.Session
+		sess  *session.Ball
 		score int
 	}
 

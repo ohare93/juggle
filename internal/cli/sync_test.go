@@ -81,7 +81,7 @@ func TestSyncRalph(t *testing.T) {
 	}
 
 	// Find balls by intent
-	var firstBall, secondBall *session.Session
+	var firstBall, secondBall *session.Ball
 	for _, ball := range balls {
 		if ball.Intent == "First Story" {
 			firstBall = ball
@@ -223,19 +223,19 @@ func TestMapPassesToState(t *testing.T) {
 		t.Errorf("expected pending for passes=false with nil ball, got %s", state)
 	}
 
-	// Test passes: false with ball with no completed todos -> pending
-	ball := &session.Session{
-		Todos: []session.Todo{
-			{Text: "Todo 1", Done: false},
-		},
+	// Test passes: false with pending ball -> pending
+	pendingBall := &session.Ball{
+		State: session.StatePending,
 	}
-	if state := mapPassesToState(false, ball); state != session.StatePending {
-		t.Errorf("expected pending for passes=false with incomplete todos, got %s", state)
+	if state := mapPassesToState(false, pendingBall); state != session.StatePending {
+		t.Errorf("expected pending for passes=false with pending ball, got %s", state)
 	}
 
-	// Test passes: false with ball with completed todo -> in_progress
-	ball.Todos[0].Done = true
-	if state := mapPassesToState(false, ball); state != session.StateInProgress {
-		t.Errorf("expected in_progress for passes=false with completed todos, got %s", state)
+	// Test passes: false with in_progress ball -> in_progress (preserves state)
+	inProgressBall := &session.Ball{
+		State: session.StateInProgress,
+	}
+	if state := mapPassesToState(false, inProgressBall); state != session.StateInProgress {
+		t.Errorf("expected in_progress for passes=false with in_progress ball, got %s", state)
 	}
 }

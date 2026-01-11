@@ -9,13 +9,13 @@ import (
 )
 
 type ballsLoadedMsg struct {
-	balls []*session.Session
+	balls []*session.Ball
 	err   error
 }
 
 func loadBalls(store *session.Store, config *session.Config, localOnly bool) tea.Cmd {
 	return func() tea.Msg {
-		var balls []*session.Session
+		var balls []*session.Ball
 
 		if localOnly {
 			// Load only from current project
@@ -42,11 +42,11 @@ func loadBalls(store *session.Store, config *session.Config, localOnly bool) tea
 }
 
 type ballUpdatedMsg struct {
-	ball *session.Session
+	ball *session.Ball
 	err  error
 }
 
-func updateBall(store *session.Store, ball *session.Session) tea.Cmd {
+func updateBall(store *session.Store, ball *session.Ball) tea.Cmd {
 	return func() tea.Msg {
 		if err := store.UpdateBall(ball); err != nil {
 			return ballUpdatedMsg{err: err}
@@ -56,12 +56,12 @@ func updateBall(store *session.Store, ball *session.Session) tea.Cmd {
 }
 
 type ballArchivedMsg struct {
-	ball *session.Session
+	ball *session.Ball
 	err  error
 }
 
 // updateAndArchiveBall updates the ball and then archives it
-func updateAndArchiveBall(store *session.Store, ball *session.Session) tea.Cmd {
+func updateAndArchiveBall(store *session.Store, ball *session.Ball) tea.Cmd {
 	return func() tea.Msg {
 		// First update the ball to persist state changes
 		if err := store.UpdateBall(ball); err != nil {
@@ -148,7 +148,7 @@ type AgentStatus struct {
 }
 
 // launchAgentCmd creates a command that runs the agent for a session
-func launchAgentCmd(sessionStore *session.SessionStore, sessionID string) tea.Cmd {
+func launchAgentCmd(sessionID string) tea.Cmd {
 	return func() tea.Msg {
 		// Launch "juggle agent run" as a subprocess
 		// This allows the TUI to continue running while the agent works

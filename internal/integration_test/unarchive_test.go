@@ -43,7 +43,7 @@ func testUnarchiveDirectSyntax(t *testing.T) {
 	setupConfigWithTestProject(t, env)
 
 	// 1. Create and complete a ball
-	ball := env.CreateSession(t, "Test unarchive direct syntax", session.PriorityMedium)
+	ball := env.CreateBall(t, "Test unarchive direct syntax", session.PriorityMedium)
 	ballID := ball.ID
 
 	// Mark as complete and archive
@@ -121,7 +121,7 @@ func testUnarchiveBallCommandSyntax(t *testing.T) {
 	setupConfigWithTestProject(t, env)
 
 	// 1. Create and archive a ball
-	ball := env.CreateSession(t, "Test ball command syntax", session.PriorityHigh)
+	ball := env.CreateBall(t, "Test ball command syntax", session.PriorityHigh)
 	ballID := ball.ID
 
 	ball.MarkComplete("Completed")
@@ -201,7 +201,7 @@ func testUnarchiveRestoresToReadyState(t *testing.T) {
 	setupConfigWithTestProject(t, env)
 
 	// Create ball with specific state progression
-	ball := env.CreateSession(t, "State progression test", session.PriorityLow)
+	ball := env.CreateBall(t, "State progression test", session.PriorityLow)
 	ballID := ball.ID
 
 	// Set to in_progress and then complete
@@ -275,11 +275,11 @@ func testUnarchiveRemovesFromArchive(t *testing.T) {
 	store := env.GetStore(t)
 
 	// Create and archive multiple balls
-	ball1 := env.CreateSession(t, "First ball", session.PriorityMedium)
-	ball2 := env.CreateSession(t, "Second ball", session.PriorityMedium)
-	ball3 := env.CreateSession(t, "Third ball", session.PriorityMedium)
+	ball1 := env.CreateBall(t, "First ball", session.PriorityMedium)
+	ball2 := env.CreateBall(t, "Second ball", session.PriorityMedium)
+	ball3 := env.CreateBall(t, "Third ball", session.PriorityMedium)
 
-	for _, ball := range []*session.Session{ball1, ball2, ball3} {
+	for _, ball := range []*session.Ball{ball1, ball2, ball3} {
 		ball.MarkComplete("Done")
 		if err := store.UpdateBall(ball); err != nil {
 			t.Fatalf("Failed to update ball: %v", err)
@@ -352,7 +352,7 @@ func testUnarchivePreservesMetadata(t *testing.T) {
 	setupConfigWithTestProject(t, env)
 
 	// Create ball with rich metadata
-	ball := env.CreateSession(t, "Rich metadata ball", session.PriorityUrgent)
+	ball := env.CreateBall(t, "Rich metadata ball", session.PriorityUrgent)
 	ballID := ball.ID
 
 	// Set acceptance criteria
@@ -460,7 +460,7 @@ func testUnarchiveWithShortID(t *testing.T) {
 	setupConfigWithTestProject(t, env)
 
 	// Create and archive a ball
-	ball := env.CreateSession(t, "Short ID test", session.PriorityMedium)
+	ball := env.CreateBall(t, "Short ID test", session.PriorityMedium)
 	ballID := ball.ID
 	shortID := ball.ShortID()
 
@@ -502,9 +502,9 @@ func testUnarchiveMultipleBallsInArchive(t *testing.T) {
 	store := env.GetStore(t)
 
 	// Create and archive 5 balls
-	balls := make([]*session.Session, 5)
+	balls := make([]*session.Ball, 5)
 	for i := 0; i < 5; i++ {
-		ball := env.CreateSession(t, fmt.Sprintf("Ball %d", i+1), session.PriorityMedium)
+		ball := env.CreateBall(t, fmt.Sprintf("Ball %d", i+1), session.PriorityMedium)
 		ball.MarkComplete(fmt.Sprintf("Completed %d", i+1))
 		if err := store.UpdateBall(ball); err != nil {
 			t.Fatalf("Failed to update ball %d: %v", i+1, err)

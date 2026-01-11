@@ -35,7 +35,7 @@ func testMoveToAnotherProject(t *testing.T) {
 	setupConfigWithProjects(t, envA.ConfigHome, envA.ProjectDir, envB.ProjectDir)
 
 	// Create ball in project A
-	ball := envA.CreateSession(t, "Move me", session.PriorityMedium)
+	ball := envA.CreateBall(t, "Move me", session.PriorityMedium)
 	ballID := ball.ID
 
 	// Move to project B
@@ -81,7 +81,7 @@ func testMoveUpdatesWorkingDir(t *testing.T) {
 	setupConfigWithProjects(t, envA.ConfigHome, envA.ProjectDir, envB.ProjectDir)
 
 	// Create ball in project A
-	ball := envA.CreateSession(t, "Test", session.PriorityMedium)
+	ball := envA.CreateBall(t, "Test", session.PriorityMedium)
 	ballID := ball.ID
 
 	// Move to project B
@@ -128,7 +128,7 @@ func testMoveToNonJugglerProject(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	ball := env.CreateSession(t, "Test", session.PriorityMedium)
+	ball := env.CreateBall(t, "Test", session.PriorityMedium)
 
 	// Create temp dir without .juggler
 	nonJugglerDir, err := os.MkdirTemp("", "non-juggler-*")
@@ -159,7 +159,7 @@ func testMovePreservesMetadata(t *testing.T) {
 	setupConfigWithProjects(t, envA.ConfigHome, envA.ProjectDir, envB.ProjectDir)
 
 	// Create ball with metadata
-	ball := envA.CreateSession(t, "Complex task", session.PriorityHigh)
+	ball := envA.CreateBall(t, "Complex task", session.PriorityHigh)
 	ball.SetAcceptanceCriteria([]string{"First criterion", "Second criterion"})
 	ball.AddTag("feature")
 	ball.AddTag("urgent")
@@ -214,8 +214,8 @@ func testMoveRemovesFromSource(t *testing.T) {
 	setupConfigWithProjects(t, envA.ConfigHome, envA.ProjectDir, envB.ProjectDir)
 
 	// Create two balls in project A
-	ball1 := envA.CreateSession(t, "Ball to keep", session.PriorityMedium)
-	ball2 := envA.CreateSession(t, "Ball to move", session.PriorityHigh)
+	ball1 := envA.CreateBall(t, "Ball to keep", session.PriorityMedium)
+	ball2 := envA.CreateBall(t, "Ball to move", session.PriorityHigh)
 
 	// Verify both exist in A
 	storeA := envA.GetStore(t)
@@ -269,7 +269,7 @@ func testMoveWithShortID(t *testing.T) {
 	setupConfigWithProjects(t, envA.ConfigHome, envA.ProjectDir, envB.ProjectDir)
 
 	// Create ball in project A
-	ball := envA.CreateSession(t, "Test", session.PriorityMedium)
+	ball := envA.CreateBall(t, "Test", session.PriorityMedium)
 	fullID := ball.ID
 
 	// Extract short ID
@@ -306,7 +306,7 @@ func testMoveToSameProject(t *testing.T) {
 	// Setup config with project
 	setupConfigWithProjects(t, env.ConfigHome, env.ProjectDir)
 
-	ball := env.CreateSession(t, "Test", session.PriorityMedium)
+	ball := env.CreateBall(t, "Test", session.PriorityMedium)
 
 	// Try to move to same project
 	output, exitCode := runMoveCommandWithError(t, env.ProjectDir, ball.ID, env.ProjectDir)

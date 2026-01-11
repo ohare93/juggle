@@ -11,10 +11,10 @@ func TestBasicSessionLifecycle(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create a new session
-	sess := env.CreateSession(t, "Test integration feature", session.PriorityHigh)
+	sess := env.CreateBall(t, "Test integration feature", session.PriorityHigh)
 
 	// Verify it exists
-	env.AssertSessionExists(t, sess.ID)
+	env.AssertBallExists(t, sess.ID)
 	env.AssertState(t, sess.ID, session.StatePending)
 }
 
@@ -23,14 +23,14 @@ func TestMultipleSessions(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create multiple sessions
-	sess1 := env.CreateSession(t, "First session", session.PriorityHigh)
-	sess2 := env.CreateSession(t, "Second session", session.PriorityMedium)
-	sess3 := env.CreateSession(t, "Third session", session.PriorityLow)
+	sess1 := env.CreateBall(t, "First session", session.PriorityHigh)
+	sess2 := env.CreateBall(t, "Second session", session.PriorityMedium)
+	sess3 := env.CreateBall(t, "Third session", session.PriorityLow)
 
 	// Verify all exist
-	env.AssertSessionExists(t, sess1.ID)
-	env.AssertSessionExists(t, sess2.ID)
-	env.AssertSessionExists(t, sess3.ID)
+	env.AssertBallExists(t, sess1.ID)
+	env.AssertBallExists(t, sess2.ID)
+	env.AssertBallExists(t, sess3.ID)
 
 	// Get all sessions
 	store := env.GetStore(t)
@@ -48,7 +48,7 @@ func TestAcceptanceCriteriaManagement(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	sess := env.CreateSession(t, "Session with acceptance criteria", session.PriorityHigh)
+	sess := env.CreateBall(t, "Session with acceptance criteria", session.PriorityHigh)
 	store := env.GetStore(t)
 
 	// Set acceptance criteria
@@ -73,7 +73,7 @@ func TestTagManagement(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	sess := env.CreateSession(t, "Session with tags", session.PriorityMedium)
+	sess := env.CreateBall(t, "Session with tags", session.PriorityMedium)
 	store := env.GetStore(t)
 
 	// Add tags
@@ -136,7 +136,7 @@ func TestShortID(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	sess := env.CreateSession(t, "Short ID test", session.PriorityMedium)
+	sess := env.CreateBall(t, "Short ID test", session.PriorityMedium)
 	store := env.GetStore(t)
 
 	// Test retrieving by short ID
@@ -165,7 +165,7 @@ func TestPriorityWeight(t *testing.T) {
 	expectedWeights := []int{1, 2, 3, 4}
 
 	for i, priority := range priorities {
-		sess := env.CreateSession(t, "Priority test", priority)
+		sess := env.CreateBall(t, "Priority test", priority)
 		weight := sess.PriorityWeight()
 
 		if weight != expectedWeights[i] {
@@ -180,14 +180,14 @@ func TestDeleteBall(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create multiple sessions
-	sess1 := env.CreateSession(t, "Session to keep", session.PriorityHigh)
-	sess2 := env.CreateSession(t, "Session to delete", session.PriorityMedium)
-	sess3 := env.CreateSession(t, "Another session to keep", session.PriorityLow)
+	sess1 := env.CreateBall(t, "Session to keep", session.PriorityHigh)
+	sess2 := env.CreateBall(t, "Session to delete", session.PriorityMedium)
+	sess3 := env.CreateBall(t, "Another session to keep", session.PriorityLow)
 
 	// Verify all exist
-	env.AssertSessionExists(t, sess1.ID)
-	env.AssertSessionExists(t, sess2.ID)
-	env.AssertSessionExists(t, sess3.ID)
+	env.AssertBallExists(t, sess1.ID)
+	env.AssertBallExists(t, sess2.ID)
+	env.AssertBallExists(t, sess3.ID)
 
 	store := env.GetStore(t)
 
@@ -203,8 +203,8 @@ func TestDeleteBall(t *testing.T) {
 	}
 
 	// Verify sess1 and sess3 still exist
-	env.AssertSessionExists(t, sess1.ID)
-	env.AssertSessionExists(t, sess3.ID)
+	env.AssertBallExists(t, sess1.ID)
+	env.AssertBallExists(t, sess3.ID)
 
 	// Verify only 2 sessions remain
 	sessions, err := store.LoadBalls()
@@ -221,7 +221,7 @@ func TestDeleteNonExistentBall(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
-	sess := env.CreateSession(t, "Test session", session.PriorityMedium)
+	sess := env.CreateBall(t, "Test session", session.PriorityMedium)
 	store := env.GetStore(t)
 
 	// Delete should succeed even if ball doesn't exist (it's already gone)
@@ -230,7 +230,7 @@ func TestDeleteNonExistentBall(t *testing.T) {
 	}
 
 	// Original session should still exist
-	env.AssertSessionExists(t, sess.ID)
+	env.AssertBallExists(t, sess.ID)
 }
 
 func TestPendingBallStateTransition(t *testing.T) {
@@ -238,7 +238,7 @@ func TestPendingBallStateTransition(t *testing.T) {
 	defer CleanupTestEnv(t, env)
 
 	// Create a session in pending state
-	sess := env.CreateSession(t, "Test pending to in_progress transition", session.PriorityMedium)
+	sess := env.CreateBall(t, "Test pending to in_progress transition", session.PriorityMedium)
 
 	// Verify initial state is pending
 	env.AssertState(t, sess.ID, session.StatePending)

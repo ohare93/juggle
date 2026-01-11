@@ -8,7 +8,7 @@ import (
 	"github.com/ohare93/juggle/internal/session"
 )
 
-func renderBallList(balls []*session.Session, cursor int, width int) string {
+func renderBallList(balls []*session.Ball, cursor int, width int) string {
 	var output strings.Builder
 
 	// Header
@@ -50,11 +50,11 @@ func renderBallList(balls []*session.Session, cursor int, width int) string {
 	return output.String()
 }
 
-func formatState(ball *session.Session) string {
+func formatState(ball *session.Ball) string {
 	return string(ball.State)
 }
 
-func styleBallByState(ball *session.Session, line string) string {
+func styleBallByState(ball *session.Ball, line string) string {
 	var color lipgloss.Color
 
 	// Choose color based on state
@@ -109,7 +109,7 @@ func truncateID(id string, maxLen int) string {
 	return truncate(id, maxLen)
 }
 
-func countByState(balls []*session.Session, state string) int {
+func countByState(balls []*session.Ball, state string) int {
 	count := 0
 	for _, ball := range balls {
 		if string(ball.State) == state {

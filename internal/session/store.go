@@ -80,7 +80,7 @@ func NewStoreWithConfig(projectDir string, config StoreConfig) (*Store, error) {
 }
 
 // AppendBall adds a new ball to the JSONL file
-func (s *Store) AppendBall(ball *Session) error {
+func (s *Store) AppendBall(ball *Ball) error {
 	data, err := json.Marshal(ball)
 	if err != nil {
 		return fmt.Errorf("failed to marshal ball: %w", err)
@@ -105,10 +105,10 @@ func (s *Store) AppendBall(ball *Session) error {
 }
 
 // LoadBalls reads all balls from the JSONL file
-func (s *Store) LoadBalls() ([]*Session, error) {
+func (s *Store) LoadBalls() ([]*Ball, error) {
 	// If file doesn't exist, return empty slice
 	if _, err := os.Stat(s.ballsPath); os.IsNotExist(err) {
-		return []*Session{}, nil
+		return []*Ball{}, nil
 	}
 
 	f, err := os.Open(s.ballsPath)
@@ -117,7 +117,7 @@ func (s *Store) LoadBalls() ([]*Session, error) {
 	}
 	defer f.Close()
 
-	balls := make([]*Session, 0)
+	balls := make([]*Ball, 0)
 	scanner := bufio.NewScanner(f)
 
 	for scanner.Scan() {
@@ -126,7 +126,7 @@ func (s *Store) LoadBalls() ([]*Session, error) {
 			continue // Skip empty lines
 		}
 
-		var ball Session
+		var ball Ball
 		if err := json.Unmarshal([]byte(line), &ball); err != nil {
 			// Log error but continue
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse ball line: %v\n", err)
@@ -147,10 +147,10 @@ func (s *Store) LoadBalls() ([]*Session, error) {
 }
 
 // LoadArchivedBalls reads all balls from the archive JSONL file
-func (s *Store) LoadArchivedBalls() ([]*Session, error) {
+func (s *Store) LoadArchivedBalls() ([]*Ball, error) {
 	// If file doesn't exist, return empty slice
 	if _, err := os.Stat(s.archivePath); os.IsNotExist(err) {
-		return []*Session{}, nil
+		return []*Ball{}, nil
 	}
 
 	f, err := os.Open(s.archivePath)
@@ -159,7 +159,7 @@ func (s *Store) LoadArchivedBalls() ([]*Session, error) {
 	}
 	defer f.Close()
 
-	balls := make([]*Session, 0)
+	balls := make([]*Ball, 0)
 	scanner := bufio.NewScanner(f)
 
 	for scanner.Scan() {
@@ -168,7 +168,7 @@ func (s *Store) LoadArchivedBalls() ([]*Session, error) {
 			continue // Skip empty lines
 		}
 
-		var ball Session
+		var ball Ball
 		if err := json.Unmarshal([]byte(line), &ball); err != nil {
 			// Log error but continue
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse archived ball line: %v\n", err)
@@ -189,7 +189,7 @@ func (s *Store) LoadArchivedBalls() ([]*Session, error) {
 }
 
 // UpdateBall updates an existing ball by rewriting the JSONL file
-func (s *Store) UpdateBall(updated *Session) error {
+func (s *Store) UpdateBall(updated *Ball) error {
 	balls, err := s.LoadBalls()
 	if err != nil {
 		return err
@@ -221,7 +221,7 @@ func (s *Store) DeleteBall(id string) error {
 	}
 
 	// Filter out the ball to delete
-	filtered := make([]*Session, 0, len(balls))
+	filtered := make([]*Ball, 0, len(balls))
 	for _, ball := range balls {
 		if ball.ID != id {
 			filtered = append(filtered, ball)
@@ -232,7 +232,7 @@ func (s *Store) DeleteBall(id string) error {
 }
 
 // ArchiveBall moves a ball to the archive
-func (s *Store) ArchiveBall(ball *Session) error {
+func (s *Store) ArchiveBall(ball *Ball) error {
 	// Append to archive
 	data, err := json.Marshal(ball)
 	if err != nil {
@@ -258,14 +258,14 @@ func (s *Store) ArchiveBall(ball *Session) error {
 }
 
 // GetInProgressBalls returns all balls currently in progress in this project
-func (s *Store) GetInProgressBalls() ([]*Session, error) {
+func (s *Store) GetInProgressBalls() ([]*Ball, error) {
 	balls, err := s.LoadBalls()
 	if err != nil {
 		return nil, err
 	}
 
 	// Filter for in_progress balls
-	inProgress := make([]*Session, 0)
+	inProgress := make([]*Ball, 0)
 	for _, ball := range balls {
 		if ball.State == StateInProgress {
 			inProgress = append(inProgress, ball)
@@ -281,13 +281,13 @@ func (s *Store) GetInProgressBalls() ([]*Session, error) {
 }
 
 // GetBallsByState returns all balls with the given state
-func (s *Store) GetBallsByState(state BallState) ([]*Session, error) {
+func (s *Store) GetBallsByState(state BallState) ([]*Ball, error) {
 	all, err := s.LoadBalls()
 	if err != nil {
 		return nil, err
 	}
 
-	filtered := make([]*Session, 0)
+	filtered := make([]*Ball, 0)
 	for _, ball := range all {
 		if ball.State == state {
 			filtered = append(filtered, ball)
@@ -298,7 +298,7 @@ func (s *Store) GetBallsByState(state BallState) ([]*Session, error) {
 }
 
 // GetBallByID finds a ball by its ID
-func (s *Store) GetBallByID(id string) (*Session, error) {
+func (s *Store) GetBallByID(id string) (*Ball, error) {
 	balls, err := s.LoadBalls()
 	if err != nil {
 		return nil, err
@@ -316,13 +316,13 @@ func (s *Store) GetBallByID(id string) (*Session, error) {
 
 // GetBallByShortID finds a ball by its short ID (numeric part)
 // If multiple balls match, returns the most recently active
-func (s *Store) GetBallByShortID(shortID string) (*Session, error) {
+func (s *Store) GetBallByShortID(shortID string) (*Ball, error) {
 	balls, err := s.LoadBalls()
 	if err != nil {
 		return nil, err
 	}
 
-	matches := make([]*Session, 0)
+	matches := make([]*Ball, 0)
 	for _, ball := range balls {
 		if ball.ShortID() == shortID {
 			matches = append(matches, ball)
@@ -344,7 +344,7 @@ func (s *Store) GetBallByShortID(shortID string) (*Session, error) {
 }
 
 // ResolveBallID resolves a ball ID from either full ID or short ID
-func (s *Store) ResolveBallID(id string) (*Session, error) {
+func (s *Store) ResolveBallID(id string) (*Ball, error) {
 	// Try as full ID first
 	ball, err := s.GetBallByID(id)
 	if err == nil {
@@ -356,7 +356,7 @@ func (s *Store) ResolveBallID(id string) (*Session, error) {
 }
 
 // writeBalls rewrites the entire balls.jsonl file
-func (s *Store) writeBalls(balls []*Session) error {
+func (s *Store) writeBalls(balls []*Ball) error {
 	// Write to temp file first
 	tempPath := s.ballsPath + ".tmp"
 	f, err := os.Create(tempPath)
@@ -400,7 +400,7 @@ func (s *Store) writeBalls(balls []*Session) error {
 }
 
 // UnarchiveBall restores a completed ball from archive back to ready state
-func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
+func (s *Store) UnarchiveBall(ballID string) (*Ball, error) {
 	// Load archived balls
 	archived, err := s.LoadArchivedBalls()
 	if err != nil {
@@ -408,7 +408,7 @@ func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
 	}
 
 	// Find ball with matching ID
-	var ball *Session
+	var ball *Ball
 	var ballIndex int
 	for i, b := range archived {
 		if b.ID == ballID {
@@ -433,7 +433,7 @@ func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
 	}
 
 	// Remove from archive by rewriting archive file without this ball
-	updatedArchive := make([]*Session, 0, len(archived)-1)
+	updatedArchive := make([]*Ball, 0, len(archived)-1)
 	for i, b := range archived {
 		if i != ballIndex {
 			updatedArchive = append(updatedArchive, b)
@@ -450,7 +450,7 @@ func (s *Store) UnarchiveBall(ballID string) (*Session, error) {
 }
 
 // writeArchivedBalls rewrites the entire archive/balls.jsonl file
-func (s *Store) writeArchivedBalls(balls []*Session) error {
+func (s *Store) writeArchivedBalls(balls []*Ball) error {
 	// Write to temp file first
 	tempPath := s.archivePath + ".tmp"
 	f, err := os.Create(tempPath)
@@ -494,7 +494,7 @@ func (s *Store) writeArchivedBalls(balls []*Session) error {
 }
 
 // Save is an alias for UpdateBall for backwards compatibility
-func (s *Store) Save(ball *Session) error {
+func (s *Store) Save(ball *Ball) error {
 	// Check if ball already exists
 	existing, err := s.GetBallByID(ball.ID)
 	if err != nil || existing == nil {

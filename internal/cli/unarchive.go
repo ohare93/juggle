@@ -50,7 +50,7 @@ func runUnarchive(cmd *cobra.Command, args []string) error {
 }
 
 // handleBallUnarchive handles the ball-specific unarchive command (juggle <ball-id> unarchive)
-func handleBallUnarchive(ball *session.Session, store *session.Store) error {
+func handleBallUnarchive(ball *session.Ball, store *session.Store) error {
 	// Check if ball is complete (in archive)
 	if ball.State != session.StateComplete {
 		return fmt.Errorf("ball %s is not archived (current state: %s)", ball.ID, ball.State)
@@ -72,7 +72,7 @@ func handleBallUnarchive(ball *session.Session, store *session.Store) error {
 }
 
 // findArchivedBallByID searches for a ball by ID in archives (respects --all flag)
-func findArchivedBallByID(ballID string) (*session.Session, *session.Store, error) {
+func findArchivedBallByID(ballID string) (*session.Ball, *session.Store, error) {
 	config, err := LoadConfigForCommand()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)

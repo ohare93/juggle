@@ -64,33 +64,33 @@ func TestTruncate(t *testing.T) {
 func TestFormatState(t *testing.T) {
 	tests := []struct {
 		name     string
-		ball     *session.Session
+		ball     *session.Ball
 		expected string
 	}{
 		{
 			name: "pending state",
-			ball: &session.Session{
+			ball: &session.Ball{
 				State: session.StatePending,
 			},
 			expected: "pending",
 		},
 		{
 			name: "in_progress state",
-			ball: &session.Session{
+			ball: &session.Ball{
 				State: session.StateInProgress,
 			},
 			expected: "in_progress",
 		},
 		{
 			name: "complete state",
-			ball: &session.Session{
+			ball: &session.Ball{
 				State: session.StateComplete,
 			},
 			expected: "complete",
 		},
 		{
 			name: "blocked state",
-			ball: &session.Session{
+			ball: &session.Ball{
 				State: session.StateBlocked,
 			},
 			expected: "blocked",
@@ -108,7 +108,7 @@ func TestFormatState(t *testing.T) {
 }
 
 func TestCountByState(t *testing.T) {
-	balls := []*session.Session{
+	balls := []*session.Ball{
 		{State: session.StatePending},
 		{State: session.StatePending},
 		{State: session.StateInProgress},
@@ -137,7 +137,7 @@ func TestCountByState(t *testing.T) {
 
 func TestApplyFilters(t *testing.T) {
 	model := Model{
-		balls: []*session.Session{
+		balls: []*session.Ball{
 			{ID: "1", State: session.StatePending},
 			{ID: "2", State: session.StatePending},
 			{ID: "3", State: session.StateInProgress},
@@ -166,7 +166,7 @@ func TestApplyFilters(t *testing.T) {
 
 func TestApplyFiltersAll(t *testing.T) {
 	model := Model{
-		balls: []*session.Session{
+		balls: []*session.Ball{
 			{ID: "1", State: session.StatePending},
 			{ID: "2", State: session.StateInProgress},
 			{ID: "3", State: session.StateComplete},
@@ -318,7 +318,7 @@ func TestStateTransitionsUnrestricted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := Model{
-				filteredBalls: []*session.Session{
+				filteredBalls: []*session.Ball{
 					{
 						ID:         "test-1",
 						State:      tt.initialState,
@@ -403,7 +403,7 @@ func TestCyclePriority(t *testing.T) {
 }
 
 func TestConfirmDeleteRendering(t *testing.T) {
-	ball := &session.Session{
+	ball := &session.Ball{
 		ID:       "test-1",
 		Intent:   "Test ball",
 		Priority: session.PriorityMedium,
@@ -411,7 +411,7 @@ func TestConfirmDeleteRendering(t *testing.T) {
 
 	model := Model{
 		mode:          confirmDeleteView,
-		filteredBalls: []*session.Session{ball},
+		filteredBalls: []*session.Ball{ball},
 		cursor:        0,
 	}
 
@@ -435,7 +435,7 @@ func TestConfirmDeleteRendering(t *testing.T) {
 func TestConfirmDeleteEmptyBalls(t *testing.T) {
 	model := Model{
 		mode:          confirmDeleteView,
-		filteredBalls: []*session.Session{},
+		filteredBalls: []*session.Ball{},
 		cursor:        0,
 	}
 

@@ -7,8 +7,8 @@ import (
 )
 
 // LoadArchivedBalls loads all archived balls from archive/balls.jsonl in all projects
-func LoadArchivedBalls(projectPaths []string) ([]*Session, error) {
-	archivedBalls := make([]*Session, 0)
+func LoadArchivedBalls(projectPaths []string) ([]*Ball, error) {
+	archivedBalls := make([]*Ball, 0)
 
 	for _, projectPath := range projectPaths {
 		store, err := NewStore(projectPath)
@@ -59,14 +59,14 @@ const (
 )
 
 // QueryArchive searches archived balls based on the given query
-func QueryArchive(projectPaths []string, query ArchiveQuery) ([]*Session, error) {
+func QueryArchive(projectPaths []string, query ArchiveQuery) ([]*Ball, error) {
 	balls, err := LoadArchivedBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply filters
-	filtered := make([]*Session, 0)
+	filtered := make([]*Ball, 0)
 
 	for _, ball := range balls {
 		// Text search filter

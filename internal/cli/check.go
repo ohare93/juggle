@@ -94,7 +94,7 @@ func printNoJugglerDir() {
 	fmt.Println("  juggle start   - Create and start juggling immediately")
 }
 
-func handleNoInProgressBalls(pendingBalls []*session.Session) error {
+func handleNoInProgressBalls(pendingBalls []*session.Ball) error {
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
 	dimStyle := StyleDim
 
@@ -114,7 +114,7 @@ func handleNoInProgressBalls(pendingBalls []*session.Session) error {
 	return nil
 }
 
-func handleSingleInProgressBall(ball *session.Session, pendingBalls []*session.Session) error {
+func handleSingleInProgressBall(ball *session.Ball, pendingBalls []*session.Ball) error {
 	focusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Bold(true)
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
 	valueStyle := lipgloss.NewStyle()
@@ -166,7 +166,7 @@ func handleSingleInProgressBall(ball *session.Session, pendingBalls []*session.S
 	return nil
 }
 
-func handleMultipleInProgressBalls(inProgressBalls []*session.Session, pendingBalls []*session.Session) error {
+func handleMultipleInProgressBalls(inProgressBalls []*session.Ball, pendingBalls []*session.Ball) error {
 	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
 	dimStyle := StyleDim
 
@@ -212,7 +212,7 @@ func handleMultipleInProgressBalls(inProgressBalls []*session.Session, pendingBa
 	return nil
 }
 
-func promptForPendingBalls(pendingBalls []*session.Session) error {
+func promptForPendingBalls(pendingBalls []*session.Ball) error {
 	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
 	dimStyle := StyleDim
 
@@ -277,7 +277,7 @@ func promptForPendingBalls(pendingBalls []*session.Session) error {
 	}
 }
 
-func promptToStartPendingBall(pendingBalls []*session.Session) error {
+func promptToStartPendingBall(pendingBalls []*session.Ball) error {
 	dimStyle := StyleDim
 	fmt.Println()
 	fmt.Println(dimStyle.Render("To start working on a pending ball:"))
@@ -290,7 +290,7 @@ func promptToStartPendingBall(pendingBalls []*session.Session) error {
 	return nil
 }
 
-func showAllPendingBalls(pendingBalls []*session.Session) error {
+func showAllPendingBalls(pendingBalls []*session.Ball) error {
 	fmt.Println()
 	headerStyle := StyleHeader
 	fmt.Println(headerStyle.Render(fmt.Sprintf(" All Pending Balls (%d) ", len(pendingBalls))))
@@ -313,7 +313,7 @@ func showAllPendingBalls(pendingBalls []*session.Session) error {
 	return nil
 }
 
-func suggestBlockingBalls(pendingBalls []*session.Session) error {
+func suggestBlockingBalls(pendingBalls []*session.Ball) error {
 	dimStyle := StyleDim
 	fmt.Println()
 	fmt.Println(dimStyle.Render("To block a ball you're not planning to work on:"))

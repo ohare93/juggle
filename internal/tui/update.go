@@ -879,7 +879,7 @@ func (m *Model) handleStateFilter(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) applyFilters() {
-	m.filteredBalls = make([]*session.Session, 0)
+	m.filteredBalls = make([]*session.Ball, 0)
 
 	for _, ball := range m.balls {
 		// Check if this ball's state is visible
@@ -1185,7 +1185,7 @@ func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
 func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 	if m.inputAction == actionAdd {
 		// Create new ball using the store's project directory
-		ball, err := session.New(m.store.ProjectDir(), value, session.PriorityMedium)
+		ball, err := session.NewBall(m.store.ProjectDir(), value, session.PriorityMedium)
 		if err != nil {
 			m.message = "Error creating ball: " + err.Error()
 			m.mode = splitView
@@ -1414,7 +1414,7 @@ func (m *Model) filterSessions() []*session.JuggleSession {
 }
 
 // filterBallsForSession returns balls filtered by session and search query
-func (m *Model) filterBallsForSession() []*session.Session {
+func (m *Model) filterBallsForSession() []*session.Ball {
 	balls := m.getBallsForSession()
 
 	if !m.panelSearchActive || m.panelSearchQuery == "" {
@@ -1422,7 +1422,7 @@ func (m *Model) filterBallsForSession() []*session.Session {
 	}
 
 	query := strings.ToLower(m.panelSearchQuery)
-	filtered := make([]*session.Session, 0)
+	filtered := make([]*session.Ball, 0)
 	for _, ball := range balls {
 		if strings.Contains(strings.ToLower(ball.Intent), query) ||
 			strings.Contains(strings.ToLower(ball.ID), query) {
@@ -1730,7 +1730,7 @@ func (m Model) handleAgentLaunchConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		// Launch agent in background
-		return m, launchAgentCmd(m.sessionStore, sessionID)
+		return m, launchAgentCmd(sessionID)
 
 	case "n", "N", "esc", "q":
 		// Cancel

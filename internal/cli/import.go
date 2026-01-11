@@ -131,7 +131,7 @@ func importPRDFile(prdPath, projectDir, sessionID string) error {
 		}
 
 		// Create new ball
-		ball, err := session.New(projectDir, story.Title, mapPriorityNumber(story.Priority))
+		ball, err := session.NewBall(projectDir, story.Title, mapPriorityNumber(story.Priority))
 		if err != nil {
 			fmt.Printf("Warning: failed to create ball for %s: %v\n", story.ID, err)
 			continue

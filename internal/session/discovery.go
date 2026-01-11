@@ -23,8 +23,8 @@ func DiscoverProjects(config *Config) ([]string, error) {
 }
 
 // LoadAllBalls loads balls from all discovered projects
-func LoadAllBalls(projectPaths []string) ([]*Session, error) {
-	allBalls := make([]*Session, 0)
+func LoadAllBalls(projectPaths []string) ([]*Ball, error) {
+	allBalls := make([]*Ball, 0)
 
 	for _, projectPath := range projectPaths {
 		store, err := NewStore(projectPath)
@@ -46,13 +46,13 @@ func LoadAllBalls(projectPaths []string) ([]*Session, error) {
 }
 
 // LoadInProgressBalls loads all in_progress balls from all projects
-func LoadInProgressBalls(projectPaths []string) ([]*Session, error) {
+func LoadInProgressBalls(projectPaths []string) ([]*Ball, error) {
 	allBalls, err := LoadAllBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	inProgress := make([]*Session, 0)
+	inProgress := make([]*Ball, 0)
 	for _, ball := range allBalls {
 		if ball.State == StateInProgress {
 			inProgress = append(inProgress, ball)
@@ -64,18 +64,18 @@ func LoadInProgressBalls(projectPaths []string) ([]*Session, error) {
 
 // LoadJugglingBalls loads all balls currently being juggled from all projects
 // DEPRECATED: Use LoadInProgressBalls instead.
-func LoadJugglingBalls(projectPaths []string) ([]*Session, error) {
+func LoadJugglingBalls(projectPaths []string) ([]*Ball, error) {
 	return LoadInProgressBalls(projectPaths)
 }
 
 // LoadPendingBalls loads all pending balls from all projects
-func LoadPendingBalls(projectPaths []string) ([]*Session, error) {
+func LoadPendingBalls(projectPaths []string) ([]*Ball, error) {
 	allBalls, err := LoadAllBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	pending := make([]*Session, 0)
+	pending := make([]*Ball, 0)
 	for _, ball := range allBalls {
 		if ball.State == StatePending {
 			pending = append(pending, ball)
@@ -87,7 +87,7 @@ func LoadPendingBalls(projectPaths []string) ([]*Session, error) {
 
 // LoadReadyBalls loads all ready balls from all projects
 // DEPRECATED: Use LoadPendingBalls instead.
-func LoadReadyBalls(projectPaths []string) ([]*Session, error) {
+func LoadReadyBalls(projectPaths []string) ([]*Ball, error) {
 	return LoadPendingBalls(projectPaths)
 }
 
@@ -95,13 +95,13 @@ func LoadReadyBalls(projectPaths []string) ([]*Session, error) {
 // Since session ID equals tag, balls with the session ID in their Tags field
 // are considered to belong to that session. Balls can belong to multiple
 // sessions via multiple tags.
-func LoadBallsBySession(projectPaths []string, sessionID string) ([]*Session, error) {
+func LoadBallsBySession(projectPaths []string, sessionID string) ([]*Ball, error) {
 	allBalls, err := LoadAllBalls(projectPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	sessionBalls := make([]*Session, 0)
+	sessionBalls := make([]*Ball, 0)
 	for _, ball := range allBalls {
 		for _, tag := range ball.Tags {
 			if tag == sessionID {
