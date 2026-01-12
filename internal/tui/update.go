@@ -789,6 +789,9 @@ func (m Model) handleStateKeySequence(key string) (tea.Model, tea.Cmd) {
 func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 	m.message = ""
 
+	// Track if we need to apply filters (for all filter-changing keys)
+	needsFilterUpdate := true
+
 	switch key {
 	case "c":
 		// tc = Toggle complete visibility
@@ -800,7 +803,6 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.addActivity("Hiding complete balls")
 			m.message = "Complete: hidden"
 		}
-		return m, nil
 	case "b":
 		// tb = Toggle blocked visibility
 		m.filterStates["blocked"] = !m.filterStates["blocked"]
@@ -811,7 +813,6 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.addActivity("Hiding blocked balls")
 			m.message = "Blocked: hidden"
 		}
-		return m, nil
 	case "i":
 		// ti = Toggle in_progress visibility
 		m.filterStates["in_progress"] = !m.filterStates["in_progress"]
@@ -822,7 +823,6 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.addActivity("Hiding in-progress balls")
 			m.message = "In-progress: hidden"
 		}
-		return m, nil
 	case "p":
 		// tp = Toggle pending visibility
 		m.filterStates["pending"] = !m.filterStates["pending"]
@@ -833,7 +833,6 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.addActivity("Hiding pending balls")
 			m.message = "Pending: hidden"
 		}
-		return m, nil
 	case "a":
 		// ta = Show all states
 		m.filterStates["pending"] = true
@@ -842,15 +841,25 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 		m.filterStates["complete"] = true
 		m.addActivity("Showing all states")
 		m.message = "All states visible"
-		return m, nil
 	case "esc":
 		// Cancel sequence
 		m.message = ""
-		return m, nil
+		needsFilterUpdate = false
 	default:
 		m.message = "Unknown toggle: " + key + " (use c/b/i/p/a)"
-		return m, nil
+		needsFilterUpdate = false
 	}
+
+	// Apply filters and reset cursor for filter-changing operations
+	if needsFilterUpdate {
+		m.applyFilters()
+		// Reset cursor if it's out of bounds
+		if m.cursor >= len(m.filteredBalls) {
+			m.cursor = 0
+		}
+	}
+
+	return m, nil
 }
 
 // handleViewColumnKeySequence handles the second key in a view column sequence (v+key)

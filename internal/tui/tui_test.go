@@ -7510,6 +7510,218 @@ func TestHandleToggleKeySequence_AllKeys(t *testing.T) {
 	}
 }
 
+// Test toggle filter updates filteredBalls list (AC2 of juggler-05a88026)
+func TestToggleFilter_UpdatesFilteredBalls(t *testing.T) {
+	// Create model with balls of different states
+	model := Model{
+		balls: []*session.Ball{
+			{ID: "ball-1", Title: "Pending Ball", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-2", Title: "In Progress Ball", State: session.StateInProgress, WorkingDir: "/tmp"},
+			{ID: "ball-3", Title: "Blocked Ball", State: session.StateBlocked, WorkingDir: "/tmp"},
+			{ID: "ball-4", Title: "Complete Ball", State: session.StateComplete, WorkingDir: "/tmp"},
+		},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false, // complete hidden by default
+		},
+		activePanel: BallsPanel,
+		mode:        splitView,
+	}
+	model.applyFilters()
+
+	// By default, pending/in_progress/blocked visible, complete hidden
+	// So should have 3 balls initially
+	if len(model.filteredBalls) != 3 {
+		t.Errorf("Expected 3 balls initially (no complete), got %d", len(model.filteredBalls))
+	}
+
+	// Toggle pending off via t+p
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = newModel.(Model)
+
+	// Should now have 2 balls (in_progress, blocked)
+	if len(m.filteredBalls) != 2 {
+		t.Errorf("After t+p, expected 2 balls, got %d", len(m.filteredBalls))
+	}
+
+	// Toggle complete on via t+c
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	// Should now have 3 balls (in_progress, blocked, complete)
+	if len(m.filteredBalls) != 3 {
+		t.Errorf("After t+c, expected 3 balls, got %d", len(m.filteredBalls))
+	}
+}
+
+// Test all filters off shows empty list (AC3 of juggler-05a88026)
+func TestToggleFilter_AllFiltersOff(t *testing.T) {
+	model := Model{
+		balls: []*session.Ball{
+			{ID: "ball-1", Title: "Pending Ball", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-2", Title: "In Progress Ball", State: session.StateInProgress, WorkingDir: "/tmp"},
+		},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false,
+		},
+		activePanel: BallsPanel,
+		mode:        splitView,
+	}
+	model.applyFilters()
+
+	// Turn off pending filter
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = newModel.(Model)
+
+	// Turn off in_progress filter
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = newModel.(Model)
+
+	// Turn off blocked filter
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	m = newModel.(Model)
+
+	// All filters should be off (complete was already off)
+	if len(m.filteredBalls) != 0 {
+		t.Errorf("Expected 0 balls when all filters off, got %d", len(m.filteredBalls))
+	}
+}
+
+// Test status bar shows toggle message (AC4 of juggler-05a88026)
+func TestToggleFilter_StatusBarShowsMessage(t *testing.T) {
+	model := Model{
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false,
+		},
+		activePanel: BallsPanel,
+		mode:        splitView,
+	}
+
+	// Toggle complete on
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	// Message should indicate filter state
+	if !strings.Contains(m.message, "visible") {
+		t.Errorf("Expected message to contain 'visible', got '%s'", m.message)
+	}
+
+	// Toggle complete off
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	if !strings.Contains(m.message, "hidden") {
+		t.Errorf("Expected message to contain 'hidden', got '%s'", m.message)
+	}
+}
+
+// Test t+a shows all states (part of AC1 and AC2)
+func TestToggleFilter_ShowAll(t *testing.T) {
+	model := Model{
+		balls: []*session.Ball{
+			{ID: "ball-1", Title: "Pending Ball", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-2", Title: "In Progress Ball", State: session.StateInProgress, WorkingDir: "/tmp"},
+			{ID: "ball-3", Title: "Blocked Ball", State: session.StateBlocked, WorkingDir: "/tmp"},
+			{ID: "ball-4", Title: "Complete Ball", State: session.StateComplete, WorkingDir: "/tmp"},
+		},
+		filterStates: map[string]bool{
+			"pending":     false,
+			"in_progress": false,
+			"blocked":     false,
+			"complete":    false,
+		},
+		activePanel: BallsPanel,
+		mode:        splitView,
+	}
+	model.applyFilters()
+
+	if len(model.filteredBalls) != 0 {
+		t.Fatalf("Expected 0 balls after turning all filters off, got %d", len(model.filteredBalls))
+	}
+
+	// Press t+a to show all
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = newModel.(Model)
+
+	// All 4 balls should be visible
+	if len(m.filteredBalls) != 4 {
+		t.Errorf("After t+a, expected 4 balls, got %d", len(m.filteredBalls))
+	}
+
+	// Verify all filters are true
+	for _, state := range []string{"pending", "in_progress", "blocked", "complete"} {
+		if !m.filterStates[state] {
+			t.Errorf("Expected %s filter to be true after t+a", state)
+		}
+	}
+}
+
+// Test cursor resets when filter changes (preventing out-of-bounds access)
+func TestToggleFilter_CursorReset(t *testing.T) {
+	model := Model{
+		balls: []*session.Ball{
+			{ID: "ball-1", Title: "Pending 1", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-2", Title: "Pending 2", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-3", Title: "Pending 3", State: session.StatePending, WorkingDir: "/tmp"},
+			{ID: "ball-4", Title: "In Progress", State: session.StateInProgress, WorkingDir: "/tmp"},
+		},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false,
+		},
+		activePanel: BallsPanel,
+		mode:        splitView,
+		cursor:      2, // Start with cursor at index 2 (ball-3)
+	}
+	model.applyFilters()
+
+	// Verify initial state has 4 balls (3 pending + 1 in_progress)
+	if len(model.filteredBalls) != 4 {
+		t.Fatalf("Expected 4 balls initially, got %d", len(model.filteredBalls))
+	}
+
+	// Turn off pending filter - now only in_progress ball is visible (1 ball)
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = newModel.(Model)
+
+	// Cursor should be reset to 0 (since only 1 ball left)
+	if m.cursor != 0 {
+		t.Errorf("Expected cursor to reset to 0, got %d", m.cursor)
+	}
+
+	if len(m.filteredBalls) != 1 {
+		t.Errorf("Expected 1 ball (in_progress), got %d", len(m.filteredBalls))
+	}
+}
+
 // Test handleSplitSetPending sets ball to pending state
 func TestHandleSplitSetPending_EmptyBalls(t *testing.T) {
 	model := InitialSplitModel(nil, nil, nil, true)
