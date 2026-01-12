@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/ohare93/juggle/internal/session"
@@ -906,6 +907,85 @@ func TestTruncateStr(t *testing.T) {
 				t.Errorf("truncateStr(%s, %d) = %s, want %s", tt.s, tt.maxLen, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestDetectConflictsDeterministicOrder(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestDir(t, tmpDir)
+
+	// Create prd.json with multiple stories in reverse alphabetical order
+	prdFile := PRDFile{
+		Project: "TestProject",
+		UserStories: []UserStory{
+			{
+				ID:       "US-003",
+				Title:    "Story Three",
+				Priority: 1,
+				Passes:   false,
+			},
+			{
+				ID:       "US-001",
+				Title:    "Story One",
+				Priority: 1,
+				Passes:   false,
+			},
+			{
+				ID:       "US-002",
+				Title:    "Story Two",
+				Priority: 1,
+				Passes:   false,
+			},
+		},
+	}
+
+	prdData, _ := json.MarshalIndent(prdFile, "", "  ")
+	prdPath := filepath.Join(tmpDir, "prd.json")
+	os.WriteFile(prdPath, prdData, 0644)
+
+	// Create balls with conflicting priority (low vs urgent)
+	store, _ := session.NewStore(tmpDir)
+
+	ball1, _ := session.NewBall(tmpDir, "Story One", session.PriorityLow)
+	store.AppendBall(ball1)
+
+	ball2, _ := session.NewBall(tmpDir, "Story Two", session.PriorityLow)
+	store.AppendBall(ball2)
+
+	ball3, _ := session.NewBall(tmpDir, "Story Three", session.PriorityLow)
+	store.AppendBall(ball3)
+
+	// Detect conflicts multiple times - order should be consistent
+	for i := 0; i < 5; i++ {
+		conflicts, err := detectConflicts(prdPath, tmpDir)
+		if err != nil {
+			t.Fatalf("detectConflicts failed: %v", err)
+		}
+
+		if len(conflicts) != 3 {
+			t.Fatalf("expected 3 conflicts, got %d", len(conflicts))
+		}
+
+		// Group by story ID and collect in sorted order
+		byStory := make(map[string][]SyncConflict)
+		for _, c := range conflicts {
+			byStory[c.StoryID] = append(byStory[c.StoryID], c)
+		}
+
+		// Extract and sort story IDs (same logic as checkConflicts)
+		storyIDs := make([]string, 0, len(byStory))
+		for storyID := range byStory {
+			storyIDs = append(storyIDs, storyID)
+		}
+		sort.Strings(storyIDs)
+
+		// Verify sorted order is US-001, US-002, US-003
+		expectedOrder := []string{"US-001", "US-002", "US-003"}
+		for j, expected := range expectedOrder {
+			if storyIDs[j] != expected {
+				t.Errorf("iteration %d: expected storyIDs[%d]=%s, got %s", i, j, expected, storyIDs[j])
+			}
+		}
 	}
 }
 

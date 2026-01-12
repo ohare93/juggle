@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -91,15 +92,6 @@ type SyncConflict struct {
 	PRDValue  string
 	BallValue string
 }
-
-// ConflictResolution represents how to resolve a conflict
-type ConflictResolution int
-
-const (
-	ResolutionUsePRD ConflictResolution = iota
-	ResolutionUseBall
-	ResolutionSkip
-)
 
 func runSyncRalph(cmd *cobra.Command, args []string) error {
 	// Get current directory
@@ -466,7 +458,15 @@ func checkConflicts(prdPath, projectDir string) error {
 		byStory[c.StoryID] = append(byStory[c.StoryID], c)
 	}
 
-	for storyID, storyConflicts := range byStory {
+	// Sort story IDs for deterministic output order
+	storyIDs := make([]string, 0, len(byStory))
+	for storyID := range byStory {
+		storyIDs = append(storyIDs, storyID)
+	}
+	sort.Strings(storyIDs)
+
+	for _, storyID := range storyIDs {
+		storyConflicts := byStory[storyID]
 		first := storyConflicts[0]
 		fmt.Printf("─── %s: %s ───\n", storyID, first.Title)
 		fmt.Printf("Ball: %s\n\n", first.BallID)
