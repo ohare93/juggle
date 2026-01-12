@@ -610,3 +610,147 @@ func TestBallStateTransitionHistory(t *testing.T) {
 		t.Error("LastActivity should be updated after state change")
 	}
 }
+
+// TestShowAllAcceptanceCriteria tests that all ACs are shown, not just the first
+func TestShowAllAcceptanceCriteria(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Multi-AC ball", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Set multiple acceptance criteria
+	criteria := []string{
+		"First criterion: implement feature A",
+		"Second criterion: add unit tests",
+		"Third criterion: update documentation",
+		"Fourth criterion: add integration tests",
+	}
+	ball.SetAcceptanceCriteria(criteria)
+
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Retrieve and verify ALL criteria are stored
+	retrieved, err := store.GetBallByID(ball.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve ball: %v", err)
+	}
+
+	if len(retrieved.AcceptanceCriteria) != 4 {
+		t.Errorf("Expected 4 acceptance criteria, got %d", len(retrieved.AcceptanceCriteria))
+	}
+
+	// Verify each criterion is preserved exactly
+	for i, expected := range criteria {
+		if i >= len(retrieved.AcceptanceCriteria) {
+			t.Errorf("Missing criterion %d: %s", i+1, expected)
+			continue
+		}
+		if retrieved.AcceptanceCriteria[i] != expected {
+			t.Errorf("Criterion %d: expected '%s', got '%s'", i+1, expected, retrieved.AcceptanceCriteria[i])
+		}
+	}
+}
+
+// TestExportShowsAllAcceptanceCriteria tests that export formats include all ACs
+func TestExportShowsAllAcceptanceCriteria(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Export AC test", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Set multiple acceptance criteria
+	criteria := []string{
+		"AC 1: Do thing one",
+		"AC 2: Do thing two",
+		"AC 3: Do thing three",
+	}
+	ball.SetAcceptanceCriteria(criteria)
+	store.UpdateBall(ball)
+
+	// Export and verify all ACs are in JSON
+	balls, _ := store.LoadBalls()
+	jsonData, err := json.MarshalIndent(balls, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	jsonStr := string(jsonData)
+	for _, ac := range criteria {
+		if !bytes.Contains([]byte(jsonStr), []byte(ac)) {
+			t.Errorf("JSON export missing AC: %s", ac)
+		}
+	}
+
+	// Verify the structure by unmarshaling
+	var exported []*session.Ball
+	if err := json.Unmarshal(jsonData, &exported); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if len(exported) != 1 {
+		t.Fatalf("Expected 1 ball, got %d", len(exported))
+	}
+
+	if len(exported[0].AcceptanceCriteria) != 3 {
+		t.Errorf("Exported ball should have 3 ACs, got %d", len(exported[0].AcceptanceCriteria))
+	}
+}
+
+// TestRalphExportShowsAllAcceptanceCriteria tests that Ralph format includes all ACs
+func TestRalphExportShowsAllAcceptanceCriteria(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Ralph export test", session.PriorityHigh)
+	store := env.GetStore(t)
+
+	// Create a session to associate with the ball
+	sessionStore, err := session.NewSessionStore(env.JugglerDir)
+	if err != nil {
+		t.Fatalf("Failed to create session store: %v", err)
+	}
+
+	sess, err := sessionStore.CreateSession("test-session", "Test session")
+	if err != nil {
+		t.Fatalf("Failed to create session: %v", err)
+	}
+
+	// Set multiple acceptance criteria and tag with session
+	criteria := []string{
+		"Implement feature A correctly",
+		"Add comprehensive tests",
+		"Update API documentation",
+		"Handle edge cases",
+		"Performance optimization",
+	}
+	ball.SetAcceptanceCriteria(criteria)
+	ball.AddTag(sess.ID)
+	store.UpdateBall(ball)
+
+	// Load balls and verify
+	balls, _ := store.LoadBalls()
+	if len(balls) != 1 {
+		t.Fatalf("Expected 1 ball, got %d", len(balls))
+	}
+
+	exportedBall := balls[0]
+	if len(exportedBall.AcceptanceCriteria) != 5 {
+		t.Errorf("Expected 5 ACs, got %d", len(exportedBall.AcceptanceCriteria))
+	}
+
+	// Verify all criteria are present
+	for i, expected := range criteria {
+		if i >= len(exportedBall.AcceptanceCriteria) {
+			t.Errorf("Missing AC %d", i+1)
+			continue
+		}
+		if exportedBall.AcceptanceCriteria[i] != expected {
+			t.Errorf("AC %d mismatch: expected '%s', got '%s'",
+				i+1, expected, exportedBall.AcceptanceCriteria[i])
+		}
+	}
+}

@@ -132,6 +132,12 @@ func listJugglingBalls(cmd *cobra.Command) error {
 			intentDisplay,
 		)
 
+		// Show acceptance criteria if present
+		if len(ball.AcceptanceCriteria) > 0 {
+			for i, ac := range ball.AcceptanceCriteria {
+				fmt.Printf("       %d. %s\n", i+1, ac)
+			}
+		}
 	}
 
 	fmt.Println()
@@ -280,6 +286,13 @@ func listAllBalls(cmd *cobra.Command) error {
 					priorityPadded,
 					intentDisplay,
 				)
+
+				// Show acceptance criteria if present
+				if len(ball.AcceptanceCriteria) > 0 {
+					for i, ac := range ball.AcceptanceCriteria {
+						fmt.Printf("       %d. %s\n", i+1, ac)
+					}
+				}
 			}
 		}
 	}
