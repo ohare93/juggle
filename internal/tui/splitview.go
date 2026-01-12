@@ -264,24 +264,39 @@ func (m Model) renderBallsPanel(width, height int) string {
 			projectPrefix = projectName + ": "
 		}
 
+		// Build tests state suffix if set
+		testsSuffix := ""
+		if ball.TestsState != "" {
+			switch ball.TestsState {
+			case session.TestsStateNeeded:
+				testsSuffix = " [T:!]"
+			case session.TestsStateDone:
+				testsSuffix = " [T:✓]"
+			case session.TestsStateNotNeeded:
+				testsSuffix = " [T:-]"
+			}
+		}
+
 		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 			// Show blocked reason inline for blocked balls
-			intent := truncate(ball.Intent, width-25-len(projectPrefix))
-			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(projectPrefix))
-			line = fmt.Sprintf("%s %s%s [%s]",
+			intent := truncate(ball.Intent, width-25-len(projectPrefix)-len(testsSuffix))
+			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(projectPrefix)-len(testsSuffix))
+			line = fmt.Sprintf("%s %s%s [%s]%s",
 				stateIcon,
 				projectPrefix,
 				intent,
 				reason,
+				testsSuffix,
 			)
 		} else {
-			availWidth := width - 15 - len(projectPrefix)
-			line = fmt.Sprintf("%s %s%-*s %s",
+			availWidth := width - 15 - len(projectPrefix) - len(testsSuffix)
+			line = fmt.Sprintf("%s %s%-*s %s%s",
 				stateIcon,
 				projectPrefix,
 				availWidth,
 				truncate(ball.Intent, availWidth),
 				string(ball.State),
+				testsSuffix,
 			)
 		}
 		line = styleBallByState(ball, truncate(line, width-2))
@@ -409,15 +424,23 @@ func (m Model) renderBallDetailPanel(width, height int) string {
 	intentValue := truncate(ball.Intent, availableWidth-30)
 	b.WriteString(fmt.Sprintf("  %s %s    %s %s\n", priorityLabel, valueStyle.Render(priorityValue), intentLabel, valueStyle.Render(intentValue)))
 
-	// Row 3: Tags and Acceptance Criteria count
+	// Row 3: Tags and Tests State
 	tagsLabel := labelStyle.Render("Tags:")
 	tagsValue := "(none)"
 	if len(ball.Tags) > 0 {
 		tagsValue = truncate(strings.Join(ball.Tags, ", "), 30)
 	}
+	testsLabel := labelStyle.Render("Tests:")
+	testsValue := "(not set)"
+	if ball.TestsState != "" {
+		testsValue = ball.TestsStateLabel()
+	}
+	b.WriteString(fmt.Sprintf("  %s %s    %s %s\n", tagsLabel, valueStyle.Render(tagsValue), testsLabel, valueStyle.Render(testsValue)))
+
+	// Row 4: Acceptance Criteria count
 	acLabel := labelStyle.Render("Criteria:")
 	acValue := fmt.Sprintf("%d items", len(ball.AcceptanceCriteria))
-	b.WriteString(fmt.Sprintf("  %s %s    %s %s\n", tagsLabel, valueStyle.Render(tagsValue), acLabel, valueStyle.Render(acValue)))
+	b.WriteString(fmt.Sprintf("  %s %s\n", acLabel, valueStyle.Render(acValue)))
 
 	// Footer hint
 	b.WriteString(helpStyle.Render("  Press 'i' to toggle to activity log | 'e' to edit ball in $EDITOR"))

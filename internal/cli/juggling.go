@@ -118,18 +118,31 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		statePadded = stateStyle.Render(statePadded)
 		priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-		// Build the line with optional blocked reason
+		// Build the line with optional blocked reason and tests indicator
 		intentDisplay := ball.Intent
 		if ball.BlockedReason != "" {
 			intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
 		}
+		// Add tests state indicator
+		testsIndicator := ""
+		if ball.TestsState != "" {
+			switch ball.TestsState {
+			case session.TestsStateNeeded:
+				testsIndicator = " " + dimStyle.Render("[tests:needed]")
+			case session.TestsStateDone:
+				testsIndicator = " " + dimStyle.Render("[tests:done]")
+			case session.TestsStateNotNeeded:
+				testsIndicator = " " + dimStyle.Render("[tests:n/a]")
+			}
+		}
 
-		fmt.Printf("  [%s] %s  %s  %s  %s\n",
+		fmt.Printf("  [%s] %s  %s  %s  %s%s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
 			priorityPadded,
 			intentDisplay,
+			testsIndicator,
 		)
 
 		// Show acceptance criteria if present
@@ -273,18 +286,31 @@ func listAllBalls(cmd *cobra.Command) error {
 				statePadded = stateStyle.Render(statePadded)
 				priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
-				// Build the line with optional blocked reason
+				// Build the line with optional blocked reason and tests indicator
+				dimStyle := StyleDim
 				intentDisplay := ball.Intent
 				if ball.BlockedReason != "" {
-					dimStyle := StyleDim
 					intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
 				}
+				// Add tests state indicator
+				testsIndicator := ""
+				if ball.TestsState != "" {
+					switch ball.TestsState {
+					case session.TestsStateNeeded:
+						testsIndicator = " " + dimStyle.Render("[tests:needed]")
+					case session.TestsStateDone:
+						testsIndicator = " " + dimStyle.Render("[tests:done]")
+					case session.TestsStateNotNeeded:
+						testsIndicator = " " + dimStyle.Render("[tests:n/a]")
+					}
+				}
 
-				fmt.Printf("  [%s] %s  %s  %s\n",
+				fmt.Printf("  [%s] %s  %s  %s%s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
+					testsIndicator,
 				)
 
 				// Show acceptance criteria if present

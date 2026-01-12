@@ -38,6 +38,16 @@ const (
 	StateBlocked    BallState = "blocked"
 )
 
+// TestsState represents whether tests are needed/done for a ball
+type TestsState string
+
+const (
+	TestsStateUnset    TestsState = ""           // Default - not specified
+	TestsStateNotNeeded TestsState = "not_needed" // Tests are not required for this task
+	TestsStateNeeded   TestsState = "needed"     // Tests are required but not yet done
+	TestsStateDone     TestsState = "done"       // Tests have been completed
+)
+
 
 // Ball represents a task being tracked
 type Ball struct {
@@ -48,6 +58,7 @@ type Ball struct {
 	Priority           Priority    `json:"priority"`
 	State              BallState   `json:"state"`
 	BlockedReason      string      `json:"blocked_reason,omitempty"`
+	TestsState         TestsState  `json:"tests_state,omitempty"`
 	StartedAt          time.Time   `json:"started_at"`
 	LastActivity       time.Time   `json:"last_activity"`
 	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
@@ -74,6 +85,7 @@ func (b *Ball) UnmarshalJSON(data []byte) error {
 	b.Tags = bj.Tags
 	b.CompletionNote = bj.CompletionNote
 	b.ModelSize = bj.ModelSize
+	b.TestsState = bj.TestsState
 
 	// Handle acceptance criteria (migrate from legacy description if needed)
 	if len(bj.AcceptanceCriteria) > 0 {
@@ -147,6 +159,7 @@ type ballJSON struct {
 	// Newest format (v3)
 	State              string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked
 	BlockedReason      string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
+	TestsState         TestsState      `json:"tests_state,omitempty"`      // Whether tests are needed/done
 	// Previous format (v2)
 	ActiveState        string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
 	JuggleState        *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
@@ -361,5 +374,35 @@ func (b *Ball) PriorityWeight() int {
 		return 1
 	default:
 		return 0
+	}
+}
+
+// ValidateTestsState checks if a tests state string is valid
+func ValidateTestsState(s string) bool {
+	switch TestsState(s) {
+	case TestsStateUnset, TestsStateNotNeeded, TestsStateNeeded, TestsStateDone:
+		return true
+	default:
+		return false
+	}
+}
+
+// SetTestsState sets the tests state for the ball
+func (b *Ball) SetTestsState(state TestsState) {
+	b.TestsState = state
+	b.UpdateActivity()
+}
+
+// TestsStateLabel returns a human-readable label for the tests state
+func (b *Ball) TestsStateLabel() string {
+	switch b.TestsState {
+	case TestsStateNotNeeded:
+		return "not needed"
+	case TestsStateNeeded:
+		return "needed"
+	case TestsStateDone:
+		return "done"
+	default:
+		return ""
 	}
 }
