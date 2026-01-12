@@ -13,8 +13,9 @@ import (
 )
 
 var sessionsCmd = &cobra.Command{
-	Use:   "sessions",
-	Short: "Manage juggle sessions (ball groupings by tag)",
+	Use:     "sessions",
+	Aliases: []string{"session"},
+	Short:   "Manage juggle sessions (ball groupings by tag)",
 	Long: `Manage juggle sessions that group balls by tag.
 
 Sessions provide context and progress tracking for related balls.
@@ -25,7 +26,9 @@ Commands:
   sessions list                          List all sessions
   sessions show <id>                     Show session details
   sessions context <id> [--edit]         View or edit session context
-  sessions delete <id>                   Delete a session`,
+  sessions delete <id>                   Delete a session
+
+Alias: 'session' can be used instead of 'sessions'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},

@@ -923,3 +923,194 @@ func TestTestsStateTransitions(t *testing.T) {
 		}
 	}
 }
+
+// TestSessionAliasForSessionsCommand tests that 'session' works as an alias for 'sessions'
+func TestSessionAliasForSessionsCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Build juggle binary if needed
+	if _, err := os.Stat(juggleBinary); os.IsNotExist(err) {
+		buildCmd := exec.Command("go", "build", "-o", "juggle", "./cmd/juggle")
+		buildCmd.Dir = jugglerRoot
+		if output, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build juggle: %v\nOutput: %s", err, output)
+		}
+	}
+
+	// Test that 'session list' works
+	sessionCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "list")
+	sessionCmd.Dir = env.ProjectDir
+	sessionOutput, err := sessionCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'session list' command failed: %v\nOutput: %s", err, sessionOutput)
+	}
+
+	// Test that 'sessions list' works
+	sessionsCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "list")
+	sessionsCmd.Dir = env.ProjectDir
+	sessionsOutput, err := sessionsCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions list' command failed: %v\nOutput: %s", err, sessionsOutput)
+	}
+
+	// Both should produce the same output (no sessions in fresh env)
+	if string(sessionOutput) != string(sessionsOutput) {
+		t.Errorf("'session' and 'sessions' produced different output:\nsession: %s\nsessions: %s",
+			string(sessionOutput), string(sessionsOutput))
+	}
+}
+
+// TestSessionAliasCreateCommand tests that 'session create' works
+func TestSessionAliasCreateCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a session using the alias
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "create", "test-alias-session", "-m", "Test description")
+	createCmd.Dir = env.ProjectDir
+	output, err := createCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'session create' command failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify output contains expected message
+	if !strings.Contains(string(output), "Created session: test-alias-session") {
+		t.Errorf("Expected 'Created session' in output, got: %s", output)
+	}
+
+	// Verify session was created using 'sessions show'
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "show", "test-alias-session")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions show' command failed: %v\nOutput: %s", err, showOutput)
+	}
+
+	if !strings.Contains(string(showOutput), "test-alias-session") {
+		t.Errorf("Session not found via 'sessions show', output: %s", showOutput)
+	}
+}
+
+// TestSessionAliasShowCommand tests that 'session show' works
+func TestSessionAliasShowCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a session using 'sessions'
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "alias-show-test", "-m", "Test for show alias")
+	createCmd.Dir = env.ProjectDir
+	if output, err := createCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Show using 'session' alias
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "show", "alias-show-test")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'session show' command failed: %v\nOutput: %s", err, showOutput)
+	}
+
+	// Verify it shows the session
+	if !strings.Contains(string(showOutput), "alias-show-test") {
+		t.Errorf("Expected session ID in output, got: %s", showOutput)
+	}
+	if !strings.Contains(string(showOutput), "Test for show alias") {
+		t.Errorf("Expected description in output, got: %s", showOutput)
+	}
+}
+
+// TestSessionAliasContextCommand tests that 'session context' works
+func TestSessionAliasContextCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a session
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "context-alias-test", "-m", "Test context alias")
+	createCmd.Dir = env.ProjectDir
+	if output, err := createCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Set context using 'session' alias
+	setCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "context", "context-alias-test", "--set", "This is the context set via alias")
+	setCmd.Dir = env.ProjectDir
+	if output, err := setCmd.CombinedOutput(); err != nil {
+		t.Fatalf("'session context --set' failed: %v\nOutput: %s", err, output)
+	}
+
+	// Read context using 'sessions' (original command)
+	readCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "context", "context-alias-test")
+	readCmd.Dir = env.ProjectDir
+	readOutput, err := readCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions context' failed: %v\nOutput: %s", err, readOutput)
+	}
+
+	if !strings.Contains(string(readOutput), "This is the context set via alias") {
+		t.Errorf("Expected context text in output, got: %s", readOutput)
+	}
+}
+
+// TestSessionAliasHelpShowsAlias tests that help text shows the alias
+func TestSessionAliasHelpShowsAlias(t *testing.T) {
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Get help for 'session' command
+	helpCmd := exec.Command(juggleBinary, "session", "--help")
+	helpOutput, err := helpCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'session --help' failed: %v\nOutput: %s", err, helpOutput)
+	}
+
+	// Verify help mentions alias
+	if !strings.Contains(string(helpOutput), "Aliases:") {
+		t.Errorf("Expected 'Aliases:' in help output, got: %s", helpOutput)
+	}
+	if !strings.Contains(string(helpOutput), "session") {
+		t.Errorf("Expected 'session' in help aliases, got: %s", helpOutput)
+	}
+}
+
+// TestSessionsCommandStillWorks ensures the original 'sessions' command still functions
+func TestSessionsCommandStillWorks(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create session using 'sessions'
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "original-cmd-test", "-m", "Original command test")
+	createCmd.Dir = env.ProjectDir
+	output, err := createCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions create' failed: %v\nOutput: %s", err, output)
+	}
+
+	// List using 'sessions'
+	listCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "list")
+	listCmd.Dir = env.ProjectDir
+	listOutput, err := listCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions list' failed: %v\nOutput: %s", err, listOutput)
+	}
+
+	if !strings.Contains(string(listOutput), "original-cmd-test") {
+		t.Errorf("Expected session in list output, got: %s", listOutput)
+	}
+}
