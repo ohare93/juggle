@@ -1663,10 +1663,17 @@ func (m Model) handleSplitAddItem() (tea.Model, tea.Cmd) {
 	case BallsPanel:
 		// Use unified ball form - all fields in one view
 		m.pendingBallIntent = ""
+		m.pendingBallContext = ""
 		m.pendingBallPriority = 1 // Default to medium
 		m.pendingBallTags = ""
 		m.pendingAcceptanceCriteria = []string{}
 		m.pendingACEditIndex = -1
+		m.pendingBallDependsOn = nil
+		m.pendingBallModelSize = 0
+		// Initialize file autocomplete for @ mentions
+		if m.store != nil {
+			m.fileAutocomplete = NewAutocompleteState(m.store.ProjectDir())
+		}
 		// Default session to currently selected one (if a real session is selected)
 		m.pendingBallSession = 0 // Start with (none)
 		if m.selectedSession != nil && m.selectedSession.ID != PseudoSessionAll && m.selectedSession.ID != PseudoSessionUntagged {
@@ -1683,8 +1690,8 @@ func (m Model) handleSplitAddItem() (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		m.pendingBallFormField = 0 // Start at intent field
-		m.textInput.Placeholder = "What is this ball about?"
+		m.pendingBallFormField = 0 // Start at context field
+		m.textInput.Placeholder = "Background context for this task"
 		m.mode = unifiedBallFormView
 		m.addActivity("Creating new ball...")
 	}
@@ -1725,6 +1732,11 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 		}
 		ball := balls[m.cursor]
 		m.editingBall = ball
+
+		// Initialize file autocomplete for @ mentions
+		if m.store != nil {
+			m.fileAutocomplete = NewAutocompleteState(m.store.ProjectDir())
+		}
 
 		// Use unified ball form with prepopulated fields
 		m.pendingBallContext = ball.Context
@@ -3141,6 +3153,24 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return field >= fieldACStart && field <= fieldACEnd
 	}
 
+	// Helper to check if we're on a field that supports @ file autocomplete
+	// (Context, Title, and ACs - but NOT Tags)
+	isAutocompleteField := func(field int) bool {
+		return field == fieldContext || field == fieldIntent ||
+			(field >= fieldACStart && field <= fieldACEnd)
+	}
+
+	// Helper to update autocomplete state after text changes
+	updateAutocomplete := func() {
+		if m.fileAutocomplete != nil && isAutocompleteField(m.pendingBallFormField) {
+			text := m.textInput.Value()
+			cursorPos := m.textInput.Position()
+			m.fileAutocomplete.UpdateFromText(text, cursorPos)
+		} else if m.fileAutocomplete != nil {
+			m.fileAutocomplete.Reset()
+		}
+	}
+
 	// Helper to save current field value before moving
 	saveCurrentFieldValue := func() {
 		value := strings.TrimSpace(m.textInput.Value())
@@ -3297,6 +3327,11 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "up":
+		// If autocomplete is active, navigate suggestions instead of fields
+		if m.fileAutocomplete != nil && m.fileAutocomplete.Active && len(m.fileAutocomplete.Suggestions) > 0 {
+			m.fileAutocomplete.SelectPrev()
+			return m, nil
+		}
 		// Arrow key up always moves to previous field
 		saveCurrentFieldValue()
 		m.pendingBallFormField--
@@ -3310,6 +3345,11 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "down":
+		// If autocomplete is active, navigate suggestions instead of fields
+		if m.fileAutocomplete != nil && m.fileAutocomplete.Active && len(m.fileAutocomplete.Suggestions) > 0 {
+			m.fileAutocomplete.SelectNext()
+			return m, nil
+		}
 		// Arrow key down always moves to next field
 		saveCurrentFieldValue()
 		// Check if we're on the "new AC" field - if so, move to Tags
@@ -3400,6 +3440,16 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "tab":
+		// If autocomplete is active and we're on an autocomplete field, accept the completion
+		if m.fileAutocomplete != nil && m.fileAutocomplete.Active && len(m.fileAutocomplete.Suggestions) > 0 {
+			// Apply the selected completion
+			newText := m.fileAutocomplete.ApplyCompletion(m.textInput.Value())
+			m.textInput.SetValue(newText)
+			m.textInput.SetCursor(len(newText))
+			m.fileAutocomplete.Reset()
+			return m, nil
+		}
+
 		// Tab cycles through selection options or moves to next field
 		_, _, sessionField, modelSizeField, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
@@ -3432,9 +3482,24 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "backspace", "delete":
 		// Allow deletion in text fields
+		// Note: Backspace doesn't re-trigger autocomplete (per AC requirement)
 		if isTextInputField(m.pendingBallFormField) {
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
+			// Don't update autocomplete on backspace - only @ typing triggers it
+			return m, cmd
+		}
+		return m, nil
+
+	case " ":
+		// Space dismisses autocomplete (per AC requirement)
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			// Dismiss autocomplete on space
+			if m.fileAutocomplete != nil {
+				m.fileAutocomplete.Deactivate()
+			}
 			return m, cmd
 		}
 		return m, nil
@@ -3444,6 +3509,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if isTextInputField(m.pendingBallFormField) {
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
+			// Update autocomplete state after text changes (for @ detection)
+			updateAutocomplete()
 			return m, cmd
 		}
 		return m, nil

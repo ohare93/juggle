@@ -178,6 +178,9 @@ type Model struct {
 	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
 	pendingACEditIndex         int      // Index of AC being edited (-1 = adding new, >= 0 = editing existing)
 
+	// File autocomplete state for ball form
+	fileAutocomplete *AutocompleteState // File path autocomplete suggestions
+
 	// Dependency selector state
 	dependencySelectBalls  []*session.Ball // Non-complete balls available for selection
 	dependencySelectIndex  int             // Current selection index in dependency selector

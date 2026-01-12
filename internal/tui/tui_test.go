@@ -8110,10 +8110,11 @@ func TestUnifiedBallFormCanTypeJKLHInAC(t *testing.T) {
 	ti.CharLimit = 256
 	ti.Width = 40
 
+	// Field order with no ACs: 0=Context, 1=Title, 2=NewAC, 3=Tags, 4=Session, 5=ModelSize, 6=DependsOn
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test",
-		pendingBallFormField:      7, // On first AC field
+		pendingBallFormField:      2, // On new AC field (with no existing ACs)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8725,6 +8726,7 @@ func TestBallCreationWithDependencies(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := session.NewStore(tmpDir)
 
+	// Field order with 1 AC: 0=Context, 1=Title, 2=AC1, 3=NewAC, 4=Tags, 5=Session, 6=ModelSize, 7=DependsOn
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Ball with dependencies",
@@ -8732,17 +8734,18 @@ func TestBallCreationWithDependencies(t *testing.T) {
 		pendingBallTags:           "",
 		pendingBallSession:        0,
 		pendingBallDependsOn:      []string{"dep-1", "dep-2"},
-		pendingBallFormField:      8, // On "new AC" field (field 7=first AC, 8=new AC input)
+		pendingBallFormField:      3, // On "new AC" field
 		pendingAcceptanceCriteria: []string{"Test AC"},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 		store:                     store,
 	}
-	model.textInput.SetValue("") // Empty value to trigger ball creation
+	model.textInput.SetValue("") // Empty value
 
-	// Press enter on empty new AC field to finalize ball creation
-	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyEnter})
+	// Call finalizeBallCreation directly since ctrl+enter is hard to simulate in tests
+	// This is what ctrl+enter triggers after saving current field value
+	newModel, _ := model.finalizeBallCreation()
 	m := newModel.(Model)
 
 	if m.mode != splitView {
@@ -8953,22 +8956,23 @@ func TestBallCreationWithModelSize(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := session.NewStore(tmpDir)
 
+	// Field order with no ACs: 0=Context, 1=Title, 2=NewAC, 3=Tags, 4=Session, 5=ModelSize, 6=DependsOn
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Ball with model size",
 		pendingBallPriority:       1,
 		pendingBallModelSize:      2, // medium
-		pendingBallFormField:      7, // On "new AC" field
+		pendingBallFormField:      2, // On "new AC" field
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 		store:                     store,
 	}
-	model.textInput.SetValue("") // Empty value to trigger ball creation
+	model.textInput.SetValue("") // Empty value
 
-	// Press enter on empty new AC field to finalize ball creation
-	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyEnter})
+	// Call finalizeBallCreation directly since ctrl+enter is hard to simulate in tests
+	newModel, _ := model.finalizeBallCreation()
 	m := newModel.(Model)
 
 	// Should have created ball

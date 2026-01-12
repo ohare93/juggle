@@ -1197,6 +1197,48 @@ func (m Model) renderHistoryOutputView() string {
 	return b.String()
 }
 
+// renderAutocompletePopup renders the file autocomplete suggestions popup
+func (m Model) renderAutocompletePopup() string {
+	if m.fileAutocomplete == nil || !m.fileAutocomplete.Active || len(m.fileAutocomplete.Suggestions) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("\n")
+
+	// Style for popup
+	popupStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1)
+
+	selectedStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("0")).
+		Background(lipgloss.Color("6"))
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	var content strings.Builder
+	for i, suggestion := range m.fileAutocomplete.Suggestions {
+		if i == m.fileAutocomplete.Selected {
+			content.WriteString(selectedStyle.Render(suggestion))
+		} else {
+			content.WriteString(normalStyle.Render(suggestion))
+		}
+		content.WriteString("\n")
+	}
+	// Remove trailing newline
+	contentStr := strings.TrimSuffix(content.String(), "\n")
+
+	b.WriteString(popupStyle.Render(contentStr))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Faint(true).Render("Tab = accept | ↑/↓ = select | Space = dismiss"))
+
+	return b.String()
+}
+
 // renderUnifiedBallFormView renders the unified ball creation/editing form with all fields visible
 // Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Depends On
 func (m Model) renderUnifiedBallFormView() string {
@@ -1253,6 +1295,10 @@ func (m Model) renderUnifiedBallFormView() string {
 	b.WriteString(labelStyle.Render("Context: "))
 	if m.pendingBallFormField == fieldContext {
 		b.WriteString(m.textInput.View())
+		// Show autocomplete popup if active on this field
+		if popup := m.renderAutocompletePopup(); popup != "" {
+			b.WriteString(popup)
+		}
 	} else {
 		if m.pendingBallContext == "" {
 			b.WriteString(optionNormalStyle.Render("(empty)"))
@@ -1279,6 +1325,10 @@ func (m Model) renderUnifiedBallFormView() string {
 			countStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
 		}
 		b.WriteString(countStyle.Render(fmt.Sprintf(" (%d/50)", titleLen)))
+		// Show autocomplete popup if active on this field
+		if popup := m.renderAutocompletePopup(); popup != "" {
+			b.WriteString(popup)
+		}
 	} else {
 		if m.pendingBallIntent == "" {
 			b.WriteString(optionNormalStyle.Render("(empty)"))
@@ -1317,6 +1367,10 @@ func (m Model) renderUnifiedBallFormView() string {
 			// This AC is being edited
 			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
 			b.WriteString(m.textInput.View())
+			// Show autocomplete popup if active on this AC field
+			if popup := m.renderAutocompletePopup(); popup != "" {
+				b.WriteString(popup)
+			}
 		} else {
 			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
 			b.WriteString(ac)
@@ -1329,6 +1383,10 @@ func (m Model) renderUnifiedBallFormView() string {
 		// Show input for new AC
 		b.WriteString(editingACStyle.Render("  + "))
 		b.WriteString(m.textInput.View())
+		// Show autocomplete popup if active on new AC field
+		if popup := m.renderAutocompletePopup(); popup != "" {
+			b.WriteString(popup)
+		}
 		b.WriteString("\n")
 	} else {
 		// Show placeholder for adding new AC
