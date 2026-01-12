@@ -21,6 +21,9 @@
       "test-coverage": [
         "go test -v -coverprofile=coverage.out ./internal/integration_test/...",
         "go tool cover -html=coverage.out -o coverage.html"
+      ],
+      "test-agent-integration": [
+        "go test -v -tags=integration ./internal/agent_integration_test/..."
       ]
     }
   }

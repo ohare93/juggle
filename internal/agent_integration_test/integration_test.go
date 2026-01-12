@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -153,21 +152,13 @@ IMPORTANT: Output ONLY the JSON object, nothing else. No markdown code blocks, n
 func parseTestResult(t *testing.T, testID, output string) *TestResult {
 	t.Helper()
 
-	// Try to find JSON in the output
-	// The agent might include some text before/after the JSON
-	jsonPattern := regexp.MustCompile(`\{[^{}]*"test_id"[^{}]*\}`)
-	matches := jsonPattern.FindAllString(output, -1)
+	// Find all potential JSON objects using proper brace matching
+	// This handles nested objects correctly (unlike regex)
+	jsonCandidates := extractJSONObjects(output)
 
-	// Also try to find more complex JSON with nested objects
-	complexPattern := regexp.MustCompile(`\{"test_id"[^}]*"assertions"\s*:\s*\[[^\]]*\][^}]*\}`)
-	complexMatches := complexPattern.FindAllString(output, -1)
-
-	// Combine matches, preferring complex ones
-	allMatches := append(complexMatches, matches...)
-
-	for _, match := range allMatches {
+	for _, candidate := range jsonCandidates {
 		var result TestResult
-		if err := json.Unmarshal([]byte(match), &result); err == nil {
+		if err := json.Unmarshal([]byte(candidate), &result); err == nil {
 			if result.TestID == testID {
 				return &result
 			}
@@ -179,6 +170,74 @@ func parseTestResult(t *testing.T, testID, output string) *TestResult {
 		TestID: testID,
 		Error:  fmt.Sprintf("could not parse JSON result from output:\n%s", truncateOutput(output, 500)),
 	}
+}
+
+// extractJSONObjects finds all top-level JSON objects in a string by properly
+// matching braces, handling nested objects correctly.
+func extractJSONObjects(s string) []string {
+	var results []string
+	i := 0
+
+	for i < len(s) {
+		// Find the next opening brace
+		start := strings.Index(s[i:], "{")
+		if start == -1 {
+			break
+		}
+		start += i
+
+		// Track brace nesting to find the matching closing brace
+		depth := 0
+		inString := false
+		escaped := false
+		end := -1
+
+		for j := start; j < len(s); j++ {
+			c := s[j]
+
+			if escaped {
+				escaped = false
+				continue
+			}
+
+			if c == '\\' && inString {
+				escaped = true
+				continue
+			}
+
+			if c == '"' {
+				inString = !inString
+				continue
+			}
+
+			if inString {
+				continue
+			}
+
+			if c == '{' {
+				depth++
+			} else if c == '}' {
+				depth--
+				if depth == 0 {
+					end = j + 1
+					break
+				}
+			}
+		}
+
+		if end > start {
+			candidate := s[start:end]
+			// Only include candidates that look like test results
+			if strings.Contains(candidate, "test_id") {
+				results = append(results, candidate)
+			}
+			i = end
+		} else {
+			i = start + 1
+		}
+	}
+
+	return results
 }
 
 // truncateOutput shortens output for error messages

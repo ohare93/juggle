@@ -2,10 +2,15 @@
 
 This package contains integration tests that run against the **real Claude agent**. These tests validate that the agent behaves correctly in specific scenarios.
 
+> **Note on BlockedTools:** The `BlockedTools` field in `TestConfig` is **honor-system based** and not enforced by the testing framework. It instructs the agent via the prompt that certain tools should not be used, but the Claude CLI doesn't actually disable those tools. Tests using `BlockedTools` verify that the agent *respects* the instruction, not that the tools are technically blocked.
+
 ## Running Tests
 
 ```bash
-# Run all integration tests
+# Run all integration tests (using devbox script)
+devbox run test-agent-integration
+
+# Run all integration tests (without devbox)
 go test -tags=integration ./internal/agent_integration_test/...
 
 # Run with verbose output
