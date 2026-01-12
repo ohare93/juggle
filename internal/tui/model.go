@@ -24,10 +24,11 @@ const (
 	inputBallView        // Add/edit ball
 	inputBlockedView     // Prompt for blocked reason
 	inputTagView         // Add/remove tags (legacy, kept for backwards compatibility)
-	sessionSelectorView  // Session selector for tagging balls
-	confirmSplitDelete   // Delete confirmation in split view
-	panelSearchView      // Search/filter within current panel
-	confirmAgentLaunch   // Agent launch confirmation
+	sessionSelectorView            // Session selector for tagging balls
+	confirmSplitDelete             // Delete confirmation in split view
+	panelSearchView                // Search/filter within current panel
+	confirmAgentLaunch             // Agent launch confirmation
+	inputAcceptanceCriteriaView    // Multi-line acceptance criteria input
 )
 
 // InputAction represents what action triggered the input mode
@@ -128,6 +129,10 @@ type Model struct {
 	tagEditMode        TagEditMode      // Whether adding or removing a tag
 	sessionSelectItems []*session.JuggleSession // Sessions available for selection
 	sessionSelectIndex int                      // Current selection index in session selector
+
+	// Pending ball creation state (for multi-step ball creation)
+	pendingBallIntent          string   // Intent being created (stored during AC input)
+	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
 
 	// File watcher
 	fileWatcher *watcher.Watcher

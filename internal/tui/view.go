@@ -25,7 +25,7 @@ func (m Model) View() string {
 		return m.renderSplitView()
 	case splitHelpView:
 		return m.renderSplitHelpView()
-	case inputSessionView, inputBallView, inputBlockedView:
+	case inputSessionView, inputBallView, inputBlockedView, inputAcceptanceCriteriaView:
 		return m.renderInputView()
 	case inputTagView:
 		return m.renderTagView()
@@ -182,6 +182,8 @@ func (m Model) renderInputView() string {
 		}
 	case inputBlockedView:
 		title = "Block Ball"
+	case inputAcceptanceCriteriaView:
+		title = "Add Acceptance Criteria"
 	}
 
 	titleStyled := lipgloss.NewStyle().
@@ -209,6 +211,15 @@ func (m Model) renderInputView() string {
 			b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
 			b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
 		}
+	case inputAcceptanceCriteriaView:
+		b.WriteString(fmt.Sprintf("Intent: %s\n", m.pendingBallIntent))
+		if len(m.pendingAcceptanceCriteria) > 0 {
+			b.WriteString("\nCriteria entered:\n")
+			for i, ac := range m.pendingAcceptanceCriteria {
+				b.WriteString(fmt.Sprintf("  %d. %s\n", i+1, ac))
+			}
+		}
+		b.WriteString("\n(Enter empty line to finish)\n\n")
 	}
 
 	// Show input field

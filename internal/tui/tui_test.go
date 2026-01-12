@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
 )
@@ -1243,5 +1244,184 @@ func TestWindowSizeMsg(t *testing.T) {
 
 	if m.height != 40 {
 		t.Errorf("Expected height 40, got %d", m.height)
+	}
+}
+
+// Test acceptance criteria input mode - transition from intent input
+func TestAcceptanceCriteriaInputTransition(t *testing.T) {
+	model := Model{
+		mode:        inputBallView,
+		inputAction: actionAdd,
+		activityLog: make([]ActivityEntry, 0),
+	}
+	model.textInput.SetValue("Test intent")
+
+	// Simulate entering intent
+	m := model
+	m.pendingBallIntent = "Test intent"
+	m.pendingAcceptanceCriteria = []string{}
+	m.mode = inputAcceptanceCriteriaView
+
+	if m.mode != inputAcceptanceCriteriaView {
+		t.Errorf("Expected mode to be inputAcceptanceCriteriaView, got %v", m.mode)
+	}
+
+	if m.pendingBallIntent != "Test intent" {
+		t.Errorf("Expected pendingBallIntent to be 'Test intent', got %s", m.pendingBallIntent)
+	}
+
+	if len(m.pendingAcceptanceCriteria) != 0 {
+		t.Errorf("Expected pendingAcceptanceCriteria to be empty, got %d items", len(m.pendingAcceptanceCriteria))
+	}
+}
+
+// Test acceptance criteria input - adding criteria
+func TestAcceptanceCriteriaInputAddCriteria(t *testing.T) {
+	model := Model{
+		mode:                      inputAcceptanceCriteriaView,
+		pendingBallIntent:         "Test intent",
+		pendingAcceptanceCriteria: []string{},
+		activityLog:               make([]ActivityEntry, 0),
+	}
+	model.textInput.SetValue("First AC")
+
+	// Simulate entering a non-empty criterion
+	newModel, _ := model.handleAcceptanceCriteriaKey(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newModel.(Model)
+
+	if len(m.pendingAcceptanceCriteria) != 1 {
+		t.Errorf("Expected 1 acceptance criterion, got %d", len(m.pendingAcceptanceCriteria))
+	}
+
+	if m.pendingAcceptanceCriteria[0] != "First AC" {
+		t.Errorf("Expected criterion to be 'First AC', got %s", m.pendingAcceptanceCriteria[0])
+	}
+
+	// Mode should still be inputAcceptanceCriteriaView for more input
+	if m.mode != inputAcceptanceCriteriaView {
+		t.Errorf("Expected mode to remain inputAcceptanceCriteriaView, got %v", m.mode)
+	}
+
+	// Text input should be reset
+	if m.textInput.Value() != "" {
+		t.Errorf("Expected text input to be reset, got %s", m.textInput.Value())
+	}
+}
+
+// Test acceptance criteria input - adding multiple criteria
+func TestAcceptanceCriteriaInputMultipleCriteria(t *testing.T) {
+	model := Model{
+		mode:                      inputAcceptanceCriteriaView,
+		pendingBallIntent:         "Test intent",
+		pendingAcceptanceCriteria: []string{"First AC"},
+		activityLog:               make([]ActivityEntry, 0),
+	}
+	model.textInput.SetValue("Second AC")
+
+	newModel, _ := model.handleAcceptanceCriteriaKey(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newModel.(Model)
+
+	if len(m.pendingAcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 acceptance criteria, got %d", len(m.pendingAcceptanceCriteria))
+	}
+
+	if m.pendingAcceptanceCriteria[1] != "Second AC" {
+		t.Errorf("Expected second criterion to be 'Second AC', got %s", m.pendingAcceptanceCriteria[1])
+	}
+}
+
+// Test acceptance criteria input - cancel with esc
+func TestAcceptanceCriteriaInputCancel(t *testing.T) {
+	model := Model{
+		mode:                      inputAcceptanceCriteriaView,
+		pendingBallIntent:         "Test intent",
+		pendingAcceptanceCriteria: []string{"First AC", "Second AC"},
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	newModel, _ := model.handleAcceptanceCriteriaKey(tea.KeyMsg{Type: tea.KeyEsc})
+	m := newModel.(Model)
+
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after cancel, got %v", m.mode)
+	}
+
+	if m.pendingBallIntent != "" {
+		t.Errorf("Expected pendingBallIntent to be cleared, got %s", m.pendingBallIntent)
+	}
+
+	if m.pendingAcceptanceCriteria != nil {
+		t.Errorf("Expected pendingAcceptanceCriteria to be nil, got %v", m.pendingAcceptanceCriteria)
+	}
+
+	if m.message != "Cancelled" {
+		t.Errorf("Expected message to be 'Cancelled', got %s", m.message)
+	}
+}
+
+// Test acceptance criteria view rendering
+func TestAcceptanceCriteriaViewRendering(t *testing.T) {
+	model := Model{
+		mode:                      inputAcceptanceCriteriaView,
+		pendingBallIntent:         "Implement feature X",
+		pendingAcceptanceCriteria: []string{"AC 1", "AC 2"},
+		activityLog:               make([]ActivityEntry, 0),
+		width:                     80,
+		height:                    24,
+	}
+
+	view := model.View()
+
+	// Check for title
+	if !strings.Contains(view, "Add Acceptance Criteria") {
+		t.Error("Expected view to contain 'Add Acceptance Criteria'")
+	}
+
+	// Check for intent display
+	if !strings.Contains(view, "Intent: Implement feature X") {
+		t.Error("Expected view to contain intent")
+	}
+
+	// Check for existing criteria
+	if !strings.Contains(view, "1. AC 1") {
+		t.Error("Expected view to contain first criterion")
+	}
+
+	if !strings.Contains(view, "2. AC 2") {
+		t.Error("Expected view to contain second criterion")
+	}
+
+	// Check for instruction
+	if !strings.Contains(view, "Enter empty line to finish") {
+		t.Error("Expected view to contain finish instruction")
+	}
+}
+
+// Test submitBallInput transitions to AC input for new balls
+func TestSubmitBallInputTransitionsToACInput(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:        inputBallView,
+		inputAction: actionAdd,
+		activityLog: make([]ActivityEntry, 0),
+		textInput:   ti,
+	}
+
+	newModel, _ := model.submitBallInput("New ball intent")
+	m := newModel.(Model)
+
+	if m.mode != inputAcceptanceCriteriaView {
+		t.Errorf("Expected mode to be inputAcceptanceCriteriaView, got %v", m.mode)
+	}
+
+	if m.pendingBallIntent != "New ball intent" {
+		t.Errorf("Expected pendingBallIntent to be 'New ball intent', got %s", m.pendingBallIntent)
+	}
+
+	if len(m.pendingAcceptanceCriteria) != 0 {
+		t.Errorf("Expected pendingAcceptanceCriteria to be empty, got %d", len(m.pendingAcceptanceCriteria))
 	}
 }

@@ -17,6 +17,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle acceptance criteria input mode (special handling for empty line)
+		if m.mode == inputAcceptanceCriteriaView {
+			return m.handleAcceptanceCriteriaKey(msg)
+		}
+
 		// Handle input modes (text entry)
 		if m.mode == inputSessionView || m.mode == inputBallView || m.mode == inputBlockedView || m.mode == inputTagView {
 			return m.handleInputKey(msg)
@@ -1184,28 +1189,15 @@ func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
 // submitBallInput handles ball add/edit submission
 func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 	if m.inputAction == actionAdd {
-		// Create new ball using the store's project directory
-		ball, err := session.NewBall(m.store.ProjectDir(), value, session.PriorityMedium)
-		if err != nil {
-			m.message = "Error creating ball: " + err.Error()
-			m.mode = splitView
-			return m, nil
-		}
-
-		// Add session tag if a session is selected
-		if m.selectedSession != nil {
-			ball.Tags = append(ball.Tags, m.selectedSession.ID)
-		}
-
-		// Use the store's working directory
-		err = m.store.AppendBall(ball)
-		if err != nil {
-			m.message = "Error creating ball: " + err.Error()
-			m.mode = splitView
-			return m, nil
-		}
-		m.addActivity("Created ball: " + ball.ID)
-		m.message = "Created ball: " + ball.ID
+		// Store the intent and transition to acceptance criteria input
+		m.pendingBallIntent = value
+		m.pendingAcceptanceCriteria = []string{}
+		m.textInput.Reset()
+		m.textInput.Placeholder = "Acceptance criterion (empty to finish)"
+		m.textInput.Focus()
+		m.mode = inputAcceptanceCriteriaView
+		m.addActivity("Enter acceptance criteria (empty line to finish)")
+		return m, nil
 	} else {
 		// Edit ball intent
 		if m.editingBall == nil {
@@ -1249,6 +1241,82 @@ func (m Model) submitBlockedInput(value string) (tea.Model, tea.Cmd) {
 
 	m.mode = splitView
 	return m, updateBall(store, m.editingBall)
+}
+
+// handleAcceptanceCriteriaKey handles keyboard input for multi-line acceptance criteria entry
+func (m Model) handleAcceptanceCriteriaKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Cancel input - clear pending state
+		m.pendingBallIntent = ""
+		m.pendingAcceptanceCriteria = nil
+		m.mode = splitView
+		m.message = "Cancelled"
+		m.textInput.Blur()
+		return m, nil
+
+	case "enter":
+		value := strings.TrimSpace(m.textInput.Value())
+		if value == "" {
+			// Empty line - create the ball with collected criteria
+			return m.finalizeBallCreation()
+		}
+		// Non-empty - add to list and continue
+		m.pendingAcceptanceCriteria = append(m.pendingAcceptanceCriteria, value)
+		m.textInput.Reset()
+		m.addActivity("Added AC: " + truncate(value, 30))
+		return m, nil
+
+	default:
+		// Pass to textinput
+		var cmd tea.Cmd
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+}
+
+// finalizeBallCreation creates the ball with the collected intent and acceptance criteria
+func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
+	// Create new ball using the store's project directory
+	ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, session.PriorityMedium)
+	if err != nil {
+		m.message = "Error creating ball: " + err.Error()
+		m.pendingBallIntent = ""
+		m.pendingAcceptanceCriteria = nil
+		m.mode = splitView
+		return m, nil
+	}
+
+	// Add session tag if a session is selected
+	if m.selectedSession != nil && m.selectedSession.ID != PseudoSessionAll && m.selectedSession.ID != PseudoSessionUntagged {
+		ball.Tags = append(ball.Tags, m.selectedSession.ID)
+	}
+
+	// Set acceptance criteria if any were collected
+	if len(m.pendingAcceptanceCriteria) > 0 {
+		ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
+	}
+
+	// Use the store's working directory
+	err = m.store.AppendBall(ball)
+	if err != nil {
+		m.message = "Error creating ball: " + err.Error()
+		m.pendingBallIntent = ""
+		m.pendingAcceptanceCriteria = nil
+		m.mode = splitView
+		return m, nil
+	}
+
+	m.addActivity("Created ball: " + ball.ID)
+	m.message = "Created ball: " + ball.ID
+
+	// Clear pending state
+	m.pendingBallIntent = ""
+	m.pendingAcceptanceCriteria = nil
+	m.textInput.Blur()
+	m.mode = splitView
+
+	return m, loadBalls(m.store, m.config, m.localOnly)
 }
 
 // handleSplitConfirmDelete handles yes/no for delete confirmation
