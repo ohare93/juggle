@@ -9,6 +9,11 @@ import (
 
 const (
 	defaultConfigPath = ".juggler/config.json"
+
+	// Default values for global configuration fields
+	// These are documented here as the canonical source of defaults
+	DefaultIterationDelayMinutes = 0 // No delay between agent iterations by default
+	DefaultIterationDelayFuzz    = 0 // No variance in delay by default
 )
 
 // Config holds global juggler configuration
@@ -32,6 +37,77 @@ type Config struct {
 	// Agent iteration delay settings
 	IterationDelayMinutes int `json:"iteration_delay_minutes,omitempty"` // Base delay between iterations in minutes
 	IterationDelayFuzz    int `json:"iteration_delay_fuzz,omitempty"`    // Random +/- variance in minutes
+
+	// UnknownFields stores any fields from the config file that aren't recognized.
+	// These are preserved when saving to avoid data loss.
+	UnknownFields map[string]interface{} `json:"-"`
+}
+
+// knownConfigFields lists the field names we recognize in config JSON
+var knownConfigFields = map[string]bool{
+	"search_paths":             true,
+	"iteration_delay_minutes":  true,
+	"iteration_delay_fuzz":     true,
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling to capture unknown fields
+func (c *Config) UnmarshalJSON(data []byte) error {
+	// First, unmarshal into a map to capture all fields
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(data, &rawMap); err != nil {
+		return err
+	}
+
+	// Unmarshal known fields using a type alias to avoid recursion
+	type configAlias Config
+	var alias configAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	// Copy known fields
+	c.SearchPaths = alias.SearchPaths
+	c.IterationDelayMinutes = alias.IterationDelayMinutes
+	c.IterationDelayFuzz = alias.IterationDelayFuzz
+
+	// Extract unknown fields
+	c.UnknownFields = make(map[string]interface{})
+	for key, value := range rawMap {
+		if !knownConfigFields[key] {
+			c.UnknownFields[key] = value
+		}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements custom JSON marshaling to preserve unknown fields
+func (c *Config) MarshalJSON() ([]byte, error) {
+	// Start with unknown fields
+	result := make(map[string]interface{})
+	for key, value := range c.UnknownFields {
+		result[key] = value
+	}
+
+	// Add known fields (they take precedence over unknown fields with same name)
+	result["search_paths"] = c.SearchPaths
+	if c.IterationDelayMinutes != 0 {
+		result["iteration_delay_minutes"] = c.IterationDelayMinutes
+	}
+	if c.IterationDelayFuzz != 0 {
+		result["iteration_delay_fuzz"] = c.IterationDelayFuzz
+	}
+
+	return json.Marshal(result)
+}
+
+// GetUnknownFields returns the list of unrecognized field names
+func (c *Config) GetUnknownFields() []string {
+	keys := make([]string, 0, len(c.UnknownFields))
+	for key := range c.UnknownFields {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // DefaultConfig returns a configuration with common project locations
@@ -39,7 +115,10 @@ type Config struct {
 // Projects are added automatically when balls are created
 func DefaultConfig() *Config {
 	return &Config{
-		SearchPaths: []string{},
+		SearchPaths:           []string{},
+		IterationDelayMinutes: DefaultIterationDelayMinutes,
+		IterationDelayFuzz:    DefaultIterationDelayFuzz,
+		UnknownFields:         make(map[string]interface{}),
 	}
 }
 
@@ -48,7 +127,9 @@ func LoadConfig() (*Config, error) {
 	return LoadConfigWithOptions(DefaultConfigOptions())
 }
 
-// LoadConfigWithOptions loads configuration with custom options
+// LoadConfigWithOptions loads configuration with custom options.
+// After loading, the config is saved back to disk to ensure any default values
+// are populated and the file reflects the full config structure.
 func LoadConfigWithOptions(opts ConfigOptions) (*Config, error) {
 	if opts.ConfigHome == "" {
 		home, err := os.UserHomeDir()
@@ -77,6 +158,17 @@ func LoadConfigWithOptions(opts ConfigOptions) (*Config, error) {
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Ensure UnknownFields map is initialized
+	if config.UnknownFields == nil {
+		config.UnknownFields = make(map[string]interface{})
+	}
+
+	// Save the config back to disk to persist any defaults that were applied.
+	// This ensures the file always has all known fields with their current values.
+	if err := config.SaveWithOptions(opts); err != nil {
+		return nil, fmt.Errorf("failed to save config with defaults: %w", err)
 	}
 
 	return &config, nil

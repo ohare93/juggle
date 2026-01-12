@@ -17,6 +17,8 @@ var configCmd = &cobra.Command{
 	Short: "Manage juggler configuration",
 	Long: `Manage juggler configuration (repository and global).
 
+Without arguments, displays all current configuration entries.
+
 Commands:
   config ac list              List repo-level acceptance criteria
   config ac add "criterion"   Add an acceptance criterion
@@ -26,9 +28,71 @@ Commands:
   config delay show           Show current iteration delay settings
   config delay set <mins>     Set delay between iterations (in minutes)
   config delay clear          Remove iteration delay`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
+	RunE: runConfigShow,
+}
+
+func runConfigShow(cmd *cobra.Command, args []string) error {
+	// Load global config
+	globalConfig, err := session.LoadConfigWithOptions(GetConfigOptions())
+	if err != nil {
+		return fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
+
+	// Display global config
+	fmt.Println(labelStyle.Render("Global Configuration:"))
+	fmt.Println()
+
+	// Search paths
+	fmt.Printf("  %s: ", keyStyle.Render("search_paths"))
+	if len(globalConfig.SearchPaths) == 0 {
+		fmt.Println("(empty)")
+	} else {
+		fmt.Println()
+		for _, path := range globalConfig.SearchPaths {
+			fmt.Printf("    - %s\n", path)
+		}
+	}
+
+	// Iteration delay
+	fmt.Printf("  %s: %d\n", keyStyle.Render("iteration_delay_minutes"), globalConfig.IterationDelayMinutes)
+	fmt.Printf("  %s: %d\n", keyStyle.Render("iteration_delay_fuzz"), globalConfig.IterationDelayFuzz)
+
+	// Show warnings for unknown fields
+	unknownFields := globalConfig.GetUnknownFields()
+	if len(unknownFields) > 0 {
+		fmt.Println()
+		for _, key := range unknownFields {
+			fmt.Println(warningStyle.Render(fmt.Sprintf("Unknown config key: %s", key)))
+		}
+	}
+
+	// Try to load project config if we're in a project
+	cwd, err := GetWorkingDir()
+	if err == nil {
+		projectConfig, err := session.LoadProjectConfig(cwd)
+		if err == nil {
+			fmt.Println()
+			fmt.Println(labelStyle.Render("Project Configuration:"))
+			fmt.Println()
+
+			// Default acceptance criteria
+			fmt.Printf("  %s: ", keyStyle.Render("default_acceptance_criteria"))
+			if len(projectConfig.DefaultAcceptanceCriteria) == 0 {
+				fmt.Println("(empty)")
+			} else {
+				fmt.Println()
+				for _, ac := range projectConfig.DefaultAcceptanceCriteria {
+					fmt.Printf("    - %s\n", ac)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 var configACCmd = &cobra.Command{
