@@ -1198,6 +1198,7 @@ func (m Model) renderHistoryOutputView() string {
 }
 
 // renderUnifiedBallFormView renders the unified ball creation/editing form with all fields visible
+// Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Depends On
 func (m Model) renderUnifiedBallFormView() string {
 	var b strings.Builder
 
@@ -1212,20 +1213,19 @@ func (m Model) renderUnifiedBallFormView() string {
 		Render(title)
 	b.WriteString(titleStyled + "\n\n")
 
-	// Field constants
+	// Field indices are dynamic due to variable AC count
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, DependsOn
 	const (
-		fieldContext   = 0
-		fieldIntent    = 1 // Title field (was intent)
-		fieldPriority  = 2
-		fieldTags      = 3
-		fieldSession   = 4
-		fieldModelSize = 5
-		fieldDependsOn = 6
-		fieldACStart   = 7 // ACs start at index 7
+		fieldContext = 0
+		fieldIntent  = 1 // Title field (was intent)
+		fieldACStart = 2 // ACs start at index 2
 	)
-
-	// Priority options
-	priorities := []string{"low", "medium", "high", "urgent"}
+	// Dynamic field indices calculated after ACs
+	fieldACEnd := fieldACStart + len(m.pendingAcceptanceCriteria) // The "new AC" field
+	fieldTags := fieldACEnd + 1
+	fieldSession := fieldTags + 1
+	fieldModelSize := fieldSession + 1
+	fieldDependsOn := fieldModelSize + 1
 
 	// Build sessions list for display
 	sessionOptions := []string{"(none)"}
@@ -1243,6 +1243,7 @@ func (m Model) renderUnifiedBallFormView() string {
 	optionNormalStyle := lipgloss.NewStyle().Faint(true)
 	acNumberStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	editingACStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("240"))
+	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow for warnings
 
 	// --- Context field ---
 	labelStyle := normalStyle
@@ -1294,27 +1295,44 @@ func (m Model) renderUnifiedBallFormView() string {
 			}
 		}
 	}
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
-	// --- Priority field ---
-	labelStyle = normalStyle
-	if m.pendingBallFormField == fieldPriority {
-		labelStyle = activeFieldStyle
+	// --- Acceptance Criteria section (now after Title) ---
+	acLabel := normalStyle
+	isOnACField := m.pendingBallFormField >= fieldACStart && m.pendingBallFormField <= fieldACEnd
+	if isOnACField {
+		acLabel = activeFieldStyle
 	}
-	b.WriteString(labelStyle.Render("Priority: "))
-	for j, opt := range priorities {
-		if j > 0 {
-			b.WriteString(" | ")
-		}
-		if j == m.pendingBallPriority {
-			if m.pendingBallFormField == fieldPriority {
-				b.WriteString(optionSelectedStyle.Render(opt))
-			} else {
-				b.WriteString(selectedStyle.Render(opt))
-			}
+	acHeaderText := "Acceptance Criteria:"
+	// Show warning if empty AC list
+	if len(m.pendingAcceptanceCriteria) == 0 && !isOnACField {
+		acHeaderText += warningStyle.Render(" (none - consider adding criteria)")
+	}
+	b.WriteString(acLabel.Render(acHeaderText) + "\n")
+
+	// Show existing ACs with ability to edit
+	for i, ac := range m.pendingAcceptanceCriteria {
+		acFieldIndex := fieldACStart + i
+		if m.pendingBallFormField == acFieldIndex {
+			// This AC is being edited
+			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
+			b.WriteString(m.textInput.View())
 		} else {
-			b.WriteString(optionNormalStyle.Render(opt))
+			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
+			b.WriteString(ac)
 		}
+		b.WriteString("\n")
+	}
+
+	// Show new AC input field (always at the end of ACs)
+	if m.pendingBallFormField == fieldACEnd {
+		// Show input for new AC
+		b.WriteString(editingACStyle.Render("  + "))
+		b.WriteString(m.textInput.View())
+		b.WriteString("\n")
+	} else {
+		// Show placeholder for adding new AC
+		b.WriteString(optionNormalStyle.Render("  + (add criterion)") + "\n")
 	}
 	b.WriteString("\n")
 
@@ -1403,41 +1421,6 @@ func (m Model) renderUnifiedBallFormView() string {
 	}
 	b.WriteString("\n\n")
 
-	// --- Acceptance Criteria section ---
-	acLabel := normalStyle
-	if m.pendingBallFormField >= fieldACStart {
-		acLabel = activeFieldStyle
-	}
-	b.WriteString(acLabel.Render("Acceptance Criteria:") + "\n")
-
-	// Show existing ACs with ability to edit
-	for i, ac := range m.pendingAcceptanceCriteria {
-		acFieldIndex := fieldACStart + i
-		if m.pendingBallFormField == acFieldIndex {
-			// This AC is being edited
-			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
-			b.WriteString(m.textInput.View())
-		} else {
-			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
-			b.WriteString(ac)
-		}
-		b.WriteString("\n")
-	}
-
-	// Show new AC input field (always at the end)
-	newACFieldIndex := fieldACStart + len(m.pendingAcceptanceCriteria)
-	if m.pendingBallFormField == newACFieldIndex {
-		// Show input for new AC
-		b.WriteString(editingACStyle.Render("  + "))
-		b.WriteString(m.textInput.View())
-		b.WriteString("\n")
-	} else {
-		// Show placeholder for adding new AC
-		b.WriteString(optionNormalStyle.Render("  + (press Enter to add)") + "\n")
-	}
-
-	b.WriteString("\n")
-
 	// Show message if any
 	if m.message != "" {
 		b.WriteString(messageStyle.Render(m.message) + "\n\n")
@@ -1446,7 +1429,7 @@ func (m Model) renderUnifiedBallFormView() string {
 	// Help
 	help := lipgloss.NewStyle().
 		Faint(true).
-		Render("↑/↓ or j/k = navigate | ←/→ = cycle options | Enter = confirm/add AC | Ctrl+Enter = create ball | Esc = cancel")
+		Render("↑/↓ = navigate | ←/→ = cycle options | Enter = next/add AC | Ctrl+Enter = create ball | Esc = cancel")
 	b.WriteString(help)
 
 	return b.String()

@@ -174,7 +174,7 @@ type Model struct {
 	pendingBallSession         int      // Index in session options (0=none, 1+ = session index)
 	pendingBallModelSize       int      // Index in model size options (0=default, 1=small, 2=medium, 3=large)
 	pendingBallDependsOn       []string // Selected dependency ball IDs
-	pendingBallFormField       int      // Current field in form (0=context, 1=title, 2=priority, 3=tags, 4=session, 5=model_size, 6=depends_on, 7+=ACs)
+	pendingBallFormField       int      // Current field in form (0=context, 1=title, 2+=ACs, then tags, session, model_size, depends_on)
 	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
 	pendingACEditIndex         int      // Index of AC being edited (-1 = adding new, >= 0 = editing existing)
 
