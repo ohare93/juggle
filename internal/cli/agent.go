@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -208,9 +209,12 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 	// "all" is a special meta-session that targets all balls in repo without requiring a session file
 	isAllSession := config.SessionID == "all"
 
-	// Verify session exists (unless using "all" meta-session)
+	// Load session to get default model (for non-"all" sessions)
+	var juggleSession *session.JuggleSession
 	if !isAllSession {
-		if _, err := sessionStore.LoadSession(config.SessionID); err != nil {
+		var err error
+		juggleSession, err = sessionStore.LoadSession(config.SessionID)
+		if err != nil {
 			return nil, fmt.Errorf("session not found: %s", config.SessionID)
 		}
 	}
@@ -263,6 +267,26 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		// Use storageID (maps "all" to "_all") for progress tracking
 		progressBefore := getProgressLineCount(sessionStore, storageID)
 
+		// Load balls for model selection
+		balls, err := loadBallsForModelSelection(config.ProjectDir, config.SessionID, config.BallID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load balls for model selection: %w", err)
+		}
+
+		// Get session default model
+		var sessionDefaultModel session.ModelSize
+		if juggleSession != nil {
+			sessionDefaultModel = juggleSession.DefaultModel
+		}
+
+		// Select optimal model for this iteration
+		modelSelection := selectModelForIteration(config, balls, sessionDefaultModel)
+
+		// Log model selection (only if not explicitly set)
+		if config.Model == "" {
+			fmt.Printf("🤖 Model: %s (%s)\n\n", modelSelection.Model, modelSelection.Reason)
+		}
+
 		// Generate prompt using export command
 		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID, config.Debug, config.BallID)
 		if err != nil {
@@ -275,7 +299,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 			Mode:       agent.ModeHeadless,
 			Permission: agent.PermissionAcceptEdits,
 			Timeout:    config.Timeout,
-			Model:      config.Model,
+			Model:      modelSelection.Model,
 		}
 		if config.Interactive {
 			opts.Mode = agent.ModeInteractive
@@ -1240,4 +1264,240 @@ func writeBallForRefine(buf *strings.Builder, ball *session.Ball) {
 	if ball.Output != "" {
 		buf.WriteString(fmt.Sprintf("Research Output: %s\n", ball.Output))
 	}
+}
+
+// ModelSelection contains model selection results
+type ModelSelection struct {
+	Model      string   // Model to use for this iteration (opus, sonnet, haiku)
+	Reason     string   // Why this model was selected
+	BallsCount int      // Number of balls that prefer this model
+}
+
+// selectModelForIteration analyzes remaining balls and chooses the optimal model.
+// Priority order:
+// 1. If config.Model is explicitly set (via --model flag), use it
+// 2. Use session.DefaultModel if available
+// 3. Choose based on ball model preferences (prioritize matching balls)
+// 4. Default to "opus" (largest/most capable model)
+//
+// The function returns the model to use and reason for selection.
+func selectModelForIteration(config AgentLoopConfig, balls []*session.Ball, defaultSessionModel session.ModelSize) *ModelSelection {
+	// If model explicitly provided via --model flag, use it
+	if config.Model != "" {
+		return &ModelSelection{
+			Model:  config.Model,
+			Reason: "explicitly set via --model flag",
+		}
+	}
+
+	// Filter to non-terminal balls only
+	activeBalls := filterActiveBalls(balls)
+	if len(activeBalls) == 0 {
+		return &ModelSelection{
+			Model:  "opus",
+			Reason: "no active balls",
+		}
+	}
+
+	// Count balls by model preference
+	modelCounts := countBallsByModel(activeBalls)
+
+	// If session has a default model and there are balls without explicit preference,
+	// count those as preferring the session default
+	if defaultSessionModel != "" && defaultSessionModel != session.ModelSizeBlank {
+		blankCount := modelCounts[""]
+		sessionModel := mapModelSizeToString(defaultSessionModel)
+		modelCounts[sessionModel] += blankCount
+		delete(modelCounts, "")
+	}
+
+	// Find the model with most balls (prefer larger models on tie)
+	selectedModel := "opus"
+	maxCount := 0
+	selectedReason := "default (no model preferences specified)"
+
+	// Check in order of preference (larger models first for ties)
+	modelPriority := []string{"opus", "sonnet", "haiku"}
+	for _, model := range modelPriority {
+		count := modelCounts[model]
+		if count > maxCount {
+			maxCount = count
+			selectedModel = model
+			selectedReason = fmt.Sprintf("%d ball(s) prefer %s model", count, model)
+		}
+	}
+
+	// If only blank preferences and no session default, use opus
+	if maxCount == 0 {
+		if defaultSessionModel != "" && defaultSessionModel != session.ModelSizeBlank {
+			selectedModel = mapModelSizeToString(defaultSessionModel)
+			selectedReason = "session default model"
+		} else {
+			selectedModel = "opus"
+			selectedReason = "default (no preferences)"
+		}
+	}
+
+	return &ModelSelection{
+		Model:      selectedModel,
+		Reason:     selectedReason,
+		BallsCount: maxCount,
+	}
+}
+
+// filterActiveBalls returns only balls that are not in terminal state (complete/researched)
+func filterActiveBalls(balls []*session.Ball) []*session.Ball {
+	active := make([]*session.Ball, 0)
+	for _, ball := range balls {
+		if ball.State != session.StateComplete && ball.State != session.StateResearched {
+			active = append(active, ball)
+		}
+	}
+	return active
+}
+
+// countBallsByModel counts how many balls prefer each model size
+func countBallsByModel(balls []*session.Ball) map[string]int {
+	counts := make(map[string]int)
+	for _, ball := range balls {
+		model := mapModelSizeToString(ball.ModelSize)
+		counts[model]++
+	}
+	return counts
+}
+
+// mapModelSizeToString converts ModelSize to the string used by Claude CLI
+func mapModelSizeToString(size session.ModelSize) string {
+	switch size {
+	case session.ModelSizeSmall:
+		return "haiku"
+	case session.ModelSizeMedium:
+		return "sonnet"
+	case session.ModelSizeLarge:
+		return "opus"
+	default:
+		return "" // blank/unset
+	}
+}
+
+// prioritizeBallsByModel sorts balls so those matching the current model come first.
+// This is called after sortBallsForAgent to further prioritize by model match.
+// Within model-matched balls, the existing sort order (state, deps, priority) is preserved.
+func prioritizeBallsByModel(balls []*session.Ball, currentModel string, sessionDefaultModel session.ModelSize) {
+	if currentModel == "" {
+		return // No prioritization needed if no model set
+	}
+
+	// Determine which ModelSize values match the current model
+	matchesModel := func(ball *session.Ball) bool {
+		ballModel := ball.ModelSize
+		// If ball has no preference, use session default
+		if ballModel == "" || ballModel == session.ModelSizeBlank {
+			ballModel = sessionDefaultModel
+		}
+		// Convert to string and compare
+		return mapModelSizeToString(ballModel) == currentModel || ballModel == session.ModelSizeBlank
+	}
+
+	// Stable sort: matching balls first, preserving relative order within each group
+	sort.SliceStable(balls, func(i, j int) bool {
+		matchI := matchesModel(balls[i])
+		matchJ := matchesModel(balls[j])
+		// Only reorder if one matches and other doesn't
+		if matchI && !matchJ {
+			return true
+		}
+		return false
+	})
+}
+
+// SelectModelForIterationForTest is an exported wrapper for testing
+func SelectModelForIterationForTest(config AgentLoopConfig, balls []*session.Ball, defaultSessionModel session.ModelSize) *ModelSelection {
+	return selectModelForIteration(config, balls, defaultSessionModel)
+}
+
+// PrioritizeBallsByModelForTest is an exported wrapper for testing
+func PrioritizeBallsByModelForTest(balls []*session.Ball, currentModel string, sessionDefaultModel session.ModelSize) {
+	prioritizeBallsByModel(balls, currentModel, sessionDefaultModel)
+}
+
+// FilterActiveBallsForTest is an exported wrapper for testing
+func FilterActiveBallsForTest(balls []*session.Ball) []*session.Ball {
+	return filterActiveBalls(balls)
+}
+
+// CountBallsByModelForTest is an exported wrapper for testing
+func CountBallsByModelForTest(balls []*session.Ball) map[string]int {
+	return countBallsByModel(balls)
+}
+
+// loadBallsForModelSelection loads balls for model selection purposes.
+// This is similar to generateAgentPrompt but returns the balls instead of generating a prompt.
+func loadBallsForModelSelection(projectDir, sessionID, ballID string) ([]*session.Ball, error) {
+	// Load config to discover projects
+	config, err := LoadConfigForCommand()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Create store for current directory
+	store, err := NewStoreForCommand(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Discover projects
+	projects, err := DiscoverProjectsForCommand(config, store)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		return nil, fmt.Errorf("no projects with .juggler directories found")
+	}
+
+	// Load all balls from discovered projects
+	allBalls, err := session.LoadAllBalls(projects)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load balls: %w", err)
+	}
+
+	// Filter by session tag
+	// "all" is a special meta-session that means "all balls in repo" (no session filtering)
+	var balls []*session.Ball
+	if sessionID == "all" {
+		balls = allBalls
+	} else {
+		balls = make([]*session.Ball, 0)
+		for _, ball := range allBalls {
+			for _, tag := range ball.Tags {
+				if tag == sessionID {
+					balls = append(balls, ball)
+					break
+				}
+			}
+		}
+	}
+
+	// Filter to specific ball if ballID is specified
+	if ballID != "" {
+		var targetBall *session.Ball
+		for _, ball := range balls {
+			if ball.ID == ballID || ball.ShortID() == ballID {
+				targetBall = ball
+				break
+			}
+		}
+		if targetBall == nil {
+			return nil, fmt.Errorf("ball %s not found in session %s", ballID, sessionID)
+		}
+		return []*session.Ball{targetBall}, nil
+	}
+
+	return balls, nil
+}
+
+// LoadBallsForModelSelectionForTest is an exported wrapper for testing
+func LoadBallsForModelSelectionForTest(projectDir, sessionID, ballID string) ([]*session.Ball, error) {
+	return loadBallsForModelSelection(projectDir, sessionID, ballID)
 }
