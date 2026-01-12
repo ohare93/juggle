@@ -140,8 +140,13 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		if ball.HasOutput() {
 			outputMarker = " " + dimStyle.Render("[has output]")
 		}
+		// Add dependency marker
+		depMarker := ""
+		if ball.HasDependencies() {
+			depMarker = " " + dimStyle.Render("[→deps]")
+		}
 
-		fmt.Printf("  [%s] %s  %s  %s  %s%s%s\n",
+		fmt.Printf("  [%s] %s  %s  %s  %s%s%s%s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
@@ -149,6 +154,7 @@ func listJugglingBalls(cmd *cobra.Command) error {
 			intentDisplay,
 			testsIndicator,
 			outputMarker,
+			depMarker,
 		)
 
 		// Show acceptance criteria if present
@@ -318,14 +324,20 @@ func listAllBalls(cmd *cobra.Command) error {
 				if ball.HasOutput() {
 					outputMarker = " " + dimStyle.Render("[has output]")
 				}
+				// Add dependency marker
+				depMarker := ""
+				if ball.HasDependencies() {
+					depMarker = " " + dimStyle.Render("[→deps]")
+				}
 
-				fmt.Printf("  [%s] %s  %s  %s%s%s\n",
+				fmt.Printf("  [%s] %s  %s  %s%s%s%s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
 					testsIndicator,
 					outputMarker,
+					depMarker,
 				)
 
 				// Show acceptance criteria if present

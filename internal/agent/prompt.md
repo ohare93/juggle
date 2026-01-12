@@ -22,6 +22,12 @@ Review these sections to understand the current state.
 2. **pending balls by priority** - urgent > high > medium > low
 3. **blocked balls** - Review if blockers have been resolved
 
+**Dependency handling:**
+- Some balls have a `Depends On` field listing ball IDs that must be completed first
+- **Always complete dependencies before dependent balls**
+- If a ball has dependencies that are not yet complete, skip it and work on its dependencies first
+- If a dependency is blocked, the dependent ball cannot proceed until it's unblocked
+
 **For in_progress balls:**
 - Check if the work was already completed in a previous iteration
 - If YES: Verify the acceptance criteria, update state to `complete`, then signal CONTINUE (this does NOT count as implementation work - no commit needed)

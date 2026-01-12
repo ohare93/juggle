@@ -547,6 +547,11 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 		}
 	}
 
+	// Dependencies
+	if len(ball.DependsOn) > 0 {
+		buf.WriteString(fmt.Sprintf("Depends On: %s\n", strings.Join(ball.DependsOn, ", ")))
+	}
+
 	// Blocked reason if blocked
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString(fmt.Sprintf("Blocked: %s\n", ball.BlockedReason))
@@ -713,6 +718,11 @@ func writeBallForAgent(buf *strings.Builder, ball *session.Ball) {
 		}
 	}
 
+	// Dependencies
+	if len(ball.DependsOn) > 0 {
+		buf.WriteString(fmt.Sprintf("Depends On: %s\n", strings.Join(ball.DependsOn, ", ")))
+	}
+
 	// Blocked reason if blocked
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString(fmt.Sprintf("Blocked: %s\n", ball.BlockedReason))
@@ -736,8 +746,36 @@ func SortBallsForAgentExport(balls []*session.Ball) {
 // sortBallsForAgent sorts balls so in_progress balls come first,
 // followed by pending balls, then blocked balls.
 // Complete balls should be filtered out before calling this.
-// Within each state, balls are sorted by priority (urgent > high > medium > low).
+// Within each state, balls are sorted by:
+// 1. Dependencies satisfied (balls with all deps complete come first)
+// 2. Priority (urgent > high > medium > low)
 func sortBallsForAgent(balls []*session.Ball) {
+	// Build a map of ball states for dependency checking
+	ballStates := make(map[string]session.BallState)
+	for _, ball := range balls {
+		ballStates[ball.ID] = ball.State
+		// Also map by short ID for dependency resolution
+		ballStates[ball.ShortID()] = ball.State
+	}
+
+	// Helper to check if all dependencies are satisfied (complete or researched)
+	allDepsSatisfied := func(ball *session.Ball) bool {
+		if len(ball.DependsOn) == 0 {
+			return true
+		}
+		for _, depID := range ball.DependsOn {
+			state, exists := ballStates[depID]
+			if !exists {
+				// Dependency not in current set - assume satisfied
+				continue
+			}
+			if state != session.StateComplete && state != session.StateResearched {
+				return false
+			}
+		}
+		return true
+	}
+
 	// State priority: in_progress first, then pending, then blocked, then complete
 	stateOrder := map[session.BallState]int{
 		session.StateInProgress: 0,
@@ -761,6 +799,13 @@ func sortBallsForAgent(balls []*session.Ball) {
 		stateJ := stateOrder[balls[j].State]
 		if stateI != stateJ {
 			return stateI < stateJ
+		}
+
+		// Then sort by dependency satisfaction (satisfied deps first)
+		depsSatI := allDepsSatisfied(balls[i])
+		depsSatJ := allDepsSatisfied(balls[j])
+		if depsSatI != depsSatJ {
+			return depsSatI // true (satisfied) comes before false (unsatisfied)
 		}
 
 		// Then sort by priority within each state

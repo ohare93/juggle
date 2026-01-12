@@ -88,6 +88,10 @@ func renderBallDetails(ball *session.Ball) {
 		fmt.Println(labelStyle.Render("Tags:"), valueStyle.Render(strings.Join(ball.Tags, ", ")))
 	}
 
+	if len(ball.DependsOn) > 0 {
+		fmt.Println(labelStyle.Render("Depends On:"), valueStyle.Render(strings.Join(ball.DependsOn, ", ")))
+	}
+
 	if len(ball.AcceptanceCriteria) > 0 {
 		fmt.Printf("\n%s\n", labelStyle.Render("Acceptance Criteria:"))
 		for i, ac := range ball.AcceptanceCriteria {

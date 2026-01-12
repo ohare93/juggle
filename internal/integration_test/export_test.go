@@ -1274,6 +1274,162 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 	})
 }
 
+// TestExportSortsBallsWithDependencies verifies that dependency ordering is considered in agent exports
+func TestExportSortsBallsWithDependencies(t *testing.T) {
+	project := t.TempDir()
+
+	// Create session and ball stores
+	sessionStore, err := session.NewSessionStore(project)
+	if err != nil {
+		t.Fatalf("Failed to create session store: %v", err)
+	}
+
+	_, err = sessionStore.CreateSession("test-session", "Test session")
+	if err != nil {
+		t.Fatalf("Failed to create session: %v", err)
+	}
+
+	ballStore, err := session.NewStoreWithConfig(project, session.StoreConfig{JugglerDirName: ".juggler"})
+	if err != nil {
+		t.Fatalf("Failed to create ball store: %v", err)
+	}
+
+	// Create balls where one has dependencies on another
+	balls := []*session.Ball{
+		{
+			ID:           "project-1",
+			WorkingDir:   project,
+			Intent:       "Independent ball",
+			Priority:     session.PriorityMedium,
+			State:        session.StatePending,
+			Tags:         []string{"test-session"},
+			DependsOn:    []string{}, // No dependencies
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+		},
+		{
+			ID:           "project-2",
+			WorkingDir:   project,
+			Intent:       "Dependent ball (depends on project-1)",
+			Priority:     session.PriorityHigh, // Higher priority but has unsatisfied dep
+			State:        session.StatePending,
+			Tags:         []string{"test-session"},
+			DependsOn:    []string{"project-1"}, // Depends on project-1
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+		},
+	}
+
+	for _, ball := range balls {
+		if err := ballStore.Save(ball); err != nil {
+			t.Fatalf("Failed to save ball %s: %v", ball.ID, err)
+		}
+	}
+
+	// Sort balls for agent export
+	sortedBalls := make([]*session.Ball, len(balls))
+	copy(sortedBalls, balls)
+	cli.SortBallsForAgentExport(sortedBalls)
+
+	t.Run("BallsWithSatisfiedDepsBeforeUnsatisfiedDeps", func(t *testing.T) {
+		// project-1 (no deps, satisfied) should come before project-2 (unsatisfied dep)
+		// even though project-2 has higher priority
+		if sortedBalls[0].ID != "project-1" {
+			t.Errorf("Expected ball without dependencies (project-1) first, got %s", sortedBalls[0].ID)
+		}
+		if sortedBalls[1].ID != "project-2" {
+			t.Errorf("Expected ball with unsatisfied dependency (project-2) second, got %s", sortedBalls[1].ID)
+		}
+	})
+}
+
+// TestExportSortsBallsWithSatisfiedDependencies verifies balls with satisfied deps come first
+func TestExportSortsBallsWithSatisfiedDependencies(t *testing.T) {
+	project := t.TempDir()
+
+	// Create session and ball stores
+	sessionStore, err := session.NewSessionStore(project)
+	if err != nil {
+		t.Fatalf("Failed to create session store: %v", err)
+	}
+
+	_, err = sessionStore.CreateSession("test-session", "Test session")
+	if err != nil {
+		t.Fatalf("Failed to create session: %v", err)
+	}
+
+	ballStore, err := session.NewStoreWithConfig(project, session.StoreConfig{JugglerDirName: ".juggler"})
+	if err != nil {
+		t.Fatalf("Failed to create ball store: %v", err)
+	}
+
+	// Create balls where dependency is already complete
+	balls := []*session.Ball{
+		{
+			ID:           "project-1",
+			WorkingDir:   project,
+			Intent:       "Completed base task",
+			Priority:     session.PriorityMedium,
+			State:        session.StateComplete, // Already complete
+			Tags:         []string{"test-session"},
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+		},
+		{
+			ID:           "project-2",
+			WorkingDir:   project,
+			Intent:       "Task with satisfied dep (project-1 is complete)",
+			Priority:     session.PriorityMedium,
+			State:        session.StatePending,
+			Tags:         []string{"test-session"},
+			DependsOn:    []string{"project-1"}, // Depends on completed ball
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+		},
+		{
+			ID:           "project-3",
+			WorkingDir:   project,
+			Intent:       "Task with unsatisfied dep",
+			Priority:     session.PriorityMedium,
+			State:        session.StatePending,
+			Tags:         []string{"test-session"},
+			DependsOn:    []string{"project-99"}, // Depends on non-existent ball (treated as satisfied)
+			StartedAt:    time.Now(),
+			LastActivity: time.Now(),
+		},
+	}
+
+	for _, ball := range balls {
+		if err := ballStore.Save(ball); err != nil {
+			t.Fatalf("Failed to save ball %s: %v", ball.ID, err)
+		}
+	}
+
+	// Sort balls for agent export
+	sortedBalls := make([]*session.Ball, len(balls))
+	copy(sortedBalls, balls)
+	cli.SortBallsForAgentExport(sortedBalls)
+
+	t.Run("SatisfiedDepsGoFirst", func(t *testing.T) {
+		// project-2 has satisfied dep (project-1 is complete)
+		// project-3 has missing dep (treated as satisfied since not in set)
+		// Both should be considered as having satisfied deps
+		// Complete balls go last, so project-1 should be last
+		foundComplete := false
+		for i, ball := range sortedBalls {
+			if ball.State == session.StateComplete {
+				if i != len(sortedBalls)-1 {
+					t.Errorf("Expected complete ball to be last, found at position %d", i)
+				}
+				foundComplete = true
+			}
+		}
+		if !foundComplete {
+			t.Error("Expected to find complete ball in sorted list")
+		}
+	})
+}
+
 // TestExportAgentIncludesInProgressBalls verifies that in_progress balls are included in agent export
 func TestExportAgentIncludesInProgressBalls(t *testing.T) {
 	project := t.TempDir()

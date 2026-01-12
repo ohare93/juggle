@@ -61,6 +61,7 @@ type Ball struct {
 	BlockedReason      string      `json:"blocked_reason,omitempty"`
 	TestsState         TestsState  `json:"tests_state,omitempty"`
 	Output             string      `json:"output,omitempty"` // Research results or investigation output
+	DependsOn          []string    `json:"depends_on,omitempty"` // Ball IDs this ball depends on
 	StartedAt          time.Time   `json:"started_at"`
 	LastActivity       time.Time   `json:"last_activity"`
 	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
@@ -90,6 +91,7 @@ func (b *Ball) UnmarshalJSON(data []byte) error {
 	b.ModelSize = bj.ModelSize
 	b.TestsState = bj.TestsState
 	b.Output = bj.Output
+	b.DependsOn = bj.DependsOn
 
 	// Handle acceptance criteria (migrate from legacy description if needed)
 	if len(bj.AcceptanceCriteria) > 0 {
@@ -165,6 +167,7 @@ type ballJSON struct {
 	BlockedReason      string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
 	TestsState         TestsState      `json:"tests_state,omitempty"`      // Whether tests are needed/done
 	Output             string          `json:"output,omitempty"`           // Research results or investigation output
+	DependsOn          []string        `json:"depends_on,omitempty"`       // Ball IDs this ball depends on
 	// Previous format (v2)
 	ActiveState        string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
 	JuggleState        *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
@@ -432,4 +435,112 @@ func (b *Ball) TestsStateLabel() string {
 	default:
 		return ""
 	}
+}
+
+// HasDependencies returns true if the ball has dependencies
+func (b *Ball) HasDependencies() bool {
+	return len(b.DependsOn) > 0
+}
+
+// AddDependency adds a dependency to the ball
+func (b *Ball) AddDependency(ballID string) {
+	for _, dep := range b.DependsOn {
+		if dep == ballID {
+			return // Already exists
+		}
+	}
+	b.DependsOn = append(b.DependsOn, ballID)
+	b.UpdateActivity()
+}
+
+// RemoveDependency removes a dependency from the ball
+func (b *Ball) RemoveDependency(ballID string) bool {
+	for i, dep := range b.DependsOn {
+		if dep == ballID {
+			b.DependsOn = append(b.DependsOn[:i], b.DependsOn[i+1:]...)
+			b.UpdateActivity()
+			return true
+		}
+	}
+	return false
+}
+
+// SetDependencies sets the complete list of dependencies
+func (b *Ball) SetDependencies(deps []string) {
+	b.DependsOn = deps
+	b.UpdateActivity()
+}
+
+// DetectCircularDependencies checks for circular dependencies in a set of balls.
+// Returns an error describing the cycle if one is found, nil otherwise.
+func DetectCircularDependencies(balls []*Ball) error {
+	// Build a map for quick lookup
+	ballMap := make(map[string]*Ball)
+	for _, ball := range balls {
+		ballMap[ball.ID] = ball
+		// Also map by short ID if unique
+		shortID := ball.ShortID()
+		if _, exists := ballMap[shortID]; !exists {
+			ballMap[shortID] = ball
+		}
+	}
+
+	// Track visited and currently processing balls for cycle detection
+	visited := make(map[string]bool)
+	inStack := make(map[string]bool)
+
+	var detectCycle func(ballID string, path []string) error
+	detectCycle = func(ballID string, path []string) error {
+		// Resolve the ball
+		ball, exists := ballMap[ballID]
+		if !exists {
+			// Dependency not found - not a cycle error
+			return nil
+		}
+
+		actualID := ball.ID
+		if visited[actualID] {
+			return nil
+		}
+		if inStack[actualID] {
+			// Found a cycle
+			cyclePath := append(path, actualID)
+			return fmt.Errorf("circular dependency detected: %s", formatCyclePath(cyclePath))
+		}
+
+		inStack[actualID] = true
+		path = append(path, actualID)
+
+		for _, depID := range ball.DependsOn {
+			if err := detectCycle(depID, path); err != nil {
+				return err
+			}
+		}
+
+		inStack[actualID] = false
+		visited[actualID] = true
+		return nil
+	}
+
+	for _, ball := range balls {
+		if !visited[ball.ID] {
+			if err := detectCycle(ball.ID, nil); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// formatCyclePath formats a cycle path for display
+func formatCyclePath(path []string) string {
+	if len(path) == 0 {
+		return ""
+	}
+	result := path[0]
+	for i := 1; i < len(path); i++ {
+		result += " → " + path[i]
+	}
+	return result
 }

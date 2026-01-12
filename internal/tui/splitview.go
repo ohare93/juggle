@@ -313,24 +313,31 @@ func (m Model) renderBallsPanel(width, height int) string {
 			outputMarker = " [📋]"
 		}
 
+		// Add dependency marker if ball has dependencies
+		depMarker := ""
+		if ball.HasDependencies() {
+			depMarker = " [→]"
+		}
+
 		// ID prefix (shown before intent)
 		idPrefix := fmt.Sprintf("[%s] ", idDisplay)
 
 		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 			// Show blocked reason inline for blocked balls
-			intent := truncate(ball.Intent, width-25-len(idPrefix)-len(testsSuffix)-len(outputMarker))
-			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(idPrefix)-len(testsSuffix)-len(outputMarker))
-			line = fmt.Sprintf("%s %s%s [%s]%s%s",
+			intent := truncate(ball.Intent, width-25-len(idPrefix)-len(testsSuffix)-len(outputMarker)-len(depMarker))
+			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(idPrefix)-len(testsSuffix)-len(outputMarker)-len(depMarker))
+			line = fmt.Sprintf("%s %s%s [%s]%s%s%s",
 				stateIcon,
 				idPrefix,
 				intent,
 				reason,
 				testsSuffix,
 				outputMarker,
+				depMarker,
 			)
 		} else {
-			availWidth := width - 15 - len(idPrefix) - len(testsSuffix) - len(outputMarker)
-			line = fmt.Sprintf("%s %s%-*s %s%s%s",
+			availWidth := width - 15 - len(idPrefix) - len(testsSuffix) - len(outputMarker) - len(depMarker)
+			line = fmt.Sprintf("%s %s%-*s %s%s%s%s",
 				stateIcon,
 				idPrefix,
 				availWidth,
@@ -338,6 +345,7 @@ func (m Model) renderBallsPanel(width, height int) string {
 				string(ball.State),
 				testsSuffix,
 				outputMarker,
+				depMarker,
 			)
 		}
 		line = styleBallByState(ball, truncate(line, width-2))
@@ -534,6 +542,16 @@ func (m Model) buildBallDetailLines(ball *session.Ball, width int) []string {
 		testsValue = ball.TestsStateLabel()
 	}
 	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", tagsLabel, valueStyle.Render(tagsValue), testsLabel, valueStyle.Render(testsValue)))
+
+	// Row 4: Dependencies (if present)
+	if len(ball.DependsOn) > 0 {
+		depsLabel := labelStyle.Render("Depends On:")
+		depsValue := strings.Join(ball.DependsOn, ", ")
+		if len(depsValue) > width-20 {
+			depsValue = truncate(depsValue, width-20)
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s", depsLabel, valueStyle.Render(depsValue)))
+	}
 
 	// Acceptance Criteria section
 	acLabel := labelStyle.Render("Criteria:")
