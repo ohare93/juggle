@@ -146,14 +146,6 @@ type ProjectInfo struct {
 	InProgressBalls int
 	BlockedBalls    int
 	CompleteBalls   int
-
-	// Legacy field aliases for backward compatibility
-	JugglingBalls    int // Alias for InProgressBalls
-	ReadyBalls       int // Alias for PendingBalls
-	DroppedBalls     int // Alias for BlockedBalls
-	NeedsThrownBalls int // Deprecated - always 0
-	InAirBalls       int // Deprecated - always 0
-	NeedsCaughtBalls int // Deprecated - always 0
 }
 
 // GetProjectsInfo returns information about all projects
@@ -194,11 +186,6 @@ func GetProjectsInfo(config *Config) ([]*ProjectInfo, error) {
 				info.CompleteBalls++
 			}
 		}
-
-		// Set legacy field aliases
-		info.JugglingBalls = info.InProgressBalls
-		info.ReadyBalls = info.PendingBalls
-		info.DroppedBalls = info.BlockedBalls
 
 		// Only include projects with balls
 		if info.TotalBalls > 0 {

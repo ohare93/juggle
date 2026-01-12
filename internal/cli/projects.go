@@ -90,9 +90,9 @@ func runProjects(cmd *cobra.Command, args []string) error {
 
 		fmt.Println(
 			padRight(projectCell, 50) +
-			activeStyle.Render(padRight(fmt.Sprintf("%d", info.JugglingBalls), 10)) +
-			plannedStyle.Render(padRight(fmt.Sprintf("%d", info.ReadyBalls), 8)) +
-			blockedStyle.Render(padRight(fmt.Sprintf("%d", info.DroppedBalls), 9)) +
+			activeStyle.Render(padRight(fmt.Sprintf("%d", info.InProgressBalls), 10)) +
+			plannedStyle.Render(padRight(fmt.Sprintf("%d", info.PendingBalls), 8)) +
+			blockedStyle.Render(padRight(fmt.Sprintf("%d", info.BlockedBalls), 9)) +
 			padRight(fmt.Sprintf("%d", info.CompleteBalls), 10),
 		)
 	}

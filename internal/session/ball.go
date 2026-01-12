@@ -1,7 +1,6 @@
 package session
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,120 +70,6 @@ type Ball struct {
 	Tags               []string    `json:"tags,omitempty"`
 	CompletionNote     string      `json:"completion_note,omitempty"`
 	ModelSize          ModelSize   `json:"model_size,omitempty"`
-}
-
-// UnmarshalJSON implements custom unmarshaling to handle migration from old format
-func (b *Ball) UnmarshalJSON(data []byte) error {
-	var bj ballJSON
-	if err := json.Unmarshal(data, &bj); err != nil {
-		return err
-	}
-
-	// Copy all standard fields
-	b.ID = bj.ID
-	b.Intent = bj.Intent
-	b.Priority = bj.Priority
-	b.StartedAt = bj.StartedAt
-	b.LastActivity = bj.LastActivity
-	b.CompletedAt = bj.CompletedAt
-	b.UpdateCount = bj.UpdateCount
-	b.Tags = bj.Tags
-	b.CompletionNote = bj.CompletionNote
-	b.ModelSize = bj.ModelSize
-	b.TestsState = bj.TestsState
-	b.Output = bj.Output
-	b.DependsOn = bj.DependsOn
-
-	// Handle acceptance criteria (migrate from legacy description if needed)
-	if len(bj.AcceptanceCriteria) > 0 {
-		b.AcceptanceCriteria = bj.AcceptanceCriteria
-	} else if bj.Description != "" {
-		b.AcceptanceCriteria = []string{bj.Description}
-	}
-
-	// Migrate state from various formats to new BallState
-	if bj.State != "" {
-		// Newest format - use State directly
-		b.State = BallState(bj.State)
-		b.BlockedReason = bj.BlockedReason
-	} else if bj.ActiveState != "" {
-		// Previous format with active_state/juggle_state - migrate
-		switch bj.ActiveState {
-		case "ready":
-			b.State = StatePending
-		case "juggling":
-			b.State = StateInProgress
-		case "dropped":
-			b.State = StateBlocked
-			if bj.StateMessage != "" {
-				b.BlockedReason = bj.StateMessage
-			} else {
-				b.BlockedReason = "dropped"
-			}
-		case "complete":
-			b.State = StateComplete
-		default:
-			b.State = StatePending
-		}
-		// JuggleState substates are collapsed into in_progress
-		// StateMessage becomes BlockedReason only for blocked state
-		if b.State != StateBlocked && bj.StateMessage != "" {
-			// For non-blocked states, preserve message in BlockedReason temporarily
-			// This will be empty on next save unless state is blocked
-		}
-	} else if bj.Status != "" {
-		// Oldest format with status field - migrate
-		switch bj.Status {
-		case "planned":
-			b.State = StatePending
-		case "active":
-			b.State = StateInProgress
-		case "blocked":
-			b.State = StateBlocked
-			b.BlockedReason = bj.Blocker
-		case "needs-review":
-			b.State = StateInProgress
-		case "done":
-			b.State = StateComplete
-		default:
-			b.State = StatePending
-		}
-	} else {
-		// No state info, default to pending
-		b.State = StatePending
-	}
-
-	return nil
-}
-
-// ballJSON is used for custom JSON unmarshaling to handle migration from old format
-type ballJSON struct {
-	ID                 string          `json:"id"`
-	Intent             string          `json:"intent"`
-	AcceptanceCriteria []string        `json:"acceptance_criteria,omitempty"` // New: list of acceptance criteria
-	Description        string          `json:"description,omitempty"`         // Legacy: single description
-	Priority           Priority        `json:"priority"`
-	// Newest format (v3)
-	State              string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked/researched
-	BlockedReason      string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
-	TestsState         TestsState      `json:"tests_state,omitempty"`      // Whether tests are needed/done
-	Output             string          `json:"output,omitempty"`           // Research results or investigation output
-	DependsOn          []string        `json:"depends_on,omitempty"`       // Ball IDs this ball depends on
-	// Previous format (v2)
-	ActiveState        string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
-	JuggleState        *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
-	StateMessage       string          `json:"state_message,omitempty"`    // Old state context message
-	// Oldest format (v1)
-	Status             string          `json:"status,omitempty"`           // Old: planned/active/blocked/needs-review/done
-	Blocker            string          `json:"blocker,omitempty"`          // Old blocker field
-	// Common fields
-	StartedAt          time.Time       `json:"started_at"`
-	LastActivity       time.Time       `json:"last_activity"`
-	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
-	UpdateCount        int             `json:"update_count"`
-	Tags               []string        `json:"tags,omitempty"`
-	CompletionNote     string          `json:"completion_note,omitempty"`
-	ModelSize          ModelSize       `json:"model_size,omitempty"` // Preferred LLM model size
 }
 
 // NewBall creates a new ball with the given parameters in pending state

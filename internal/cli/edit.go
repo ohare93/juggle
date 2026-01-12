@@ -14,14 +14,14 @@ var (
 	editIntent      string
 	editDescription string
 	editPriority    string
-	editActiveState string
+	editState       string
 	editTags        string
 )
 
 var editCmd = &cobra.Command{
 	Use:   "edit <ball-id>",
 	Short: "Edit a ball's properties",
-	Long: `Edit properties of a ball including intent, priority, active state, and tags.
+	Long: `Edit properties of a ball including intent, priority, state, and tags.
 
 When no flags are provided, enters interactive mode where you can edit all properties.
 
@@ -29,7 +29,7 @@ Examples:
   juggle edit my-app-1
   juggle edit my-app-1 --intent "New intent"
   juggle edit my-app-1 --priority urgent
-  juggle edit my-app-1 --active-state dropped
+  juggle edit my-app-1 --state blocked
   juggle edit my-app-1 --tags bug-fix,security`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: CompleteBallIDs,
@@ -40,7 +40,7 @@ func init() {
 	editCmd.Flags().StringVar(&editIntent, "intent", "", "Update the ball intent")
 	editCmd.Flags().StringVar(&editDescription, "description", "", "Update the ball description")
 	editCmd.Flags().StringVar(&editPriority, "priority", "", "Update the priority (low|medium|high|urgent)")
-	editCmd.Flags().StringVar(&editActiveState, "active-state", "", "Update the active state (ready|juggling|dropped|complete)")
+	editCmd.Flags().StringVar(&editState, "state", "", "Update the state (pending|in_progress|blocked|complete)")
 	editCmd.Flags().StringVar(&editTags, "tags", "", "Update tags (comma-separated)")
 
 	// Add completion for priority flag
@@ -57,7 +57,7 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	}
 
 	// If no flags provided, enter interactive mode
-	if editIntent == "" && editDescription == "" && editPriority == "" && editActiveState == "" && editTags == "" {
+	if editIntent == "" && editDescription == "" && editPriority == "" && editState == "" && editTags == "" {
 		return runInteractiveEdit(foundBall, foundStore)
 	}
 
@@ -85,23 +85,11 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("✓ Updated priority: %s\n", editPriority)
 	}
 
-	if editActiveState != "" {
-		// Validate state - accept both new and legacy names
-		stateMap := map[string]session.BallState{
-			"pending":     session.StatePending,
-			"in_progress": session.StateInProgress,
-			"blocked":     session.StateBlocked,
-			"complete":    session.StateComplete,
-			// Legacy names
-			"ready":    session.StatePending,
-			"juggling": session.StateInProgress,
-			"dropped":  session.StateBlocked,
+	if editState != "" {
+		if !session.ValidateBallState(editState) {
+			return fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete)", editState)
 		}
-		newState, ok := stateMap[editActiveState]
-		if !ok {
-			return fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete)", editActiveState)
-		}
-		foundBall.SetState(newState)
+		foundBall.SetState(session.BallState(editState))
 		modified = true
 		fmt.Printf("✓ Updated state: %s\n", foundBall.State)
 	}

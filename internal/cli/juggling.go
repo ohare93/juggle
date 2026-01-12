@@ -457,11 +457,6 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 		return setBallComplete(ball, operationArgs, store)
 	case "blocked":
 		return setBallBlocked(ball, operationArgs, store)
-	// Legacy active state commands (aliased to new states)
-	case "ready":
-		return setBallState(ball, session.StatePending, operationArgs, store)
-	case "drop":
-		return setBallBlocked(ball, operationArgs, store)
 	case "tag", "tags":
 		return handleBallTag(ball, operationArgs, store)
 	case "edit":

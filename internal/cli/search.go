@@ -11,17 +11,17 @@ import (
 
 var (
 	searchTags     string
-	searchStatus   string
+	searchState    string
 	searchPriority string
 )
 
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search for active balls by intent, tags, or other criteria",
-	Long: `Search through active balls (excluding done) by matching against:
+	Long: `Search through active balls (excluding complete) by matching against:
   - Intent text (case-insensitive)
   - Tags
-  - Status
+  - State
   - Priority
 
 The query string will be matched against ball intents. Use flags for more specific filtering.
@@ -32,6 +32,7 @@ Examples:
   juggle search bug                    # Search all projects for "bug"
   juggle search --local feature        # Search current project for "feature"
   juggle search --tags backend         # Search by tags
+  juggle search --state blocked        # Search by state
   juggle search --priority high        # Search by priority`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runSearch,
@@ -39,7 +40,7 @@ Examples:
 
 func init() {
 	searchCmd.Flags().StringVar(&searchTags, "tags", "", "Filter by tags (comma-separated, OR logic)")
-	searchCmd.Flags().StringVar(&searchStatus, "status", "", "Filter by status (planned|active|blocked|needs-review)")
+	searchCmd.Flags().StringVar(&searchState, "state", "", "Filter by state (pending|in_progress|blocked|complete)")
 	searchCmd.Flags().StringVar(&searchPriority, "priority", "", "Filter by priority (low|medium|high|urgent)")
 }
 
@@ -127,21 +128,15 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		activeBalls = filtered
 	}
 
-	// Apply active state filter if specified
-	if searchStatus != "" {
-		validStates := map[string]bool{
-			"ready":    true,
-			"juggling": true,
-			"dropped":  true,
-			"complete": true,
-		}
-		if !validStates[searchStatus] {
-			return fmt.Errorf("invalid active state: %s (must be ready|juggling|dropped|complete)", searchStatus)
+	// Apply state filter if specified
+	if searchState != "" {
+		if !session.ValidateBallState(searchState) {
+			return fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete)", searchState)
 		}
 
 		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
-			if string(ball.State) == searchStatus {
+			if string(ball.State) == searchState {
 				filtered = append(filtered, ball)
 			}
 		}
@@ -171,8 +166,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if searchTags != "" {
 			fmt.Printf("  Tags: %s\n", searchTags)
 		}
-		if searchStatus != "" {
-			fmt.Printf("  Status: %s\n", searchStatus)
+		if searchState != "" {
+			fmt.Printf("  State: %s\n", searchState)
 		}
 		if searchPriority != "" {
 			fmt.Printf("  Priority: %s\n", searchPriority)
@@ -182,7 +177,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	// Show search criteria
 	fmt.Printf("Found %d ball(s)\n", len(activeBalls))
-	if query != "" || searchTags != "" || searchStatus != "" || searchPriority != "" {
+	if query != "" || searchTags != "" || searchState != "" || searchPriority != "" {
 		fmt.Println("Search criteria:")
 		if query != "" {
 			fmt.Printf("  Query: \"%s\"\n", query)
@@ -190,8 +185,8 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if searchTags != "" {
 			fmt.Printf("  Tags: %s\n", searchTags)
 		}
-		if searchStatus != "" {
-			fmt.Printf("  Status: %s\n", searchStatus)
+		if searchState != "" {
+			fmt.Printf("  State: %s\n", searchState)
 		}
 		if searchPriority != "" {
 			fmt.Printf("  Priority: %s\n", searchPriority)

@@ -275,8 +275,7 @@ func filterByBallIDs(balls []*session.Ball, ballIDsStr string, projects []string
 }
 
 // filterByState filters balls by state(s)
-// Supports new states: "pending", "in_progress", "blocked", "complete"
-// Also supports legacy states for backward compatibility: "ready", "juggling", "dropped"
+// Supports states: "pending", "in_progress", "blocked", "complete", "researched"
 func filterByState(balls []*session.Ball, stateStr string) ([]*session.Ball, error) {
 	// Parse comma-separated list
 	stateStrs := strings.Split(stateStr, ",")
@@ -288,39 +287,10 @@ func filterByState(balls []*session.Ball, stateStr string) ([]*session.Ball, err
 			continue
 		}
 
-		// Map legacy states to new states
-		var ballState session.BallState
-		switch s {
-		case "pending":
-			ballState = session.StatePending
-		case "in_progress":
-			ballState = session.StateInProgress
-		case "blocked":
-			ballState = session.StateBlocked
-		case "complete":
-			ballState = session.StateComplete
-		// Legacy state mappings
-		case "ready":
-			ballState = session.StatePending
-		case "juggling":
-			ballState = session.StateInProgress
-		case "dropped":
-			ballState = session.StateBlocked
-		default:
-			// Check if it's a legacy format with juggle state (e.g., "juggling:in-air")
-			if strings.Contains(s, ":") {
-				parts := strings.Split(s, ":")
-				if parts[0] == "juggling" {
-					ballState = session.StateInProgress
-				} else {
-					return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, or complete)", s)
-				}
-			} else {
-				return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, or complete)", s)
-			}
+		if !session.ValidateBallState(s) {
+			return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, complete, or researched)", s)
 		}
-
-		stateFilters = append(stateFilters, ballState)
+		stateFilters = append(stateFilters, session.BallState(s))
 	}
 
 	if len(stateFilters) == 0 {
