@@ -568,14 +568,19 @@ func (m Model) handleSplitViewNavUp() (tea.Model, tea.Cmd) {
 			// Scroll-to-select: automatically select the session when navigating
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
+			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
 		} else if m.sessionCursor >= len(sessions) && len(sessions) > 0 {
 			m.sessionCursor = len(sessions) - 1
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0
+			m.ballsScrollOffset = 0
 		}
 	case BallsPanel:
 		if m.cursor > 0 {
 			m.cursor--
+			// Adjust scroll offset to keep cursor visible
+			balls := m.filterBallsForSession()
+			m.adjustBallsScrollOffset(balls)
 		}
 	case ActivityPanel:
 		// Scroll up one line in activity log
@@ -597,11 +602,14 @@ func (m Model) handleSplitViewNavDown() (tea.Model, tea.Cmd) {
 			// Scroll-to-select: automatically select the session when navigating
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
+			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
 		}
 	case BallsPanel:
 		balls := m.filterBallsForSession()
 		if m.cursor < len(balls)-1 {
 			m.cursor++
+			// Adjust scroll offset to keep cursor visible
+			m.adjustBallsScrollOffset(balls)
 		}
 	case ActivityPanel:
 		// Scroll down one line in activity log
@@ -624,6 +632,7 @@ func (m Model) handleSessionSwitchPrev() (tea.Model, tea.Cmd) {
 		m.sessionCursor--
 		m.selectedSession = sessions[m.sessionCursor]
 		m.cursor = 0 // Reset ball cursor for new session
+		m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
 		m.addActivity("Switched to session: " + m.selectedSession.ID)
 	}
 	return m, nil
@@ -640,6 +649,7 @@ func (m Model) handleSessionSwitchNext() (tea.Model, tea.Cmd) {
 		m.sessionCursor++
 		m.selectedSession = sessions[m.sessionCursor]
 		m.cursor = 0 // Reset ball cursor for new session
+		m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
 		m.addActivity("Switched to session: " + m.selectedSession.ID)
 	}
 	return m, nil
@@ -708,6 +718,55 @@ func (m Model) getActivityLogMaxOffset() int {
 	return maxOffset
 }
 
+// adjustBallsScrollOffset adjusts the scroll offset to keep the cursor visible
+func (m *Model) adjustBallsScrollOffset(balls []*session.Ball) {
+	if len(balls) == 0 {
+		m.ballsScrollOffset = 0
+		return
+	}
+
+	// Calculate visible lines in balls panel
+	// This should match the calculation in renderBallsPanel
+	// mainHeight = m.height - bottomPanelRows - 4
+	// ballsHeight = (mainHeight - 2) - 4
+	mainHeight := m.height - bottomPanelRows - 4
+	ballsHeight := mainHeight - 2 - 4
+	if ballsHeight < 1 {
+		ballsHeight = 1
+	}
+
+	// If cursor is above the visible area, scroll up
+	if m.cursor < m.ballsScrollOffset {
+		m.ballsScrollOffset = m.cursor
+	}
+
+	// If cursor is below the visible area, scroll down
+	// Account for one line used by scroll indicator when scrolled down
+	visibleArea := ballsHeight
+	if m.ballsScrollOffset > 0 {
+		visibleArea-- // One line used by "↑ N more items above"
+	}
+	if visibleArea < 1 {
+		visibleArea = 1
+	}
+
+	if m.cursor >= m.ballsScrollOffset+visibleArea {
+		m.ballsScrollOffset = m.cursor - visibleArea + 1
+	}
+
+	// Ensure scroll offset is within valid bounds
+	maxOffset := len(balls) - ballsHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.ballsScrollOffset > maxOffset {
+		m.ballsScrollOffset = maxOffset
+	}
+	if m.ballsScrollOffset < 0 {
+		m.ballsScrollOffset = 0
+	}
+}
+
 // handleActivityLogPageDown scrolls down half a page in the activity log
 func (m Model) handleActivityLogPageDown() (tea.Model, tea.Cmd) {
 	m.lastKey = "" // Clear gg state
@@ -758,6 +817,7 @@ func (m Model) handleSplitViewEnter() (tea.Model, tea.Cmd) {
 		if len(sessions) > 0 && m.sessionCursor < len(sessions) {
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
+			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
 			m.activePanel = BallsPanel
 			m.addActivity("Selected session: " + m.selectedSession.ID)
 		}

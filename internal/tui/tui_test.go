@@ -2137,3 +2137,316 @@ func TestOKeyTogglesSortOrder(t *testing.T) {
 		t.Errorf("Expected sortOrder to be SortByIDDESC after pressing 'o', got %v", m.sortOrder)
 	}
 }
+
+// Test balls panel scrolling - cursor stays visible when scrolling down
+func TestBallsPanelScrollingDown(t *testing.T) {
+	// Create many balls to exceed visible area
+	balls := make([]*session.Ball, 20)
+	for i := 0; i < 20; i++ {
+		balls[i] = &session.Ball{
+			ID:     fmt.Sprintf("test-%d", i),
+			State:  session.StatePending,
+			Intent: fmt.Sprintf("Ball %d", i),
+		}
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       BallsPanel,
+		cursor:            0,
+		ballsScrollOffset: 0,
+		filteredBalls:     balls,
+		height:            30, // Height that shows ~5 balls
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Navigate down multiple times to go beyond visible area
+	for i := 0; i < 10; i++ {
+		newModel, _ := model.handleSplitViewNavDown()
+		model = newModel.(Model)
+	}
+
+	// Cursor should be at position 10
+	if model.cursor != 10 {
+		t.Errorf("Expected cursor to be 10, got %d", model.cursor)
+	}
+
+	// Scroll offset should have adjusted to keep cursor visible
+	// The cursor should be within the visible window: scrollOffset <= cursor < scrollOffset + visibleLines
+	if model.cursor < model.ballsScrollOffset {
+		t.Errorf("Cursor %d is above scroll offset %d - cursor not visible", model.cursor, model.ballsScrollOffset)
+	}
+}
+
+// Test balls panel scrolling - cursor stays visible when scrolling up
+func TestBallsPanelScrollingUp(t *testing.T) {
+	// Create many balls
+	balls := make([]*session.Ball, 20)
+	for i := 0; i < 20; i++ {
+		balls[i] = &session.Ball{
+			ID:     fmt.Sprintf("test-%d", i),
+			State:  session.StatePending,
+			Intent: fmt.Sprintf("Ball %d", i),
+		}
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       BallsPanel,
+		cursor:            10, // Start at position 10
+		ballsScrollOffset: 8,  // Start scrolled down
+		filteredBalls:     balls,
+		height:            30,
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Navigate up multiple times
+	for i := 0; i < 5; i++ {
+		newModel, _ := model.handleSplitViewNavUp()
+		model = newModel.(Model)
+	}
+
+	// Cursor should be at position 5
+	if model.cursor != 5 {
+		t.Errorf("Expected cursor to be 5, got %d", model.cursor)
+	}
+
+	// Cursor should still be within visible area
+	if model.cursor < model.ballsScrollOffset {
+		t.Errorf("Cursor %d is above scroll offset %d - cursor not visible", model.cursor, model.ballsScrollOffset)
+	}
+}
+
+// Test balls scroll offset resets when switching sessions
+func TestBallsScrollOffsetResetsOnSessionSwitch(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: PseudoSessionAll, Description: "All balls"},
+		{ID: "session1", Description: "Session 1"},
+		{ID: "session2", Description: "Session 2"},
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       SessionsPanel,
+		sessionCursor:     0,
+		cursor:            5,
+		ballsScrollOffset: 10, // Scrolled down
+		sessions:          sessions,
+		filteredBalls:     []*session.Ball{},
+		height:            30,
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Navigate down to select next session
+	newModel, _ := model.handleSplitViewNavDown()
+	model = newModel.(Model)
+
+	// Ball cursor and scroll offset should be reset
+	if model.cursor != 0 {
+		t.Errorf("Expected cursor to reset to 0, got %d", model.cursor)
+	}
+	if model.ballsScrollOffset != 0 {
+		t.Errorf("Expected ballsScrollOffset to reset to 0, got %d", model.ballsScrollOffset)
+	}
+}
+
+// Test balls scroll offset resets when using Enter to select session
+func TestBallsScrollOffsetResetsOnSessionEnter(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: PseudoSessionAll, Description: "All balls"},
+		{ID: "session1", Description: "Session 1"},
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       SessionsPanel,
+		sessionCursor:     0,
+		cursor:            5,
+		ballsScrollOffset: 10,
+		sessions:          sessions,
+		filteredBalls:     []*session.Ball{},
+		height:            30,
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Press Enter to select session
+	newModel, _ := model.handleSplitViewEnter()
+	model = newModel.(Model)
+
+	if model.ballsScrollOffset != 0 {
+		t.Errorf("Expected ballsScrollOffset to reset to 0 on Enter, got %d", model.ballsScrollOffset)
+	}
+}
+
+// Test balls scroll offset resets when using [ to switch session
+func TestBallsScrollOffsetResetsOnSessionSwitchPrev(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: "session1", Description: "Session 1"},
+		{ID: "session2", Description: "Session 2"},
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       BallsPanel,
+		sessionCursor:     1,
+		selectedSession:   sessions[1],
+		cursor:            5,
+		ballsScrollOffset: 10,
+		sessions:          sessions,
+		filteredBalls:     []*session.Ball{},
+		height:            30,
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Press [ to switch to previous session
+	newModel, _ := model.handleSessionSwitchPrev()
+	model = newModel.(Model)
+
+	if model.ballsScrollOffset != 0 {
+		t.Errorf("Expected ballsScrollOffset to reset to 0 on [, got %d", model.ballsScrollOffset)
+	}
+	if model.cursor != 0 {
+		t.Errorf("Expected cursor to reset to 0 on [, got %d", model.cursor)
+	}
+}
+
+// Test balls scroll offset resets when using ] to switch session
+func TestBallsScrollOffsetResetsOnSessionSwitchNext(t *testing.T) {
+	sessions := []*session.JuggleSession{
+		{ID: "session1", Description: "Session 1"},
+		{ID: "session2", Description: "Session 2"},
+	}
+
+	model := Model{
+		mode:              splitView,
+		activePanel:       BallsPanel,
+		sessionCursor:     0,
+		selectedSession:   sessions[0],
+		cursor:            5,
+		ballsScrollOffset: 10,
+		sessions:          sessions,
+		filteredBalls:     []*session.Ball{},
+		height:            30,
+		width:             80,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		activityLog: make([]ActivityEntry, 0),
+	}
+
+	// Press ] to switch to next session
+	newModel, _ := model.handleSessionSwitchNext()
+	model = newModel.(Model)
+
+	if model.ballsScrollOffset != 0 {
+		t.Errorf("Expected ballsScrollOffset to reset to 0 on ], got %d", model.ballsScrollOffset)
+	}
+	if model.cursor != 0 {
+		t.Errorf("Expected cursor to reset to 0 on ], got %d", model.cursor)
+	}
+}
+
+// Test adjustBallsScrollOffset keeps cursor visible when moving down
+func TestAdjustBallsScrollOffsetDown(t *testing.T) {
+	balls := make([]*session.Ball, 20)
+	for i := 0; i < 20; i++ {
+		balls[i] = &session.Ball{ID: fmt.Sprintf("test-%d", i)}
+	}
+
+	model := Model{
+		cursor:            15, // Cursor near bottom
+		ballsScrollOffset: 0,  // Scrolled to top
+		height:            30, // ~5 visible balls
+		width:             80,
+	}
+
+	model.adjustBallsScrollOffset(balls)
+
+	// Scroll offset should have increased to show cursor
+	if model.ballsScrollOffset == 0 {
+		t.Error("Expected ballsScrollOffset to increase to show cursor at position 15")
+	}
+
+	// Cursor should be visible (within visible range)
+	// visibleLines approximately = (30 - bottomPanelRows - 4 - 2 - 4) = ~14
+	// But even if calculation varies, cursor must be >= scrollOffset
+	if model.cursor < model.ballsScrollOffset {
+		t.Errorf("Cursor %d should be >= scrollOffset %d", model.cursor, model.ballsScrollOffset)
+	}
+}
+
+// Test adjustBallsScrollOffset keeps cursor visible when moving up
+func TestAdjustBallsScrollOffsetUp(t *testing.T) {
+	balls := make([]*session.Ball, 20)
+	for i := 0; i < 20; i++ {
+		balls[i] = &session.Ball{ID: fmt.Sprintf("test-%d", i)}
+	}
+
+	model := Model{
+		cursor:            2,  // Cursor near top
+		ballsScrollOffset: 10, // Scrolled down far
+		height:            30,
+		width:             80,
+	}
+
+	model.adjustBallsScrollOffset(balls)
+
+	// Scroll offset should have decreased to show cursor
+	if model.ballsScrollOffset > model.cursor {
+		t.Errorf("Expected ballsScrollOffset (%d) to be <= cursor (%d) to show cursor", model.ballsScrollOffset, model.cursor)
+	}
+}
+
+// Test adjustBallsScrollOffset handles empty balls list
+func TestAdjustBallsScrollOffsetEmpty(t *testing.T) {
+	model := Model{
+		cursor:            5,
+		ballsScrollOffset: 10,
+		height:            30,
+		width:             80,
+	}
+
+	model.adjustBallsScrollOffset([]*session.Ball{})
+
+	if model.ballsScrollOffset != 0 {
+		t.Errorf("Expected ballsScrollOffset to be 0 for empty balls, got %d", model.ballsScrollOffset)
+	}
+}

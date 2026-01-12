@@ -254,17 +254,33 @@ func (m Model) renderBallsPanel(width, height int) string {
 
 	// Calculate available height for balls
 	ballsHeight := height - 4
+	if ballsHeight < 1 {
+		ballsHeight = 1
+	}
 
 	// Determine if all balls are from the same project (to shorten IDs)
 	sameProject := allBallsSameProject(balls)
 
-	// Render balls list
-	for i, ball := range balls {
-		if i >= ballsHeight {
-			remaining := len(balls) - ballsHeight
-			b.WriteString(helpStyle.Render(fmt.Sprintf("  ... +%d more", remaining)) + "\n")
-			break
+	// Calculate visible range using scroll offset
+	startIdx := m.ballsScrollOffset
+	endIdx := startIdx + ballsHeight
+	if endIdx > len(balls) {
+		endIdx = len(balls)
+	}
+
+	// Show scroll indicator at top if not at beginning
+	if startIdx > 0 && m.activePanel == BallsPanel {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  ↑ %d more items above", startIdx)) + "\n")
+		ballsHeight-- // Reduce visible entries to make room for indicator
+		endIdx = startIdx + ballsHeight
+		if endIdx > len(balls) {
+			endIdx = len(balls)
 		}
+	}
+
+	// Render balls list
+	for i := startIdx; i < endIdx; i++ {
+		ball := balls[i]
 
 		stateIcon := getStateIcon(ball.State)
 		var line string
@@ -330,6 +346,12 @@ func (m Model) renderBallsPanel(width, height int) string {
 		} else {
 			b.WriteString(ballStyle.Render(line) + "\n")
 		}
+	}
+
+	// Show scroll indicator at bottom if more entries
+	remaining := len(balls) - endIdx
+	if remaining > 0 && m.activePanel == BallsPanel {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  ↓ %d more items below", remaining)) + "\n")
 	}
 
 	return b.String()

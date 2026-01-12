@@ -112,6 +112,7 @@ type Model struct {
 	activityLogOffset int    // Scroll offset for activity log
 	lastKey           string // Last key pressed (for gg detection)
 	helpScrollOffset  int    // Scroll offset for help view
+	ballsScrollOffset int    // Scroll offset for balls panel viewport
 
 	// Bottom pane mode (toggle between activity log and ball detail)
 	bottomPaneMode BottomPaneMode
