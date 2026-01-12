@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	syncWatch bool
+	syncWatch     bool
+	syncWriteBack bool
 )
 
 // syncCmd is the parent command for sync operations
@@ -44,12 +45,16 @@ Examples:
   juggle sync ralph path/to/prd.json
 
   # Watch for changes and sync continuously
-  juggle sync ralph --watch`,
+  juggle sync ralph --watch
+
+  # Write ball state back to prd.json
+  juggle sync ralph --write-back`,
 	RunE: runSyncRalph,
 }
 
 func init() {
 	syncRalphCmd.Flags().BoolVarP(&syncWatch, "watch", "w", false, "Watch for changes and sync continuously")
+	syncRalphCmd.Flags().BoolVar(&syncWriteBack, "write-back", false, "Write ball state back to prd.json")
 	syncCmd.AddCommand(syncRalphCmd)
 	rootCmd.AddCommand(syncCmd)
 }
@@ -94,6 +99,11 @@ func runSyncRalph(cmd *cobra.Command, args []string) error {
 	// Check if file exists
 	if _, err := os.Stat(prdPath); os.IsNotExist(err) {
 		return fmt.Errorf("prd.json not found: %s", prdPath)
+	}
+
+	// If write-back mode, sync balls → prd.json
+	if syncWriteBack {
+		return writeToPRD(prdPath, cwd)
 	}
 
 	// If watch mode, set up file watcher
@@ -239,6 +249,107 @@ func mapPriorityNumber(p int) session.Priority {
 	default:
 		return session.PriorityLow
 	}
+}
+
+// mapStateToPasses maps ball state to prd.json passes field
+func mapStateToPasses(state session.BallState) bool {
+	return state == session.StateComplete || state == session.StateResearched
+}
+
+// mapPriorityToNumber maps Priority enum to numeric priority
+// Lower numbers = higher priority
+func mapPriorityToNumber(p session.Priority) int {
+	switch p {
+	case session.PriorityUrgent:
+		return 1
+	case session.PriorityHigh:
+		return 4
+	case session.PriorityMedium:
+		return 7
+	default:
+		return 15
+	}
+}
+
+// writeToPRD writes ball state back to prd.json
+func writeToPRD(prdPath, projectDir string) error {
+	// Read existing prd.json
+	data, err := os.ReadFile(prdPath)
+	if err != nil {
+		return fmt.Errorf("failed to read prd.json: %w", err)
+	}
+
+	var prd PRDFile
+	if err := json.Unmarshal(data, &prd); err != nil {
+		return fmt.Errorf("failed to parse prd.json: %w", err)
+	}
+
+	// Create store for project
+	store, err := NewStoreForCommand(projectDir)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Load existing balls
+	balls, err := store.LoadBalls()
+	if err != nil {
+		return fmt.Errorf("failed to load balls: %w", err)
+	}
+
+	// Build lookup by title (intent)
+	ballsByTitle := make(map[string]*session.Ball)
+	for _, ball := range balls {
+		ballsByTitle[ball.Intent] = ball
+	}
+
+	var updated, unchanged int
+
+	// Update user stories based on ball state
+	for i := range prd.UserStories {
+		story := &prd.UserStories[i]
+
+		// Find matching ball by title
+		ball, exists := ballsByTitle[story.Title]
+		if !exists {
+			// No matching ball - skip
+			unchanged++
+			continue
+		}
+
+		// Map ball state to passes
+		newPasses := mapStateToPasses(ball.State)
+		if story.Passes != newPasses {
+			story.Passes = newPasses
+			updated++
+			fmt.Printf("Updated: %s → passes: %t\n", story.ID, newPasses)
+		} else {
+			unchanged++
+		}
+
+		// Optionally update priority if it differs significantly
+		newPriority := mapPriorityToNumber(ball.Priority)
+		if story.Priority != newPriority {
+			story.Priority = newPriority
+		}
+
+		// Update acceptance criteria if they've changed
+		if len(ball.AcceptanceCriteria) > 0 {
+			story.AcceptanceCriteria = ball.AcceptanceCriteria
+		}
+	}
+
+	// Write updated prd.json
+	updatedData, err := json.MarshalIndent(prd, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal prd.json: %w", err)
+	}
+
+	if err := os.WriteFile(prdPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to write prd.json: %w", err)
+	}
+
+	fmt.Printf("\nWrite-back complete: %d updated, %d unchanged\n", updated, unchanged)
+	return nil
 }
 
 // watchAndSync watches prd.json for changes and syncs on each change
