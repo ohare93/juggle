@@ -155,15 +155,14 @@ func EnsureProjectInSearchPaths(projectDir string) error {
 }
 
 // ProjectConfig holds per-project configuration stored in .juggler/config.json
+// Note: NextBallCount is deprecated but kept for backward compatibility with existing config files
 type ProjectConfig struct {
-	NextBallCount int `json:"next_ball_count"`
+	NextBallCount int `json:"next_ball_count,omitempty"` // Deprecated: balls now use UUID-based IDs
 }
 
 // DefaultProjectConfig returns a new project config with initial values
 func DefaultProjectConfig() *ProjectConfig {
-	return &ProjectConfig{
-		NextBallCount: 1,
-	}
+	return &ProjectConfig{}
 }
 
 // LoadProjectConfig loads the project configuration from projectDir/.juggler/config.json
@@ -214,7 +213,9 @@ func SaveProjectConfig(projectDir string, config *ProjectConfig) error {
 	return nil
 }
 
-// GetAndIncrementBallCount atomically gets the current ball count and increments it for next use
+// GetAndIncrementBallCount is deprecated - kept for backward compatibility only.
+// Ball IDs now use UUID-based generation instead of sequential counters.
+// This function is no longer used but remains for any external callers.
 func GetAndIncrementBallCount(projectDir string) (int, error) {
 	config, err := LoadProjectConfig(projectDir)
 	if err != nil {
@@ -222,7 +223,10 @@ func GetAndIncrementBallCount(projectDir string) (int, error) {
 	}
 
 	currentCount := config.NextBallCount
-	config.NextBallCount++
+	if currentCount == 0 {
+		currentCount = 1
+	}
+	config.NextBallCount = currentCount + 1
 
 	if err := SaveProjectConfig(projectDir, config); err != nil {
 		return 0, fmt.Errorf("failed to increment ball count: %w", err)

@@ -3,6 +3,7 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -450,5 +451,91 @@ func TestLoadBallsBySession_MultipleSessions(t *testing.T) {
 		if len(balls) > 0 && balls[0].ID != ball.ID {
 			t.Errorf("expected ball ID %s for %s, got %s", ball.ID, sessionID, balls[0].ID)
 		}
+	}
+}
+
+// TestBallIDFormat tests that new ball IDs use UUID-based format
+func TestBallIDFormat(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a ball
+	ball, err := NewBall(tmpDir, "Test ball", PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball: %v", err)
+	}
+
+	// UUID-based format: <project>-<8-char-hex>
+	// e.g., "juggler-test-a1b2c3d4"
+	uuidPattern := regexp.MustCompile(`^.+-[0-9a-f]{8}$`)
+	if !uuidPattern.MatchString(ball.ID) {
+		t.Errorf("expected UUID-based ID format (project-8hexchars), got '%s'", ball.ID)
+	}
+}
+
+// TestBallIDUniqueness tests that multiple balls get unique IDs
+func TestBallIDUniqueness(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create multiple balls
+	ids := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		ball, err := NewBall(tmpDir, "Test ball", PriorityMedium)
+		if err != nil {
+			t.Fatalf("failed to create ball %d: %v", i, err)
+		}
+		if ids[ball.ID] {
+			t.Errorf("duplicate ID generated: %s", ball.ID)
+		}
+		ids[ball.ID] = true
+	}
+}
+
+// TestLegacyBallIDCompatibility tests that legacy numeric IDs are still supported
+func TestLegacyBallIDCompatibility(t *testing.T) {
+	// Test ShortID works with legacy numeric format
+	legacyBall := &Ball{ID: "myproject-42"}
+	if legacyBall.ShortID() != "42" {
+		t.Errorf("expected ShortID '42' for legacy format, got '%s'", legacyBall.ShortID())
+	}
+
+	// Test ShortID works with new UUID format
+	uuidBall := &Ball{ID: "myproject-a1b2c3d4"}
+	if uuidBall.ShortID() != "a1b2c3d4" {
+		t.Errorf("expected ShortID 'a1b2c3d4' for UUID format, got '%s'", uuidBall.ShortID())
+	}
+
+	// Test FolderName still works
+	legacyBall.WorkingDir = "/home/user/myproject"
+	if legacyBall.FolderName() != "myproject" {
+		t.Errorf("expected FolderName 'myproject', got '%s'", legacyBall.FolderName())
+	}
+}
+
+// TestBallIDPrefixMatchesProjectDir tests that ball ID prefix matches the project directory name
+func TestBallIDPrefixMatchesProjectDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ball, err := NewBall(tmpDir, "Test ball", PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball: %v", err)
+	}
+
+	// The ID should start with the base name of the temp dir
+	baseName := filepath.Base(tmpDir)
+	expectedPrefix := baseName + "-"
+	if len(ball.ID) < len(expectedPrefix) || ball.ID[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("expected ID to start with '%s', got '%s'", expectedPrefix, ball.ID)
 	}
 }

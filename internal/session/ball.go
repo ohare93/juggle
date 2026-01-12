@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Priority levels for balls
@@ -207,14 +209,14 @@ func NewBall(workingDir, intent string, priority Priority) (*Ball, error) {
 	return ball, nil
 }
 
-// generateID creates a unique ball ID from working dir and counter
+// generateID creates a unique ball ID using UUID
 func generateID(workingDir string) (string, error) {
+	// Generate a short UUID-based ID with project prefix for readability
+	// Format: <project>-<short-uuid> where short-uuid is first 8 chars of UUID
 	base := filepath.Base(workingDir)
-	count, err := GetAndIncrementBallCount(workingDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to get ball count: %w", err)
-	}
-	return fmt.Sprintf("%s-%d", base, count), nil
+	id := uuid.New().String()
+	shortID := id[:8] // First 8 characters of UUID (e.g., "a1b2c3d4")
+	return fmt.Sprintf("%s-%s", base, shortID), nil
 }
 
 // GetCwd returns the current working directory
@@ -353,8 +355,8 @@ func (b *Ball) FolderName() string {
 }
 
 
-// ShortID extracts the numeric portion from a ball ID
-// e.g., "myapp-5" -> "5", "myapp-143022" -> "143022"
+// ShortID extracts the unique portion from a ball ID
+// e.g., "myapp-5" -> "5" (legacy numeric), "myapp-a1b2c3d4" -> "a1b2c3d4" (UUID-based)
 func (b *Ball) ShortID() string {
 	// Find the last hyphen and return everything after it
 	lastHyphen := -1
