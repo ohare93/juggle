@@ -775,7 +775,64 @@ func TestBallYAMLStruct(t *testing.T) {
 }
 
 func TestEditKeyInSplitView(t *testing.T) {
-	// Test that 'e' key triggers edit in BallsPanel
+	// Test that 'e' key opens the unified ball form (not editor)
+	ball := &session.Ball{
+		ID:         "test-1",
+		Intent:     "Test task",
+		Priority:   session.PriorityMedium,
+		State:      session.StatePending,
+		WorkingDir: "/tmp/test",
+		Tags:       []string{"tag1"},
+	}
+
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		cursor:      0,
+		balls:       []*session.Ball{ball},
+		filteredBalls: []*session.Ball{ball},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		selectedSession: &session.JuggleSession{ID: PseudoSessionAll},
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       newTestTextInput(),
+	}
+
+	// Simulate pressing 'e' key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	newModel, _ := model.Update(msg)
+	updatedModel := newModel.(Model)
+
+	// Verify that edit form was opened
+	if updatedModel.mode != unifiedBallFormView {
+		t.Errorf("Expected mode to be unifiedBallFormView, got %v", updatedModel.mode)
+	}
+
+	if updatedModel.editingBall != ball {
+		t.Error("editingBall should be set to the selected ball")
+	}
+
+	if updatedModel.inputAction != actionEdit {
+		t.Error("inputAction should be actionEdit")
+	}
+
+	// Verify form was prepopulated with ball values
+	if updatedModel.pendingBallIntent != ball.Intent {
+		t.Errorf("Expected pendingBallIntent to be %q, got %q", ball.Intent, updatedModel.pendingBallIntent)
+	}
+
+	// Check that activity log was updated
+	if len(updatedModel.activityLog) == 0 {
+		t.Error("Activity log should have an entry for edit initiation")
+	}
+}
+
+func TestShiftEKeyOpenEditorInSplitView(t *testing.T) {
+	// Test that 'E' key (uppercase) opens the editor
 	ball := &session.Ball{
 		ID:         "test-1",
 		Intent:     "Test task",
@@ -801,8 +858,8 @@ func TestEditKeyInSplitView(t *testing.T) {
 		textInput:       newTestTextInput(),
 	}
 
-	// Simulate pressing 'e' key
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	// Simulate pressing 'E' key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'E'}}
 	newModel, cmd := model.Update(msg)
 	updatedModel := newModel.(Model)
 

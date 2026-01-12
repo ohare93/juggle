@@ -8864,3 +8864,110 @@ func TestClearPendingBallStateClearsModelSize(t *testing.T) {
 		t.Errorf("Expected pendingBallModelSize to be 0 (default), got %d", model.pendingBallModelSize)
 	}
 }
+
+// Test edit ball form prepopulates fields correctly
+func TestEditBallFormPrepopulatesFields(t *testing.T) {
+	ball := &session.Ball{
+		ID:                 "test-1",
+		Intent:             "Original intent",
+		Priority:           session.PriorityHigh,
+		State:              session.StateInProgress,
+		Tags:               []string{"tag1", "tag2"},
+		ModelSize:          session.ModelSizeMedium,
+		AcceptanceCriteria: []string{"AC1", "AC2"},
+		DependsOn:          []string{"dep-1"},
+		WorkingDir:         "/tmp/test",
+	}
+
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		cursor:      0,
+		balls:       []*session.Ball{ball},
+		filteredBalls: []*session.Ball{ball},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		selectedSession: &session.JuggleSession{ID: PseudoSessionAll},
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       newTestTextInput(),
+	}
+
+	// Simulate pressing 'e' key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	newModel, _ := model.Update(msg)
+	m := newModel.(Model)
+
+	// Verify mode changed to edit form
+	if m.mode != unifiedBallFormView {
+		t.Errorf("Expected mode unifiedBallFormView, got %v", m.mode)
+	}
+
+	// Verify action is edit
+	if m.inputAction != actionEdit {
+		t.Errorf("Expected actionEdit, got %v", m.inputAction)
+	}
+
+	// Verify fields are prepopulated
+	if m.pendingBallIntent != ball.Intent {
+		t.Errorf("Expected intent %q, got %q", ball.Intent, m.pendingBallIntent)
+	}
+
+	// Priority: high = index 2
+	if m.pendingBallPriority != 2 {
+		t.Errorf("Expected priority 2 (high), got %d", m.pendingBallPriority)
+	}
+
+	// Tags should be comma-separated
+	expectedTags := "tag1, tag2"
+	if m.pendingBallTags != expectedTags {
+		t.Errorf("Expected tags %q, got %q", expectedTags, m.pendingBallTags)
+	}
+
+	// Model size: medium = index 2
+	if m.pendingBallModelSize != 2 {
+		t.Errorf("Expected model size 2 (medium), got %d", m.pendingBallModelSize)
+	}
+
+	// ACs should be copied
+	if len(m.pendingAcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 ACs, got %d", len(m.pendingAcceptanceCriteria))
+	}
+	if m.pendingAcceptanceCriteria[0] != "AC1" {
+		t.Errorf("Expected AC1, got %s", m.pendingAcceptanceCriteria[0])
+	}
+
+	// Dependencies should be copied
+	if len(m.pendingBallDependsOn) != 1 {
+		t.Errorf("Expected 1 dependency, got %d", len(m.pendingBallDependsOn))
+	}
+	if m.pendingBallDependsOn[0] != "dep-1" {
+		t.Errorf("Expected dep-1, got %s", m.pendingBallDependsOn[0])
+	}
+
+	// Editing ball should be set
+	if m.editingBall != ball {
+		t.Error("editingBall should reference the original ball")
+	}
+}
+
+// Test clearPendingBallState also clears edit state
+func TestClearPendingBallStateClearsEditingBall(t *testing.T) {
+	ball := &session.Ball{ID: "test-1"}
+	model := Model{
+		editingBall: ball,
+		inputAction: actionEdit,
+	}
+
+	model.clearPendingBallState()
+
+	if model.editingBall != nil {
+		t.Error("Expected editingBall to be nil after clear")
+	}
+	if model.inputAction != actionAdd {
+		t.Errorf("Expected inputAction to be actionAdd, got %v", model.inputAction)
+	}
+}

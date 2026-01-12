@@ -733,6 +733,10 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.agentOutputVisible {
 			return m.handleToggleAgentOutputExpand()
 		}
+		// Open editor for ball in BallsPanel
+		if m.activePanel == BallsPanel {
+			return m.handleBallEditInEditor()
+		}
 		return m, nil
 
 	case "X":
@@ -1721,12 +1725,87 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 		}
 		ball := balls[m.cursor]
 		m.editingBall = ball
-		m.addActivity("Opening editor for: " + ball.ID)
-		// Launch external editor for full ball editing
-		return m, openEditorCmd(ball)
+
+		// Use unified ball form with prepopulated fields
+		m.pendingBallIntent = ball.Intent
+		// Convert priority to index (low=0, medium=1, high=2, urgent=3)
+		switch ball.Priority {
+		case session.PriorityLow:
+			m.pendingBallPriority = 0
+		case session.PriorityMedium:
+			m.pendingBallPriority = 1
+		case session.PriorityHigh:
+			m.pendingBallPriority = 2
+		case session.PriorityUrgent:
+			m.pendingBallPriority = 3
+		default:
+			m.pendingBallPriority = 1 // Default to medium
+		}
+		m.pendingBallTags = strings.Join(ball.Tags, ", ")
+		m.pendingAcceptanceCriteria = make([]string, len(ball.AcceptanceCriteria))
+		copy(m.pendingAcceptanceCriteria, ball.AcceptanceCriteria)
+		m.pendingACEditIndex = -1
+		m.pendingBallDependsOn = make([]string, len(ball.DependsOn))
+		copy(m.pendingBallDependsOn, ball.DependsOn)
+
+		// Convert model size to index (blank=0, small=1, medium=2, large=3)
+		switch ball.ModelSize {
+		case session.ModelSizeSmall:
+			m.pendingBallModelSize = 1
+		case session.ModelSizeMedium:
+			m.pendingBallModelSize = 2
+		case session.ModelSizeLarge:
+			m.pendingBallModelSize = 3
+		default:
+			m.pendingBallModelSize = 0 // Default
+		}
+
+		// Find session index from tags (first tag that matches a session)
+		m.pendingBallSession = 0 // Default to (none)
+		for _, tag := range ball.Tags {
+			realSessionIdx := 0
+			for _, sess := range m.sessions {
+				if sess.ID == PseudoSessionAll || sess.ID == PseudoSessionUntagged {
+					continue
+				}
+				realSessionIdx++
+				if sess.ID == tag {
+					m.pendingBallSession = realSessionIdx
+					break
+				}
+			}
+			if m.pendingBallSession > 0 {
+				break // Found a session match
+			}
+		}
+
+		m.pendingBallFormField = 0 // Start at intent field
+		m.textInput.SetValue(ball.Intent)
+		m.textInput.Placeholder = "What is this ball about?"
+		m.mode = unifiedBallFormView
+		m.addActivity("Editing ball: " + ball.ID)
 	}
 
 	return m, nil
+}
+
+// handleBallEditInEditor opens the selected ball in an external editor (E key)
+func (m Model) handleBallEditInEditor() (tea.Model, tea.Cmd) {
+	if m.activePanel != BallsPanel {
+		return m, nil
+	}
+
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		m.message = "No ball selected"
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	m.editingBall = ball
+	m.inputAction = actionEdit
+	m.addActivity("Opening editor for: " + ball.ID)
+	return m, openEditorCmd(ball)
 }
 
 // handleSplitDeletePrompt shows delete confirmation
@@ -2093,25 +2172,18 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	priorities := []session.Priority{session.PriorityLow, session.PriorityMedium, session.PriorityHigh, session.PriorityUrgent}
 	priority := priorities[m.pendingBallPriority]
 
-	// Create new ball using the store's project directory
-	ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, priority)
-	if err != nil {
-		m.message = "Error creating ball: " + err.Error()
-		m.clearPendingBallState()
-		m.mode = splitView
-		return m, nil
-	}
+	// Map model size index to ModelSize constant
+	modelSizes := []session.ModelSize{session.ModelSizeBlank, session.ModelSizeSmall, session.ModelSizeMedium, session.ModelSizeLarge}
+	modelSize := modelSizes[m.pendingBallModelSize]
 
-	// New balls always start in pending state
-	ball.State = session.StatePending
-
-	// Add tags from the form (comma-separated)
+	// Build tags list
+	var tags []string
 	if m.pendingBallTags != "" {
-		tags := strings.Split(m.pendingBallTags, ",")
-		for _, tag := range tags {
+		tagList := strings.Split(m.pendingBallTags, ",")
+		for _, tag := range tagList {
 			tag = strings.TrimSpace(tag)
 			if tag != "" {
-				ball.Tags = append(ball.Tags, tag)
+				tags = append(tags, tag)
 			}
 		}
 	}
@@ -2126,37 +2198,84 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 			}
 		}
 		if m.pendingBallSession-1 < len(realSessions) {
-			ball.Tags = append(ball.Tags, realSessions[m.pendingBallSession-1].ID)
+			tags = append(tags, realSessions[m.pendingBallSession-1].ID)
 		}
 	}
 
-	// Set acceptance criteria if any were collected
-	if len(m.pendingAcceptanceCriteria) > 0 {
-		ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
-	}
+	// Check if we're editing an existing ball or creating a new one
+	if m.inputAction == actionEdit && m.editingBall != nil {
+		// Update existing ball
+		ball := m.editingBall
+		ball.Intent = m.pendingBallIntent
+		ball.Priority = priority
+		ball.Tags = tags
+		ball.ModelSize = modelSize
 
-	// Set dependencies if any were selected
-	if len(m.pendingBallDependsOn) > 0 {
-		ball.SetDependencies(m.pendingBallDependsOn)
-	}
+		// Set acceptance criteria
+		if len(m.pendingAcceptanceCriteria) > 0 {
+			ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
+		} else {
+			ball.AcceptanceCriteria = nil
+		}
 
-	// Set model size if not default (0 = default/blank, 1 = small, 2 = medium, 3 = large)
-	if m.pendingBallModelSize > 0 {
-		modelSizes := []session.ModelSize{session.ModelSizeBlank, session.ModelSizeSmall, session.ModelSizeMedium, session.ModelSizeLarge}
-		ball.ModelSize = modelSizes[m.pendingBallModelSize]
-	}
+		// Set dependencies
+		if len(m.pendingBallDependsOn) > 0 {
+			ball.SetDependencies(m.pendingBallDependsOn)
+		} else {
+			ball.DependsOn = nil
+		}
 
-	// Use the store's working directory
-	err = m.store.AppendBall(ball)
-	if err != nil {
-		m.message = "Error creating ball: " + err.Error()
-		m.clearPendingBallState()
-		m.mode = splitView
-		return m, nil
-	}
+		// Update the ball in store
+		err := m.store.UpdateBall(ball)
+		if err != nil {
+			m.message = "Error updating ball: " + err.Error()
+			m.clearPendingBallState()
+			m.mode = splitView
+			return m, nil
+		}
 
-	m.addActivity("Created ball: " + ball.ID)
-	m.message = "Created ball: " + ball.ID
+		m.addActivity("Updated ball: " + ball.ID)
+		m.message = "Updated ball: " + ball.ID
+
+		// Clear editing state
+		m.editingBall = nil
+	} else {
+		// Create new ball using the store's project directory
+		ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, priority)
+		if err != nil {
+			m.message = "Error creating ball: " + err.Error()
+			m.clearPendingBallState()
+			m.mode = splitView
+			return m, nil
+		}
+
+		// New balls always start in pending state
+		ball.State = session.StatePending
+		ball.Tags = tags
+		ball.ModelSize = modelSize
+
+		// Set acceptance criteria if any were collected
+		if len(m.pendingAcceptanceCriteria) > 0 {
+			ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
+		}
+
+		// Set dependencies if any were selected
+		if len(m.pendingBallDependsOn) > 0 {
+			ball.SetDependencies(m.pendingBallDependsOn)
+		}
+
+		// Use the store's working directory
+		err = m.store.AppendBall(ball)
+		if err != nil {
+			m.message = "Error creating ball: " + err.Error()
+			m.clearPendingBallState()
+			m.mode = splitView
+			return m, nil
+		}
+
+		m.addActivity("Created ball: " + ball.ID)
+		m.message = "Created ball: " + ball.ID
+	}
 
 	// Clear pending state
 	m.clearPendingBallState()
@@ -2166,7 +2285,7 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	return m, loadBalls(m.store, m.config, m.localOnly)
 }
 
-// clearPendingBallState clears all pending ball creation state
+// clearPendingBallState clears all pending ball creation/editing state
 func (m *Model) clearPendingBallState() {
 	m.pendingBallIntent = ""
 	m.pendingAcceptanceCriteria = nil
@@ -2180,6 +2299,8 @@ func (m *Model) clearPendingBallState() {
 	m.dependencySelectBalls = nil
 	m.dependencySelectIndex = 0
 	m.dependencySelectActive = nil
+	m.editingBall = nil
+	m.inputAction = actionAdd // Reset to default action
 }
 
 // handleSplitConfirmDelete handles yes/no for delete confirmation

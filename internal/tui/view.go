@@ -1197,14 +1197,19 @@ func (m Model) renderHistoryOutputView() string {
 	return b.String()
 }
 
-// renderUnifiedBallFormView renders the unified ball creation form with all fields visible
+// renderUnifiedBallFormView renders the unified ball creation/editing form with all fields visible
 func (m Model) renderUnifiedBallFormView() string {
 	var b strings.Builder
 
+	// Show different title for create vs edit
+	title := "Create New Ball"
+	if m.inputAction == actionEdit && m.editingBall != nil {
+		title = "Edit Ball: " + m.editingBall.ID
+	}
 	titleStyled := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("6")).
-		Render("Create New Ball")
+		Render(title)
 	b.WriteString(titleStyled + "\n\n")
 
 	// Field constants
