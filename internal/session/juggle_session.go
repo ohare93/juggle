@@ -234,6 +234,17 @@ func (s *SessionStore) UpdateSessionAcceptanceCriteria(id string, criteria []str
 	return s.saveSession(session)
 }
 
+// UpdateSessionDefaultModel updates the default model size for a session
+func (s *SessionStore) UpdateSessionDefaultModel(id string, model ModelSize) error {
+	session, err := s.LoadSession(id)
+	if err != nil {
+		return err
+	}
+
+	session.SetDefaultModel(model)
+	return s.saveSession(session)
+}
+
 // DeleteSession removes a session and its directory
 func (s *SessionStore) DeleteSession(id string) error {
 	// Verify session exists

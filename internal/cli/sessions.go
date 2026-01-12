@@ -27,6 +27,7 @@ Commands:
   sessions create <id> [-m description]  Create a new session
   sessions list                          List all sessions
   sessions show <id>                     Show session details
+  sessions edit <id>                     Edit session properties (opens in editor)
   sessions context <id> [--edit]         View or edit session context
   sessions progress <id>                 View session progress log
   sessions delete <id>                   Delete a session
@@ -107,8 +108,35 @@ Shows timestamped entries that track the session's history and agent activity.`,
 	RunE: runSessionsProgress,
 }
 
+var sessionsEditCmd = &cobra.Command{
+	Use:   "edit <id>",
+	Short: "Edit a session's properties",
+	Long: `Edit properties of a session including description, context, acceptance criteria, and default model.
+
+Without flags, opens the session in $EDITOR for editing.
+With flags, updates the specified properties directly.
+
+Examples:
+  juggle sessions edit my-session                    # Open in editor
+  juggle sessions edit my-session -m "New description"
+  juggle sessions edit my-session --ac "AC1" --ac "AC2"
+  juggle sessions edit my-session --default-model medium`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsEdit,
+}
+
+// Edit command flags (separate from create flags to avoid conflicts)
+var (
+	sessionEditDescriptionFlag   string
+	sessionEditContextSetFlag    string
+	sessionEditACFlag            []string
+	sessionEditDefaultModelFlag  string
+	sessionEditACAppendFlag      []string
+	sessionEditACRemoveFlag      []string
+)
+
 func init() {
-	// Add flags
+	// Add flags for create command
 	sessionsCreateCmd.Flags().StringVarP(&sessionDescriptionFlag, "message", "m", "", "Session description")
 	sessionsCreateCmd.Flags().StringVar(&sessionContextFlag, "context", "", "Initial session context (agent-friendly)")
 	sessionsCreateCmd.Flags().StringSliceVar(&sessionACFlag, "ac", []string{}, "Session-level acceptance criteria (can be specified multiple times)")
@@ -117,6 +145,14 @@ func init() {
 	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
 
+	// Add flags for edit command
+	sessionsEditCmd.Flags().StringVarP(&sessionEditDescriptionFlag, "message", "m", "", "Update session description")
+	sessionsEditCmd.Flags().StringVar(&sessionEditContextSetFlag, "context", "", "Set session context directly")
+	sessionsEditCmd.Flags().StringSliceVar(&sessionEditACFlag, "ac", []string{}, "Replace acceptance criteria (can be specified multiple times)")
+	sessionsEditCmd.Flags().StringSliceVar(&sessionEditACAppendFlag, "ac-append", []string{}, "Append acceptance criteria (can be specified multiple times)")
+	sessionsEditCmd.Flags().StringSliceVar(&sessionEditACRemoveFlag, "ac-remove", []string{}, "Remove acceptance criteria by text (can be specified multiple times)")
+	sessionsEditCmd.Flags().StringVar(&sessionEditDefaultModelFlag, "default-model", "", "Set default model size (small|medium|large)")
+
 	// Add subcommands
 	sessionsCmd.AddCommand(sessionsCreateCmd)
 	sessionsCmd.AddCommand(sessionsListCmd)
@@ -124,6 +160,7 @@ func init() {
 	sessionsCmd.AddCommand(sessionsContextCmd)
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsProgressCmd)
+	sessionsCmd.AddCommand(sessionsEditCmd)
 }
 
 func runSessionsCreate(cmd *cobra.Command, args []string) error {
@@ -560,4 +597,333 @@ func runSessionsProgress(cmd *cobra.Command, args []string) error {
 
 	fmt.Print(progress)
 	return nil
+}
+
+func runSessionsEdit(cmd *cobra.Command, args []string) error {
+	id := args[0]
+
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	store, err := session.NewSessionStoreWithConfig(cwd, GetStoreConfig())
+	if err != nil {
+		return fmt.Errorf("failed to initialize session store: %w", err)
+	}
+
+	// Load session to verify it exists
+	sess, err := store.LoadSession(id)
+	if err != nil {
+		return fmt.Errorf("session not found: %s", id)
+	}
+
+	// Check if any flags are provided
+	hasFlags := sessionEditDescriptionFlag != "" ||
+		sessionEditContextSetFlag != "" ||
+		len(sessionEditACFlag) > 0 ||
+		len(sessionEditACAppendFlag) > 0 ||
+		len(sessionEditACRemoveFlag) > 0 ||
+		sessionEditDefaultModelFlag != ""
+
+	// If no flags provided, open in editor
+	if !hasFlags {
+		return runSessionsEditInEditor(store, sess)
+	}
+
+	// Direct edit mode with flags
+	modified := false
+
+	if sessionEditDescriptionFlag != "" {
+		if err := store.UpdateSessionDescription(id, sessionEditDescriptionFlag); err != nil {
+			return fmt.Errorf("failed to update description: %w", err)
+		}
+		fmt.Printf("✓ Updated description: %s\n", sessionEditDescriptionFlag)
+		modified = true
+	}
+
+	if sessionEditContextSetFlag != "" {
+		if err := store.UpdateSessionContext(id, sessionEditContextSetFlag); err != nil {
+			return fmt.Errorf("failed to update context: %w", err)
+		}
+		fmt.Printf("✓ Updated context\n")
+		modified = true
+	}
+
+	// Handle acceptance criteria modifications
+	if len(sessionEditACFlag) > 0 {
+		// Replace all ACs
+		if err := store.UpdateSessionAcceptanceCriteria(id, sessionEditACFlag); err != nil {
+			return fmt.Errorf("failed to update acceptance criteria: %w", err)
+		}
+		fmt.Printf("✓ Replaced acceptance criteria (%d items)\n", len(sessionEditACFlag))
+		modified = true
+	} else if len(sessionEditACAppendFlag) > 0 || len(sessionEditACRemoveFlag) > 0 {
+		// Reload session to get current ACs
+		sess, err = store.LoadSession(id)
+		if err != nil {
+			return fmt.Errorf("failed to reload session: %w", err)
+		}
+		acs := make([]string, len(sess.AcceptanceCriteria))
+		copy(acs, sess.AcceptanceCriteria)
+
+		// Append new ACs
+		if len(sessionEditACAppendFlag) > 0 {
+			acs = append(acs, sessionEditACAppendFlag...)
+			fmt.Printf("✓ Appended %d acceptance criteria\n", len(sessionEditACAppendFlag))
+		}
+
+		// Remove ACs by text match
+		if len(sessionEditACRemoveFlag) > 0 {
+			removeSet := make(map[string]bool)
+			for _, r := range sessionEditACRemoveFlag {
+				removeSet[r] = true
+			}
+			filtered := make([]string, 0, len(acs))
+			removed := 0
+			for _, ac := range acs {
+				if !removeSet[ac] {
+					filtered = append(filtered, ac)
+				} else {
+					removed++
+				}
+			}
+			acs = filtered
+			fmt.Printf("✓ Removed %d acceptance criteria\n", removed)
+		}
+
+		if err := store.UpdateSessionAcceptanceCriteria(id, acs); err != nil {
+			return fmt.Errorf("failed to update acceptance criteria: %w", err)
+		}
+		modified = true
+	}
+
+	if sessionEditDefaultModelFlag != "" {
+		ms := session.ModelSize(sessionEditDefaultModelFlag)
+		if ms != session.ModelSizeSmall && ms != session.ModelSizeMedium && ms != session.ModelSizeLarge && ms != session.ModelSizeBlank {
+			return fmt.Errorf("invalid model size %q, must be one of: small, medium, large (or empty to clear)", sessionEditDefaultModelFlag)
+		}
+		if err := store.UpdateSessionDefaultModel(id, ms); err != nil {
+			return fmt.Errorf("failed to update default model: %w", err)
+		}
+		if ms == session.ModelSizeBlank {
+			fmt.Printf("✓ Cleared default model\n")
+		} else {
+			fmt.Printf("✓ Updated default model: %s\n", sessionEditDefaultModelFlag)
+		}
+		modified = true
+	}
+
+	if modified {
+		fmt.Printf("\n✓ Session %s updated successfully\n", id)
+	}
+
+	return nil
+}
+
+func runSessionsEditInEditor(store *session.SessionStore, sess *session.JuggleSession) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi" // Default fallback
+	}
+
+	// Create a temporary file with session data in editable format
+	tmpFile, err := os.CreateTemp("", "juggle-session-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	// Write session data in a human-readable format
+	var content strings.Builder
+	content.WriteString("# Session: " + sess.ID + "\n")
+	content.WriteString("# Edit the values below and save. Lines starting with # are ignored.\n")
+	content.WriteString("# Delete a line to keep the original value.\n\n")
+
+	content.WriteString("description: " + sess.Description + "\n\n")
+
+	content.WriteString("# Model size: small, medium, large (or empty for default)\n")
+	content.WriteString("default_model: " + string(sess.DefaultModel) + "\n\n")
+
+	content.WriteString("# Acceptance criteria (one per line after 'acceptance_criteria:')\n")
+	content.WriteString("acceptance_criteria:\n")
+	for _, ac := range sess.AcceptanceCriteria {
+		content.WriteString("  - " + ac + "\n")
+	}
+	if len(sess.AcceptanceCriteria) == 0 {
+		content.WriteString("  # - Add criteria here\n")
+	}
+	content.WriteString("\n")
+
+	content.WriteString("# Context (multi-line, everything after 'context:' until end of file)\n")
+	content.WriteString("context: |\n")
+	if sess.Context != "" {
+		for _, line := range strings.Split(sess.Context, "\n") {
+			content.WriteString("  " + line + "\n")
+		}
+	} else {
+		content.WriteString("  \n")
+	}
+
+	if _, err := tmpFile.WriteString(content.String()); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	// Open editor
+	editorCmd := exec.Command(editor, tmpPath)
+	editorCmd.Stdin = os.Stdin
+	editorCmd.Stdout = os.Stdout
+	editorCmd.Stderr = os.Stderr
+
+	if err := editorCmd.Run(); err != nil {
+		return fmt.Errorf("editor failed: %w", err)
+	}
+
+	// Read and parse edited content
+	editedContent, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to read edited content: %w", err)
+	}
+
+	// Parse the edited content
+	newDesc, newModel, newACs, newContext, err := parseEditedSession(string(editedContent))
+	if err != nil {
+		return fmt.Errorf("failed to parse edited content: %w", err)
+	}
+
+	// Apply changes
+	modified := false
+
+	if newDesc != sess.Description {
+		if err := store.UpdateSessionDescription(sess.ID, newDesc); err != nil {
+			return fmt.Errorf("failed to update description: %w", err)
+		}
+		fmt.Printf("✓ Updated description\n")
+		modified = true
+	}
+
+	if newModel != sess.DefaultModel {
+		if err := store.UpdateSessionDefaultModel(sess.ID, newModel); err != nil {
+			return fmt.Errorf("failed to update default model: %w", err)
+		}
+		fmt.Printf("✓ Updated default model: %s\n", newModel)
+		modified = true
+	}
+
+	if !stringSliceEqual(newACs, sess.AcceptanceCriteria) {
+		if err := store.UpdateSessionAcceptanceCriteria(sess.ID, newACs); err != nil {
+			return fmt.Errorf("failed to update acceptance criteria: %w", err)
+		}
+		fmt.Printf("✓ Updated acceptance criteria (%d items)\n", len(newACs))
+		modified = true
+	}
+
+	if newContext != sess.Context {
+		if err := store.UpdateSessionContext(sess.ID, newContext); err != nil {
+			return fmt.Errorf("failed to update context: %w", err)
+		}
+		fmt.Printf("✓ Updated context\n")
+		modified = true
+	}
+
+	if modified {
+		fmt.Printf("\n✓ Session %s updated successfully\n", sess.ID)
+	} else {
+		fmt.Println("No changes made.")
+	}
+
+	return nil
+}
+
+// parseEditedSession parses the edited session file content
+func parseEditedSession(content string) (description string, model session.ModelSize, acs []string, context string, err error) {
+	lines := strings.Split(content, "\n")
+
+	inACs := false
+	inContext := false
+	var contextLines []string
+
+	for _, line := range lines {
+		// Skip comments (but not in context section)
+		if !inContext && strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+
+		if inContext {
+			// Context continues until end of file
+			// Remove the 2-space indent if present
+			if strings.HasPrefix(line, "  ") {
+				contextLines = append(contextLines, line[2:])
+			} else if line == "" {
+				contextLines = append(contextLines, "")
+			} else {
+				// Line without indent, still include it
+				contextLines = append(contextLines, line)
+			}
+			continue
+		}
+
+		if inACs {
+			trimmed := strings.TrimSpace(line)
+			// Check if this is a new field or still in ACs
+			if strings.HasPrefix(trimmed, "- ") {
+				ac := strings.TrimPrefix(trimmed, "- ")
+				if ac != "" && !strings.HasPrefix(ac, "#") {
+					acs = append(acs, ac)
+				}
+			} else if strings.Contains(line, ":") && !strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "#") {
+				// New field, exit ACs mode
+				inACs = false
+			} else {
+				continue // empty line or continuation
+			}
+		}
+
+		if !inACs && !inContext {
+			// Parse key: value lines
+			if strings.HasPrefix(line, "description:") {
+				description = strings.TrimSpace(strings.TrimPrefix(line, "description:"))
+			} else if strings.HasPrefix(line, "default_model:") {
+				modelStr := strings.TrimSpace(strings.TrimPrefix(line, "default_model:"))
+				model = session.ModelSize(modelStr)
+			} else if strings.HasPrefix(line, "acceptance_criteria:") {
+				inACs = true
+			} else if strings.HasPrefix(line, "context:") {
+				remainder := strings.TrimSpace(strings.TrimPrefix(line, "context:"))
+				if remainder == "|" || remainder == "" {
+					inContext = true
+				} else {
+					// Single-line context
+					context = remainder
+				}
+			}
+		}
+	}
+
+	// Join context lines, trimming trailing empty lines
+	if len(contextLines) > 0 {
+		// Trim trailing empty lines
+		for len(contextLines) > 0 && contextLines[len(contextLines)-1] == "" {
+			contextLines = contextLines[:len(contextLines)-1]
+		}
+		context = strings.Join(contextLines, "\n")
+	}
+
+	return description, model, acs, context, nil
+}
+
+// stringSliceEqual compares two string slices for equality
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

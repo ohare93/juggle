@@ -817,6 +817,62 @@ func TestSessionStore_UpdateSessionAcceptanceCriteria_NotFound(t *testing.T) {
 	}
 }
 
+// TestSessionStore_UpdateSessionDefaultModel tests updating default model
+func TestSessionStore_UpdateSessionDefaultModel(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create a session
+	_, err = store.CreateSession("test-model", "Test session")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Update default model
+	err = store.UpdateSessionDefaultModel("test-model", ModelSizeLarge)
+	if err != nil {
+		t.Fatalf("failed to update default model: %v", err)
+	}
+
+	// Verify the update
+	session, err := store.LoadSession("test-model")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if session.DefaultModel != ModelSizeLarge {
+		t.Errorf("expected default model 'large', got '%s'", session.DefaultModel)
+	}
+}
+
+// TestSessionStore_UpdateSessionDefaultModel_NotFound tests error handling
+func TestSessionStore_UpdateSessionDefaultModel_NotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Try to update non-existent session
+	err = store.UpdateSessionDefaultModel("nonexistent", ModelSizeMedium)
+	if err == nil {
+		t.Error("expected error updating non-existent session")
+	}
+}
+
 // TestJuggleSession_AcceptanceCriteria_Persistence tests ACs survive JSON round-trip
 func TestJuggleSession_AcceptanceCriteria_Persistence(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "juggler-test-*")

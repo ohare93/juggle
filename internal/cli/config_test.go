@@ -183,3 +183,231 @@ func TestSessionExplicitACs(t *testing.T) {
 	// Reset flag
 	sessionACFlag = []string{}
 }
+
+// TestSessionEditDescription tests updating session description via CLI
+func TestSessionEditDescription(t *testing.T) {
+	projectDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Create a session first
+	sessionACFlag = []string{}
+	sessionDescriptionFlag = "Initial description"
+	err := runSessionsCreate(sessionsCreateCmd, []string{"test-edit-session"})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	sessionDescriptionFlag = ""
+
+	// Edit the description
+	sessionEditDescriptionFlag = "Updated description"
+	err = runSessionsEdit(sessionsEditCmd, []string{"test-edit-session"})
+	if err != nil {
+		t.Fatalf("failed to edit session: %v", err)
+	}
+	sessionEditDescriptionFlag = ""
+
+	// Verify the update
+	store, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	sess, err := store.LoadSession("test-edit-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if sess.Description != "Updated description" {
+		t.Errorf("expected 'Updated description', got '%s'", sess.Description)
+	}
+}
+
+// TestSessionEditReplaceACs tests replacing acceptance criteria via CLI
+func TestSessionEditReplaceACs(t *testing.T) {
+	projectDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Create a session with initial ACs
+	sessionACFlag = []string{"AC1", "AC2"}
+	err := runSessionsCreate(sessionsCreateCmd, []string{"test-ac-session"})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	sessionACFlag = []string{}
+
+	// Replace ACs via edit
+	sessionEditACFlag = []string{"New AC1", "New AC2", "New AC3"}
+	err = runSessionsEdit(sessionsEditCmd, []string{"test-ac-session"})
+	if err != nil {
+		t.Fatalf("failed to edit session: %v", err)
+	}
+	sessionEditACFlag = []string{}
+
+	// Verify the update
+	store, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	sess, err := store.LoadSession("test-ac-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if len(sess.AcceptanceCriteria) != 3 {
+		t.Errorf("expected 3 ACs, got %d", len(sess.AcceptanceCriteria))
+	}
+	if sess.AcceptanceCriteria[0] != "New AC1" {
+		t.Errorf("expected 'New AC1', got '%s'", sess.AcceptanceCriteria[0])
+	}
+}
+
+// TestSessionEditAppendACs tests appending acceptance criteria via CLI
+func TestSessionEditAppendACs(t *testing.T) {
+	projectDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Create a session with initial ACs
+	sessionACFlag = []string{"AC1"}
+	err := runSessionsCreate(sessionsCreateCmd, []string{"test-append-ac"})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	sessionACFlag = []string{}
+
+	// Append ACs
+	sessionEditACAppendFlag = []string{"AC2", "AC3"}
+	err = runSessionsEdit(sessionsEditCmd, []string{"test-append-ac"})
+	if err != nil {
+		t.Fatalf("failed to edit session: %v", err)
+	}
+	sessionEditACAppendFlag = []string{}
+
+	// Verify the update
+	store, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	sess, err := store.LoadSession("test-append-ac")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if len(sess.AcceptanceCriteria) != 3 {
+		t.Errorf("expected 3 ACs, got %d", len(sess.AcceptanceCriteria))
+	}
+}
+
+// TestSessionEditDefaultModel tests updating default model via CLI
+func TestSessionEditDefaultModel(t *testing.T) {
+	projectDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Create a session
+	sessionACFlag = []string{}
+	err := runSessionsCreate(sessionsCreateCmd, []string{"test-model-session"})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Set default model
+	sessionEditDefaultModelFlag = "medium"
+	err = runSessionsEdit(sessionsEditCmd, []string{"test-model-session"})
+	if err != nil {
+		t.Fatalf("failed to edit session: %v", err)
+	}
+	sessionEditDefaultModelFlag = ""
+
+	// Verify the update
+	store, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	sess, err := store.LoadSession("test-model-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if sess.DefaultModel != session.ModelSizeMedium {
+		t.Errorf("expected 'medium', got '%s'", sess.DefaultModel)
+	}
+}
+
+// TestSessionEditContext tests updating session context via CLI
+func TestSessionEditContext(t *testing.T) {
+	projectDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Create a session
+	sessionACFlag = []string{}
+	err := runSessionsCreate(sessionsCreateCmd, []string{"test-context-session"})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Set context
+	sessionEditContextSetFlag = "This is the new context"
+	err = runSessionsEdit(sessionsEditCmd, []string{"test-context-session"})
+	if err != nil {
+		t.Fatalf("failed to edit session: %v", err)
+	}
+	sessionEditContextSetFlag = ""
+
+	// Verify the update
+	store, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	sess, err := store.LoadSession("test-context-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if sess.Context != "This is the new context" {
+		t.Errorf("expected 'This is the new context', got '%s'", sess.Context)
+	}
+}
+
+// TestParseEditedSession tests the session file parsing
+func TestParseEditedSession(t *testing.T) {
+	content := `# Session: test
+# Edit the values below and save.
+
+description: My test session
+
+default_model: large
+
+acceptance_criteria:
+  - AC One
+  - AC Two
+  - AC Three
+
+context: |
+  This is line one
+  This is line two
+`
+
+	desc, model, acs, ctx, err := parseEditedSession(content)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	if desc != "My test session" {
+		t.Errorf("expected description 'My test session', got '%s'", desc)
+	}
+
+	if model != session.ModelSizeLarge {
+		t.Errorf("expected model 'large', got '%s'", model)
+	}
+
+	if len(acs) != 3 {
+		t.Errorf("expected 3 ACs, got %d", len(acs))
+	}
+
+	if ctx != "This is line one\nThis is line two" {
+		t.Errorf("expected multi-line context, got '%s'", ctx)
+	}
+}
