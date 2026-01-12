@@ -7914,31 +7914,146 @@ func TestUnifiedBallFormNavigation(t *testing.T) {
 		activityLog:               make([]ActivityEntry, 0),
 	}
 
-	// Test down navigation from intent to priority
+	// Test down arrow navigation from intent to priority
 	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m := newModel.(Model)
 	if m.pendingBallFormField != 1 {
 		t.Errorf("Expected field to be 1 (priority) after down, got %d", m.pendingBallFormField)
 	}
 
-	// Test up navigation back to intent
+	// Test up arrow navigation back to intent
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(Model)
 	if m.pendingBallFormField != 0 {
 		t.Errorf("Expected field to be 0 (intent) after up, got %d", m.pendingBallFormField)
 	}
 
-	// Test j/k navigation
+	// Test that j/k don't work on text fields (intent field is a text field)
+	// j should be typed as a character, not move the form
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 1 {
-		t.Errorf("Expected field to be 1 after j, got %d", m.pendingBallFormField)
+	// Still on field 0 (intent), because j doesn't navigate in text fields
+	if m.pendingBallFormField != 0 {
+		t.Errorf("Expected field to still be 0 after j in text field, got %d", m.pendingBallFormField)
 	}
 
+	// Now move to priority field using down arrow, then test that j/k work on selection fields
+	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to be 1 (priority) after down, got %d", m.pendingBallFormField)
+	}
+
+	// On priority field (selection field), j/k should be ignored (not navigate, not cycle)
+	// per AC2: "Those Keys dont move up and down, onLy tHe arrows do tHat"
+	originalPriority := m.pendingBallPriority
+	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = newModel.(Model)
+	// Still on field 1 (priority), and priority is unchanged
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to still be 1 after j on priority field, got %d", m.pendingBallFormField)
+	}
+	if m.pendingBallPriority != originalPriority {
+		t.Errorf("Expected priority to be unchanged after j, but it changed")
+	}
+
+	// k should also have no effect
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 0 {
-		t.Errorf("Expected field to be 0 after k, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to still be 1 after k on priority field, got %d", m.pendingBallFormField)
+	}
+	if m.pendingBallPriority != originalPriority {
+		t.Errorf("Expected priority to be unchanged after k, but it changed")
+	}
+}
+
+// Test that j/k/l/h characters can be typed in intent field (AC1)
+func TestUnifiedBallFormCanTypeJKLH(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                      unifiedBallFormView,
+		pendingBallIntent:         "",
+		pendingBallFormField:      0, // On intent field
+		pendingAcceptanceCriteria: []string{},
+		textInput:                 ti,
+		sessions:                  []*session.JuggleSession{},
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	// Focus the text input
+	model.textInput.Focus()
+
+	// Type 'j'
+	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m := newModel.(Model)
+	if !strings.Contains(m.textInput.Value(), "j") {
+		t.Errorf("Expected 'j' to be typed in intent field, but got: '%s'", m.textInput.Value())
+	}
+
+	// Type 'k'
+	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+	if !strings.Contains(m.textInput.Value(), "k") {
+		t.Errorf("Expected 'k' to be typed in intent field, but got: '%s'", m.textInput.Value())
+	}
+
+	// Type 'l'
+	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	m = newModel.(Model)
+	if !strings.Contains(m.textInput.Value(), "l") {
+		t.Errorf("Expected 'l' to be typed in intent field, but got: '%s'", m.textInput.Value())
+	}
+
+	// Type 'h'
+	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	m = newModel.(Model)
+	if !strings.Contains(m.textInput.Value(), "h") {
+		t.Errorf("Expected 'h' to be typed in intent field, but got: '%s'", m.textInput.Value())
+	}
+
+	// Verify all characters are in the final string
+	finalText := m.textInput.Value()
+	if !strings.Contains(finalText, "j") || !strings.Contains(finalText, "k") ||
+		!strings.Contains(finalText, "l") || !strings.Contains(finalText, "h") {
+		t.Errorf("Expected all j/k/l/h in intent field, but got: '%s'", finalText)
+	}
+}
+
+// Test that j/k/l/h characters can be typed in AC field
+func TestUnifiedBallFormCanTypeJKLHInAC(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                      unifiedBallFormView,
+		pendingBallIntent:         "Test",
+		pendingBallFormField:      6, // On first AC field
+		pendingAcceptanceCriteria: []string{},
+		textInput:                 ti,
+		sessions:                  []*session.JuggleSession{},
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	// Focus the text input
+	model.textInput.Focus()
+
+	// Type a test AC with j/k/l/h characters
+	testAC := "implement jumper and killer helpers"
+	for _, ch := range testAC {
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}}
+		newModel, _ := model.handleUnifiedBallFormKey(msg)
+		model = newModel.(Model)
+	}
+
+	// Verify the AC was typed
+	if !strings.Contains(model.textInput.Value(), "j") || !strings.Contains(model.textInput.Value(), "k") ||
+		!strings.Contains(model.textInput.Value(), "l") || !strings.Contains(model.textInput.Value(), "h") {
+		t.Errorf("Expected j/k/l/h in AC field, but got: '%s'", model.textInput.Value())
 	}
 }
 

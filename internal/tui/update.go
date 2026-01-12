@@ -3256,8 +3256,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "up", "k":
-		// Move to previous field
+	case "up":
+		// Arrow key up always moves to previous field
 		saveCurrentFieldValue()
 		m.pendingBallFormField--
 		// Recalculate max after potential removal
@@ -3268,8 +3268,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		loadFieldValue(m.pendingBallFormField)
 		return m, nil
 
-	case "down", "j":
-		// Move to next field
+	case "down":
+		// Arrow key down always moves to next field
 		saveCurrentFieldValue()
 		m.pendingBallFormField++
 		// Recalculate max after potential removal
@@ -3280,8 +3280,28 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		loadFieldValue(m.pendingBallFormField)
 		return m, nil
 
-	case "left", "h":
-		// Cycle selection left (for selection fields only)
+	case "k":
+		// k should ONLY be used for typing in text fields, never for navigation
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		// On selection fields, k is just ignored (can't type in selection fields)
+		return m, nil
+
+	case "j":
+		// j should ONLY be used for typing in text fields, never for navigation
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		// On selection fields, j is just ignored (can't type in selection fields)
+		return m, nil
+
+	case "left":
+		// Arrow key left only cycles selection left
 		if m.pendingBallFormField == fieldPriority {
 			m.pendingBallPriority--
 			if m.pendingBallPriority < 0 {
@@ -3300,8 +3320,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "right", "l":
-		// Cycle selection right (for selection fields only)
+	case "right":
+		// Arrow key right only cycles selection right
 		if m.pendingBallFormField == fieldPriority {
 			m.pendingBallPriority++
 			if m.pendingBallPriority >= numPriorityOptions {
@@ -3318,6 +3338,26 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.pendingBallModelSize = 0
 			}
 		}
+		return m, nil
+
+	case "h":
+		// h should ONLY be used for typing in text fields, never for navigation
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		// On selection fields, h is just ignored (can't type in selection fields)
+		return m, nil
+
+	case "l":
+		// l should ONLY be used for typing in text fields, never for navigation
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		// On selection fields, l is just ignored (can't type in selection fields)
 		return m, nil
 
 	case "tab":
