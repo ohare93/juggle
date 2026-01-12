@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -41,6 +42,10 @@ func (m Model) View() string {
 		return m.renderAgentCancelConfirm()
 	case panelSearchView:
 		return m.renderPanelSearchView()
+	case historyView:
+		return m.renderHistoryView()
+	case historyOutputView:
+		return m.renderHistoryOutputView()
 	default:
 		return "Unknown view"
 	}
@@ -663,6 +668,7 @@ func (m Model) renderSplitHelpView() string {
 				{"A", "Launch agent for selected session"},
 				{"X", "Cancel running agent (with confirmation)"},
 				{"O", "Toggle agent output visibility"},
+				{"H", "View agent run history"},
 			},
 		},
 		{
@@ -853,6 +859,220 @@ func (m Model) renderBallFormView() string {
 	help := lipgloss.NewStyle().
 		Faint(true).
 		Render("←/→ or Tab = cycle options | ↑/↓ or j/k = change field | Enter = continue to ACs | Esc = cancel")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+// renderHistoryView renders the agent run history view
+func (m Model) renderHistoryView() string {
+	var b strings.Builder
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("33")).
+		MarginBottom(1)
+	b.WriteString(titleStyle.Render("📜 Agent Run History") + "\n\n")
+
+	if len(m.agentHistory) == 0 {
+		b.WriteString("No agent runs recorded yet.\n\n")
+		b.WriteString(helpStyle.Render("Press H or Esc to return"))
+		return b.String()
+	}
+
+	// Column headers
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("245"))
+	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-19s  %-15s  %-6s  %-14s  %-8s  %-7s\n",
+		"Date", "Session", "Iter", "Result", "Duration", "Balls")))
+	b.WriteString(strings.Repeat("─", 80) + "\n")
+
+	// Calculate visible area
+	visibleLines := m.height - 10 // Account for header, footer
+	if visibleLines < 5 {
+		visibleLines = 5
+	}
+
+	// Determine range to display
+	startIdx := m.historyScrollOffset
+	endIdx := startIdx + visibleLines
+	if endIdx > len(m.agentHistory) {
+		endIdx = len(m.agentHistory)
+	}
+
+	// Render history entries
+	for i := startIdx; i < endIdx; i++ {
+		record := m.agentHistory[i]
+
+		// Format the entry
+		cursor := "  "
+		lineStyle := lipgloss.NewStyle()
+		if i == m.historyCursor {
+			cursor = "▶ "
+			lineStyle = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("252"))
+		}
+
+		// Format date
+		dateStr := record.StartedAt.Format("2006-01-02 15:04:05")
+
+		// Format session (truncate if needed)
+		sessionStr := record.SessionID
+		if len(sessionStr) > 15 {
+			sessionStr = sessionStr[:12] + "..."
+		}
+
+		// Format iterations
+		iterStr := fmt.Sprintf("%d/%d", record.Iterations, record.MaxIterations)
+
+		// Format result with styling
+		resultStr := formatHistoryResult(record.Result)
+
+		// Format duration
+		duration := record.Duration()
+		durationStr := formatDuration(duration)
+
+		// Format balls
+		ballsStr := fmt.Sprintf("%d/%d", record.BallsComplete, record.BallsTotal)
+
+		line := fmt.Sprintf("%s%-19s  %-15s  %-6s  %-14s  %-8s  %-7s",
+			cursor, dateStr, sessionStr, iterStr, resultStr, durationStr, ballsStr)
+		b.WriteString(lineStyle.Render(line) + "\n")
+	}
+
+	// Scroll indicators
+	if m.historyScrollOffset > 0 {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  ↑ %d more above\n", m.historyScrollOffset)))
+	}
+	if endIdx < len(m.agentHistory) {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  ↓ %d more below\n", len(m.agentHistory)-endIdx)))
+	}
+
+	b.WriteString("\n")
+
+	// Show details for selected record
+	if m.historyCursor < len(m.agentHistory) {
+		record := m.agentHistory[m.historyCursor]
+		detailStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+		b.WriteString(detailStyle.Render("─── Selected Run Details ───") + "\n")
+
+		if record.BlockedReason != "" {
+			b.WriteString(detailStyle.Render(fmt.Sprintf("Blocked: %s\n", record.BlockedReason)))
+		}
+		if record.TimeoutMessage != "" {
+			b.WriteString(detailStyle.Render(fmt.Sprintf("Timeout: %s\n", record.TimeoutMessage)))
+		}
+		if record.ErrorMessage != "" {
+			b.WriteString(detailStyle.Render(fmt.Sprintf("Error: %s\n", record.ErrorMessage)))
+		}
+		if record.TotalWaitTime > 0 {
+			b.WriteString(detailStyle.Render(fmt.Sprintf("Rate Limit Wait: %s\n", formatDuration(record.TotalWaitTime))))
+		}
+		if record.OutputFile != "" {
+			b.WriteString(detailStyle.Render(fmt.Sprintf("Output: %s\n", record.OutputFile)))
+		}
+	}
+
+	b.WriteString("\n")
+
+	// Help
+	help := lipgloss.NewStyle().Faint(true).Render("j/k = navigate | Enter = view output | H/Esc = close | gg/G = top/bottom")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+// formatHistoryResult formats the result field with appropriate styling
+func formatHistoryResult(result string) string {
+	switch result {
+	case "complete":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Render("✓ Complete")
+	case "blocked":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Render("⊘ Blocked")
+	case "timeout":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("⏱ Timeout")
+	case "max_iterations":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("⟳ MaxIter")
+	case "rate_limit":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("⚠ RateLimit")
+	case "cancelled":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render("✗ Cancelled")
+	case "error":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("✗ Error")
+	default:
+		return result
+	}
+}
+
+// formatDuration formats a duration into a human-readable string
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
+	}
+	return fmt.Sprintf("%dh%dm", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// renderHistoryOutputView renders the output file content
+func (m Model) renderHistoryOutputView() string {
+	var b strings.Builder
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("33")).
+		MarginBottom(1)
+
+	if m.historyCursor < len(m.agentHistory) {
+		record := m.agentHistory[m.historyCursor]
+		b.WriteString(titleStyle.Render(fmt.Sprintf("📄 Output: %s (%s)", record.SessionID, record.StartedAt.Format("2006-01-02 15:04"))) + "\n")
+	} else {
+		b.WriteString(titleStyle.Render("📄 Agent Output") + "\n")
+	}
+	b.WriteString(strings.Repeat("─", 80) + "\n")
+
+	// Split content into lines
+	lines := strings.Split(m.historyOutput, "\n")
+
+	// Calculate visible area
+	visibleLines := m.height - 6 // Account for header, footer
+	if visibleLines < 5 {
+		visibleLines = 5
+	}
+
+	// Clamp offset
+	maxOffset := len(lines) - visibleLines
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	offset := m.historyOutputOffset
+	if offset > maxOffset {
+		offset = maxOffset
+	}
+
+	// Render visible lines
+	endIdx := offset + visibleLines
+	if endIdx > len(lines) {
+		endIdx = len(lines)
+	}
+
+	for i := offset; i < endIdx; i++ {
+		b.WriteString(lines[i] + "\n")
+	}
+
+	// Scroll indicators
+	if offset > 0 {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("↑ %d lines above\n", offset)))
+	}
+	if endIdx < len(lines) {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("↓ %d lines below\n", len(lines)-endIdx)))
+	}
+
+	b.WriteString("\n")
+
+	// Help
+	help := lipgloss.NewStyle().Faint(true).Render("j/k = scroll | ctrl+d/u = page | gg/G = top/bottom | b/Esc = back to history")
 	b.WriteString(help)
 
 	return b.String()

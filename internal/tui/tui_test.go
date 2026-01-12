@@ -2,8 +2,10 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -5892,5 +5894,447 @@ func TestAgentProcessStartedMsgHandler(t *testing.T) {
 	// Message should indicate agent is running
 	if !strings.Contains(m.message, "running") {
 		t.Errorf("Expected message to indicate agent is running, got: %s", m.message)
+	}
+}
+
+// ============== Agent History Tests ==============
+
+func TestHistoryViewMode(t *testing.T) {
+	model := Model{
+		mode: historyView,
+		agentHistory: []*session.AgentRunRecord{
+			{
+				ID:            "1",
+				SessionID:     "test-session",
+				Iterations:    5,
+				MaxIterations: 10,
+				Result:        "complete",
+				BallsComplete: 3,
+				BallsTotal:    5,
+			},
+		},
+	}
+
+	if model.mode != historyView {
+		t.Error("Expected mode to be historyView")
+	}
+
+	if len(model.agentHistory) != 1 {
+		t.Errorf("Expected 1 history record, got %d", len(model.agentHistory))
+	}
+}
+
+func TestHistoryViewKeyNavigation(t *testing.T) {
+	model := Model{
+		mode: historyView,
+		agentHistory: []*session.AgentRunRecord{
+			{ID: "1", SessionID: "session1"},
+			{ID: "2", SessionID: "session2"},
+			{ID: "3", SessionID: "session3"},
+		},
+		historyCursor:       0,
+		historyScrollOffset: 0,
+	}
+
+	// Test down navigation
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m := newModel.(Model)
+	if m.historyCursor != 1 {
+		t.Errorf("Expected cursor to be 1, got %d", m.historyCursor)
+	}
+
+	// Test up navigation
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+	if m.historyCursor != 0 {
+		t.Errorf("Expected cursor to be 0, got %d", m.historyCursor)
+	}
+
+	// Test down with arrow key
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.historyCursor != 1 {
+		t.Errorf("Expected cursor to be 1 after down arrow, got %d", m.historyCursor)
+	}
+}
+
+func TestHistoryViewKeyClose(t *testing.T) {
+	tests := []struct {
+		name string
+		key  tea.KeyMsg
+	}{
+		{"escape", tea.KeyMsg{Type: tea.KeyEscape}},
+		{"q", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}},
+		{"H", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'H'}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := Model{
+				mode: historyView,
+				agentHistory: []*session.AgentRunRecord{
+					{ID: "1", SessionID: "session1"},
+				},
+			}
+
+			newModel, _ := model.Update(tt.key)
+			m := newModel.(Model)
+
+			if m.mode != splitView {
+				t.Errorf("Expected mode to be splitView after %s, got %v", tt.name, m.mode)
+			}
+		})
+	}
+}
+
+func TestHistoryViewBoundsCheck(t *testing.T) {
+	model := Model{
+		mode: historyView,
+		agentHistory: []*session.AgentRunRecord{
+			{ID: "1", SessionID: "session1"},
+		},
+		historyCursor: 0,
+	}
+
+	// Try to go up from 0 - should stay at 0
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m := newModel.(Model)
+	if m.historyCursor != 0 {
+		t.Errorf("Expected cursor to stay at 0, got %d", m.historyCursor)
+	}
+
+	// Try to go down from last item - should stay at last
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = newModel.(Model)
+	// Should not go beyond len(history)-1
+	if m.historyCursor >= len(m.agentHistory) {
+		t.Errorf("Expected cursor to stay within bounds, got %d", m.historyCursor)
+	}
+}
+
+func TestHistoryViewEnterLoadsOutput(t *testing.T) {
+	model := Model{
+		mode: historyView,
+		agentHistory: []*session.AgentRunRecord{
+			{ID: "1", SessionID: "session1", OutputFile: "/tmp/test-output.txt"},
+		},
+		historyCursor: 0,
+	}
+
+	// Press enter - should trigger loading output
+	newModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newModel.(Model)
+
+	// Should still be in history view (will transition after output loads)
+	if m.mode != historyView {
+		t.Errorf("Expected mode to remain historyView until output loads, got %v", m.mode)
+	}
+
+	// Should return a command to load output
+	if cmd == nil {
+		t.Error("Expected a command to load output")
+	}
+}
+
+func TestHistoryOutputViewNavigation(t *testing.T) {
+	model := Model{
+		mode:                historyOutputView,
+		historyOutput:       strings.Repeat("line\n", 100), // 100 lines
+		historyOutputOffset: 10,
+	}
+
+	// Test scroll up
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m := newModel.(Model)
+	if m.historyOutputOffset != 9 {
+		t.Errorf("Expected offset to be 9, got %d", m.historyOutputOffset)
+	}
+
+	// Test scroll down
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = newModel.(Model)
+	if m.historyOutputOffset != 10 {
+		t.Errorf("Expected offset to be 10, got %d", m.historyOutputOffset)
+	}
+}
+
+func TestHistoryOutputViewClose(t *testing.T) {
+	tests := []struct {
+		name string
+		key  tea.KeyMsg
+	}{
+		{"escape", tea.KeyMsg{Type: tea.KeyEscape}},
+		{"q", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}},
+		{"b", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := Model{
+				mode:          historyOutputView,
+				historyOutput: "test output",
+			}
+
+			newModel, _ := model.Update(tt.key)
+			m := newModel.(Model)
+
+			if m.mode != historyView {
+				t.Errorf("Expected mode to be historyView after %s, got %v", tt.name, m.mode)
+			}
+
+			if m.historyOutput != "" {
+				t.Error("Expected historyOutput to be cleared")
+			}
+		})
+	}
+}
+
+func TestHistoryLoadedMsgHandler(t *testing.T) {
+	model := Model{
+		mode: splitView,
+	}
+
+	// Test successful history load
+	records := []*session.AgentRunRecord{
+		{ID: "1", SessionID: "session1", Result: "complete"},
+		{ID: "2", SessionID: "session2", Result: "blocked"},
+	}
+
+	newModel, _ := model.Update(historyLoadedMsg{history: records})
+	m := newModel.(Model)
+
+	if m.mode != historyView {
+		t.Errorf("Expected mode to be historyView, got %v", m.mode)
+	}
+
+	if len(m.agentHistory) != 2 {
+		t.Errorf("Expected 2 history records, got %d", len(m.agentHistory))
+	}
+
+	if m.historyCursor != 0 {
+		t.Error("Expected cursor to be reset to 0")
+	}
+
+	if m.historyScrollOffset != 0 {
+		t.Error("Expected scroll offset to be reset to 0")
+	}
+}
+
+func TestHistoryLoadedMsgError(t *testing.T) {
+	model := Model{
+		mode: splitView,
+	}
+
+	newModel, _ := model.Update(historyLoadedMsg{err: fmt.Errorf("test error")})
+	m := newModel.(Model)
+
+	if m.mode != splitView {
+		t.Errorf("Expected mode to stay splitView on error, got %v", m.mode)
+	}
+
+	if !strings.Contains(m.message, "Error loading history") {
+		t.Errorf("Expected error message, got: %s", m.message)
+	}
+}
+
+func TestHistoryOutputLoadedMsgHandler(t *testing.T) {
+	model := Model{
+		mode: historyView,
+	}
+
+	newModel, _ := model.Update(historyOutputLoadedMsg{content: "test output content"})
+	m := newModel.(Model)
+
+	if m.mode != historyOutputView {
+		t.Errorf("Expected mode to be historyOutputView, got %v", m.mode)
+	}
+
+	if m.historyOutput != "test output content" {
+		t.Errorf("Expected historyOutput to be set, got: %s", m.historyOutput)
+	}
+
+	if m.historyOutputOffset != 0 {
+		t.Error("Expected offset to be reset to 0")
+	}
+}
+
+func TestHistoryOutputLoadedMsgError(t *testing.T) {
+	model := Model{
+		mode: historyView,
+	}
+
+	newModel, _ := model.Update(historyOutputLoadedMsg{err: fmt.Errorf("file not found")})
+	m := newModel.(Model)
+
+	if m.mode != historyOutputView {
+		t.Errorf("Expected mode to be historyOutputView even on error, got %v", m.mode)
+	}
+
+	if !strings.Contains(m.historyOutput, "Error loading output") {
+		t.Errorf("Expected error in output, got: %s", m.historyOutput)
+	}
+}
+
+func TestRenderHistoryView(t *testing.T) {
+	model := Model{
+		mode:   historyView,
+		height: 30,
+		agentHistory: []*session.AgentRunRecord{
+			{
+				ID:            "1",
+				SessionID:     "test-session",
+				Iterations:    3,
+				MaxIterations: 10,
+				Result:        "complete",
+				BallsComplete: 5,
+				BallsTotal:    5,
+			},
+		},
+	}
+
+	view := model.View()
+
+	if !strings.Contains(view, "Agent Run History") {
+		t.Error("Expected view to contain 'Agent Run History' title")
+	}
+
+	if !strings.Contains(view, "test-session") {
+		t.Error("Expected view to contain session ID")
+	}
+}
+
+func TestRenderHistoryViewEmpty(t *testing.T) {
+	model := Model{
+		mode:         historyView,
+		height:       30,
+		agentHistory: []*session.AgentRunRecord{},
+	}
+
+	view := model.View()
+
+	if !strings.Contains(view, "No agent runs recorded") {
+		t.Error("Expected empty history message")
+	}
+}
+
+func TestRenderHistoryOutputView(t *testing.T) {
+	model := Model{
+		mode:          historyOutputView,
+		height:        30,
+		historyOutput: "line 1\nline 2\nline 3",
+		agentHistory: []*session.AgentRunRecord{
+			{ID: "1", SessionID: "test-session"},
+		},
+		historyCursor: 0,
+	}
+
+	view := model.View()
+
+	if !strings.Contains(view, "Output:") {
+		t.Error("Expected view to contain 'Output:' title")
+	}
+
+	if !strings.Contains(view, "line 1") {
+		t.Error("Expected view to contain output content")
+	}
+}
+
+func TestFormatHistoryResult(t *testing.T) {
+	tests := []struct {
+		result   string
+		contains string
+	}{
+		{"complete", "Complete"},
+		{"blocked", "Blocked"},
+		{"timeout", "Timeout"},
+		{"max_iterations", "MaxIter"},
+		{"rate_limit", "RateLimit"},
+		{"cancelled", "Cancelled"},
+		{"error", "Error"},
+		{"unknown", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.result, func(t *testing.T) {
+			formatted := formatHistoryResult(tt.result)
+			// Strip ANSI codes for comparison
+			if !strings.Contains(formatted, tt.contains) {
+				t.Errorf("Expected formatted result to contain '%s', got: %s", tt.contains, formatted)
+			}
+		})
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		duration time.Duration
+		expected string
+	}{
+		{30 * time.Second, "30s"},
+		{90 * time.Second, "1m30s"},
+		{2*time.Hour + 30*time.Minute, "2h30m"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			result := formatDuration(tt.duration)
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestHistoryViewGoToTopBottom(t *testing.T) {
+	model := Model{
+		mode: historyView,
+		agentHistory: []*session.AgentRunRecord{
+			{ID: "1"}, {ID: "2"}, {ID: "3"}, {ID: "4"}, {ID: "5"},
+		},
+		historyCursor:       2,
+		historyScrollOffset: 0,
+	}
+
+	// Test G - go to bottom
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	m := newModel.(Model)
+	if m.historyCursor != 4 {
+		t.Errorf("Expected cursor to be at bottom (4), got %d", m.historyCursor)
+	}
+
+	// Test gg - go to top (requires two 'g' presses)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m = newModel.(Model)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m = newModel.(Model)
+	if m.historyCursor != 0 {
+		t.Errorf("Expected cursor to be at top (0), got %d", m.historyCursor)
+	}
+}
+
+func TestHKeyOpensHistory(t *testing.T) {
+	// Create a model with splitView mode and a store
+	tmpDir, _ := os.MkdirTemp("", "juggler-test-*")
+	defer os.RemoveAll(tmpDir)
+
+	store, _ := session.NewStore(tmpDir)
+	model := Model{
+		mode:        splitView,
+		activePanel: SessionsPanel,
+		store:       store,
+	}
+
+	// Press H to open history
+	newModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'H'}})
+	m := newModel.(Model)
+
+	// Should return a command to load history
+	if cmd == nil {
+		t.Error("Expected a command to load history")
+	}
+
+	// Message should indicate loading
+	if !strings.Contains(m.message, "Loading") {
+		t.Errorf("Expected loading message, got: %s", m.message)
 	}
 }

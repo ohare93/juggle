@@ -729,18 +729,18 @@ func (m Model) renderStatusBar() string {
 		hints = []string{
 			"j/k:nav", "Enter:select", "a:add", "A:agent",
 			"e:edit", "d:del", "/:filter", "P:scope",
-			"O:output", "i:view", "?:help", "q:quit",
+			"O:output", "H:history", "?:help", "q:quit",
 		}
 	case BallsPanel:
 		hints = []string{
 			"j/k:nav", "s:start", "c:done", "b:block",
 			"a:add", "e:edit", "t:tag", "d:del",
-			"[/]:session", "o:sort", "O:output", "?:help",
+			"[/]:session", "o:sort", "H:history", "?:help",
 		}
 	case ActivityPanel:
 		hints = []string{
 			"j/k:scroll", "Ctrl+d/u:page", "gg:top", "G:bottom",
-			"Tab:panels", "O:output", "i:view", "?:help", "q:quit",
+			"Tab:panels", "O:output", "H:history", "?:help", "q:quit",
 		}
 	}
 

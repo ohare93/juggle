@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"io"
+	"os"
 	"os/exec"
 	"time"
 
@@ -315,4 +316,55 @@ func listenForAgentOutput(outputCh <-chan agentOutputMsg) tea.Cmd {
 			return nil
 		}
 	}
+}
+
+// historyLoadedMsg is sent when agent history has been loaded
+type historyLoadedMsg struct {
+	history []*session.AgentRunRecord
+	err     error
+}
+
+// loadAgentHistory creates a command to load agent run history
+func loadAgentHistory(projectDir string) tea.Cmd {
+	return func() tea.Msg {
+		historyStore, err := session.NewAgentHistoryStore(projectDir)
+		if err != nil {
+			return historyLoadedMsg{err: err}
+		}
+
+		// Load the 50 most recent runs
+		records, err := historyStore.LoadRecentHistory(50)
+		if err != nil {
+			return historyLoadedMsg{err: err}
+		}
+
+		return historyLoadedMsg{history: records}
+	}
+}
+
+// historyOutputLoadedMsg is sent when last_output.txt content is loaded
+type historyOutputLoadedMsg struct {
+	content string
+	err     error
+}
+
+// loadHistoryOutput creates a command to load the output file for a history record
+func loadHistoryOutput(outputFile string) tea.Cmd {
+	return func() tea.Msg {
+		if outputFile == "" {
+			return historyOutputLoadedMsg{content: "(no output file)", err: nil}
+		}
+
+		data, err := readFile(outputFile)
+		if err != nil {
+			return historyOutputLoadedMsg{content: "", err: err}
+		}
+
+		return historyOutputLoadedMsg{content: string(data), err: nil}
+	}
+}
+
+// readFile is a helper to read file content
+func readFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
 }

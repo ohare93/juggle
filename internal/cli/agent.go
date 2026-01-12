@@ -420,6 +420,10 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 
 	result.TotalWaitTime = totalWaitTime
 	result.EndedAt = time.Now()
+
+	// Save run history (best-effort, don't fail the run if this errors)
+	saveAgentHistory(config, result, outputPath)
+
 	return result, nil
 }
 
@@ -958,6 +962,38 @@ func getProgressLineCount(store *session.SessionStore, sessionID string) int {
 // GetProgressLineCountForTest is an exported wrapper for testing
 func GetProgressLineCountForTest(store *session.SessionStore, sessionID string) int {
 	return getProgressLineCount(store, sessionID)
+}
+
+// saveAgentHistory saves the agent run history to the history file
+func saveAgentHistory(config AgentLoopConfig, result *AgentResult, outputPath string) {
+	historyStore, err := session.NewAgentHistoryStore(config.ProjectDir)
+	if err != nil {
+		return // Best-effort, ignore errors
+	}
+
+	record := session.NewAgentRunRecord(config.SessionID, config.ProjectDir, result.StartedAt)
+	record.MaxIterations = config.MaxIterations
+	record.OutputFile = outputPath
+
+	// Set the appropriate result type
+	if result.Complete {
+		record.SetComplete(result.Iterations, result.BallsComplete, result.BallsBlocked, result.BallsTotal)
+	} else if result.Blocked {
+		record.SetBlocked(result.Iterations, result.BlockedReason, result.BallsComplete, result.BallsBlocked, result.BallsTotal)
+	} else if result.TimedOut {
+		record.SetTimeout(result.Iterations, result.TimeoutMessage, result.BallsComplete, result.BallsBlocked, result.BallsTotal)
+	} else if result.RateLimitExceded {
+		record.SetRateLimitExceeded(result.Iterations, result.TotalWaitTime, result.BallsComplete, result.BallsBlocked, result.BallsTotal)
+	} else {
+		// Max iterations reached
+		record.SetMaxIterations(result.Iterations, result.BallsComplete, result.BallsBlocked, result.BallsTotal)
+	}
+
+	// Preserve total wait time and ended time from result
+	record.TotalWaitTime = result.TotalWaitTime
+	record.EndedAt = result.EndedAt
+
+	_ = historyStore.AppendRecord(record)
 }
 
 // runAgentRefine implements the agent refine command

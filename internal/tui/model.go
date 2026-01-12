@@ -18,6 +18,7 @@ const (
 	confirmDeleteView
 	splitView     // New three-panel split view
 	splitHelpView // Comprehensive help view for split mode
+	historyView   // Agent run history view
 
 	// Input modes for CRUD operations
 	inputSessionView     // Add/edit session
@@ -31,6 +32,7 @@ const (
 	confirmAgentCancel             // Agent cancel confirmation
 	inputAcceptanceCriteriaView    // Multi-line acceptance criteria input
 	inputBallFormView              // Full ball form with all fields
+	historyOutputView              // Viewing last_output.txt from history
 )
 
 // InputAction represents what action triggered the input mode
@@ -178,6 +180,13 @@ type Model struct {
 
 	// Agent process tracking for cancellation
 	agentProcess *AgentProcess // Reference to running agent process for cancellation
+
+	// Agent history state
+	agentHistory        []*session.AgentRunRecord // Loaded agent run history
+	historyCursor       int                       // Current selection in history view
+	historyScrollOffset int                       // Scroll offset for history view
+	historyOutput       string                    // Content of selected history's output file
+	historyOutputOffset int                       // Scroll offset for output view
 }
 
 // InitialModel creates a model for the legacy list view
