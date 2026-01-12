@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var sessionsCmd = &cobra.Command{
@@ -42,6 +44,7 @@ var (
 	sessionSetFlag              string
 	sessionACFlag               []string // Acceptance criteria for session
 	sessionYesFlag              bool     // Skip confirmation for delete
+	sessionNonInteractiveFlag   bool     // Skip interactive prompts
 )
 
 var sessionsCreateCmd = &cobra.Command{
@@ -109,6 +112,7 @@ func init() {
 	sessionsCreateCmd.Flags().StringVarP(&sessionDescriptionFlag, "message", "m", "", "Session description")
 	sessionsCreateCmd.Flags().StringVar(&sessionContextFlag, "context", "", "Initial session context (agent-friendly)")
 	sessionsCreateCmd.Flags().StringSliceVar(&sessionACFlag, "ac", []string{}, "Session-level acceptance criteria (can be specified multiple times)")
+	sessionsCreateCmd.Flags().BoolVar(&sessionNonInteractiveFlag, "non-interactive", false, "Skip interactive prompts (for headless mode)")
 	sessionsContextCmd.Flags().BoolVar(&sessionEditFlag, "edit", false, "Open context in $EDITOR")
 	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
@@ -148,19 +152,51 @@ func runSessionsCreate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Get repo-level defaults for reference
+	repoACs, _ := session.GetProjectAcceptanceCriteria(cwd)
+	inheritedCount := len(repoACs)
+
 	// Set acceptance criteria if provided via flag
+	var acceptanceCriteria []string
 	if len(sessionACFlag) > 0 {
-		if err := store.UpdateSessionAcceptanceCriteria(id, sessionACFlag); err != nil {
+		acceptanceCriteria = sessionACFlag
+	} else if !sessionNonInteractiveFlag && term.IsTerminal(int(os.Stdin.Fd())) {
+		// Interactive mode: ask if user wants to add ACs (only in TTY)
+		if inheritedCount > 0 {
+			fmt.Printf("This session will inherit %d acceptance criteria from repo defaults.\n", inheritedCount)
+		}
+		confirmed, err := ConfirmSingleKey("Would you like to add acceptance criteria?")
+		if err != nil {
+			return fmt.Errorf("failed to read confirmation: %w", err)
+		}
+		if confirmed {
+			// Prompt for acceptance criteria line by line (same UX as ball creation)
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Println("Enter acceptance criteria (one per line, empty line to finish):")
+			for {
+				fmt.Print("  > ")
+				input, err := reader.ReadString('\n')
+				if err != nil {
+					break
+				}
+				criterion := strings.TrimSpace(input)
+				if criterion == "" {
+					break
+				}
+				acceptanceCriteria = append(acceptanceCriteria, criterion)
+			}
+		}
+	}
+
+	// Apply acceptance criteria: provided ACs take precedence, otherwise inherit defaults
+	if len(acceptanceCriteria) > 0 {
+		if err := store.UpdateSessionAcceptanceCriteria(id, acceptanceCriteria); err != nil {
 			return fmt.Errorf("failed to set acceptance criteria: %w", err)
 		}
-	} else {
-		// If no ACs provided, inherit from repo-level defaults
-		repoACs, err := session.GetProjectAcceptanceCriteria(cwd)
-		if err == nil && len(repoACs) > 0 {
-			if err := store.UpdateSessionAcceptanceCriteria(id, repoACs); err != nil {
-				return fmt.Errorf("failed to set default acceptance criteria: %w", err)
-			}
-			fmt.Printf("  Acceptance criteria: (inherited %d from repo defaults)\n", len(repoACs))
+	} else if inheritedCount > 0 {
+		// No ACs provided interactively, inherit from repo-level defaults
+		if err := store.UpdateSessionAcceptanceCriteria(id, repoACs); err != nil {
+			return fmt.Errorf("failed to set default acceptance criteria: %w", err)
 		}
 	}
 
@@ -171,8 +207,10 @@ func runSessionsCreate(cmd *cobra.Command, args []string) error {
 	if sessionContextFlag != "" {
 		fmt.Printf("  Context: (set)\n")
 	}
-	if len(sessionACFlag) > 0 {
-		fmt.Printf("  Acceptance criteria: %d item(s)\n", len(sessionACFlag))
+	if len(acceptanceCriteria) > 0 {
+		fmt.Printf("  Acceptance criteria: %d item(s)\n", len(acceptanceCriteria))
+	} else if inheritedCount > 0 {
+		fmt.Printf("  Acceptance criteria: (inherited %d from repo defaults)\n", inheritedCount)
 	}
 	fmt.Printf("  Path: .juggler/sessions/%s/\n", id)
 

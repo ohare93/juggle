@@ -1794,3 +1794,126 @@ func TestSessionDeleteHelpShowsYesFlag(t *testing.T) {
 		t.Errorf("Expected '-y' shorthand in help, got: %s", output)
 	}
 }
+
+// TestSessionCreateACFlagSkipsPrompt tests that --ac flag skips interactive AC prompt
+func TestSessionCreateACFlagSkipsPrompt(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create session with --ac flag - should not prompt
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "ac-flag-test", "-m", "Test session", "--ac", "AC 1", "--ac", "AC 2")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions create' with --ac failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify output mentions 2 ACs
+	if !strings.Contains(string(output), "2 item(s)") {
+		t.Errorf("Expected '2 item(s)' in output, got: %s", output)
+	}
+
+	// Verify session has the ACs by showing it
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "show", "ac-flag-test")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions show' failed: %v\nOutput: %s", err, showOutput)
+	}
+
+	if !strings.Contains(string(showOutput), "AC 1") {
+		t.Errorf("Expected 'AC 1' in session, got: %s", showOutput)
+	}
+	if !strings.Contains(string(showOutput), "AC 2") {
+		t.Errorf("Expected 'AC 2' in session, got: %s", showOutput)
+	}
+}
+
+// TestSessionCreateNonInteractiveSkipsPrompt tests that --non-interactive skips AC prompt
+func TestSessionCreateNonInteractiveSkipsPrompt(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create session with --non-interactive - should not prompt for anything
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "non-interactive-test", "-m", "Test session", "--non-interactive")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions create' with --non-interactive failed: %v\nOutput: %s", err, output)
+	}
+
+	// Should complete without hanging on prompts
+	if !strings.Contains(string(output), "Created session: non-interactive-test") {
+		t.Errorf("Expected 'Created session' in output, got: %s", output)
+	}
+}
+
+// TestSessionCreateNonInteractiveWithRepoDefaults tests inheritance in non-interactive mode
+func TestSessionCreateNonInteractiveWithRepoDefaults(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// First, set up repo-level ACs
+	configAddCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "config", "ac", "add", "Run tests")
+	configAddCmd.Dir = env.ProjectDir
+	if output, err := configAddCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to add repo AC: %v\nOutput: %s", err, output)
+	}
+
+	// Create session with --non-interactive - should inherit repo defaults
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "repo-defaults-test", "-m", "Test session", "--non-interactive")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions create' failed: %v\nOutput: %s", err, output)
+	}
+
+	// Should mention inherited ACs
+	if !strings.Contains(string(output), "inherited 1 from repo defaults") {
+		t.Errorf("Expected 'inherited 1 from repo defaults' in output, got: %s", output)
+	}
+
+	// Verify session has the inherited AC
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "show", "repo-defaults-test")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions show' failed: %v\nOutput: %s", err, showOutput)
+	}
+
+	if !strings.Contains(string(showOutput), "Run tests") {
+		t.Errorf("Expected inherited 'Run tests' AC in session, got: %s", showOutput)
+	}
+}
+
+// TestSessionCreateHelpShowsNonInteractiveFlag tests that --non-interactive appears in help
+func TestSessionCreateHelpShowsNonInteractiveFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "sessions", "create", "--help")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Help command failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "--non-interactive") {
+		t.Errorf("Expected '--non-interactive' in help, got: %s", output)
+	}
+	if !strings.Contains(string(output), "headless") {
+		t.Errorf("Expected 'headless' in help description, got: %s", output)
+	}
+}
