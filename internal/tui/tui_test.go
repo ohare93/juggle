@@ -1435,12 +1435,92 @@ func TestSubmitBallInputTransitionsToBallForm(t *testing.T) {
 		t.Errorf("Expected pendingBallPriority to be 1 (medium), got %d", m.pendingBallPriority)
 	}
 
-	if m.pendingBallState != 0 {
-		t.Errorf("Expected pendingBallState to be 0 (pending), got %d", m.pendingBallState)
-	}
-
 	if len(m.pendingAcceptanceCriteria) != 0 {
 		t.Errorf("Expected pendingAcceptanceCriteria to be empty, got %d", len(m.pendingAcceptanceCriteria))
+	}
+}
+
+// Test that ball creation defaults session to currently selected session
+func TestSubmitBallInputDefaultsToSelectedSession(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	// Create real sessions (not pseudo-sessions)
+	sessions := []*session.JuggleSession{
+		{ID: PseudoSessionAll},    // pseudo-session - should be skipped
+		{ID: "session-1"},         // real session at index 0 in real list
+		{ID: "session-2"},         // real session at index 1 in real list
+		{ID: PseudoSessionUntagged}, // pseudo-session - should be skipped
+	}
+
+	// Select session-2 as the current session
+	model := Model{
+		mode:            inputBallView,
+		inputAction:     actionAdd,
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       ti,
+		sessions:        sessions,
+		selectedSession: sessions[2], // session-2
+	}
+
+	newModel, _ := model.submitBallInput("New ball intent")
+	m := newModel.(Model)
+
+	// pendingBallSession should be 2 (1-indexed: 0=none, 1=session-1, 2=session-2)
+	if m.pendingBallSession != 2 {
+		t.Errorf("Expected pendingBallSession to be 2 (session-2), got %d", m.pendingBallSession)
+	}
+}
+
+// Test that ball creation with no selected session defaults to none
+func TestSubmitBallInputNoSelectedSessionDefaultsToNone(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:            inputBallView,
+		inputAction:     actionAdd,
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       ti,
+		sessions:        []*session.JuggleSession{{ID: "session-1"}},
+		selectedSession: nil, // No session selected
+	}
+
+	newModel, _ := model.submitBallInput("New ball intent")
+	m := newModel.(Model)
+
+	if m.pendingBallSession != 0 {
+		t.Errorf("Expected pendingBallSession to be 0 (none), got %d", m.pendingBallSession)
+	}
+}
+
+// Test that ball creation with pseudo-session selected defaults to none
+func TestSubmitBallInputPseudoSessionDefaultsToNone(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	sessions := []*session.JuggleSession{
+		{ID: PseudoSessionAll},
+		{ID: "session-1"},
+	}
+
+	model := Model{
+		mode:            inputBallView,
+		inputAction:     actionAdd,
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       ti,
+		sessions:        sessions,
+		selectedSession: sessions[0], // PseudoSessionAll
+	}
+
+	newModel, _ := model.submitBallInput("New ball intent")
+	m := newModel.(Model)
+
+	if m.pendingBallSession != 0 {
+		t.Errorf("Expected pendingBallSession to be 0 (none) for pseudo-session, got %d", m.pendingBallSession)
 	}
 }
 
@@ -1455,12 +1535,11 @@ func TestBallFormNavigation(t *testing.T) {
 		pendingBallIntent:    "Test ball",
 		pendingBallFormField: 0, // Start at priority
 		pendingBallPriority:  1, // medium
-		pendingBallState:     0, // pending
 		textInput:            ti,
 		sessions:             []*session.JuggleSession{},
 	}
 
-	// Test down navigation
+	// Test down navigation (now 3 fields: priority, tags, session)
 	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m := newModel.(Model)
 	if m.pendingBallFormField != 1 {
@@ -1475,7 +1554,7 @@ func TestBallFormNavigation(t *testing.T) {
 	}
 
 	// Test wrap around down
-	m.pendingBallFormField = 3 // session field (last)
+	m.pendingBallFormField = 2 // session field (last, now index 2)
 	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
 	if m.pendingBallFormField != 0 {
@@ -1486,8 +1565,8 @@ func TestBallFormNavigation(t *testing.T) {
 	m.pendingBallFormField = 0
 	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 3 {
-		t.Errorf("Expected field to wrap to 3, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 2 {
+		t.Errorf("Expected field to wrap to 2, got %d", m.pendingBallFormField)
 	}
 }
 
@@ -1536,35 +1615,6 @@ func TestBallFormPrioritySelection(t *testing.T) {
 	}
 }
 
-// Test ball form state selection
-func TestBallFormStateSelection(t *testing.T) {
-	ti := textinput.New()
-	ti.CharLimit = 256
-	ti.Width = 40
-
-	model := Model{
-		mode:                 inputBallFormView,
-		pendingBallFormField: 1, // state field
-		pendingBallState:     0, // pending
-		textInput:            ti,
-		sessions:             []*session.JuggleSession{},
-	}
-
-	// Test right to cycle to in_progress
-	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
-	m := newModel.(Model)
-	if m.pendingBallState != 1 {
-		t.Errorf("Expected state to be 1 (in_progress) after right, got %d", m.pendingBallState)
-	}
-
-	// Test wrap around right
-	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
-	m = newModel.(Model)
-	if m.pendingBallState != 0 {
-		t.Errorf("Expected state to wrap to 0 (pending), got %d", m.pendingBallState)
-	}
-}
-
 // Test ball form enter transitions to AC input
 func TestBallFormEnterTransitionsToACInput(t *testing.T) {
 	ti := textinput.New()
@@ -1576,7 +1626,6 @@ func TestBallFormEnterTransitionsToACInput(t *testing.T) {
 		pendingBallIntent:    "Test ball",
 		pendingBallFormField: 0,
 		pendingBallPriority:  2, // high
-		pendingBallState:     1, // in_progress
 		pendingBallTags:      "tag1, tag2",
 		pendingBallSession:   0,
 		textInput:            ti,
@@ -1603,7 +1652,6 @@ func TestBallFormEscapeCancels(t *testing.T) {
 		pendingBallIntent:    "Test ball",
 		pendingBallFormField: 0,
 		pendingBallPriority:  2,
-		pendingBallState:     1,
 		pendingBallTags:      "tag1",
 		textInput:            ti,
 		activityLog:          make([]ActivityEntry, 0),
@@ -1626,7 +1674,7 @@ func TestBallFormEscapeCancels(t *testing.T) {
 	}
 }
 
-// Test ball form view renders correctly
+// Test ball form view renders correctly (state removed - always pending)
 func TestBallFormViewRenders(t *testing.T) {
 	ti := textinput.New()
 	ti.CharLimit = 256
@@ -1637,7 +1685,6 @@ func TestBallFormViewRenders(t *testing.T) {
 		pendingBallIntent:    "Test ball intent",
 		pendingBallFormField: 0,
 		pendingBallPriority:  1, // medium
-		pendingBallState:     0, // pending
 		pendingBallTags:      "",
 		pendingBallSession:   0,
 		textInput:            ti,
@@ -1664,10 +1711,7 @@ func TestBallFormViewRenders(t *testing.T) {
 		t.Error("Expected view to contain priority options")
 	}
 
-	// Check state options are shown
-	if !strings.Contains(view, "pending") || !strings.Contains(view, "in_progress") {
-		t.Error("Expected view to contain state options")
-	}
+	// State field removed - balls always start in pending state
 
 	// Check help text
 	if !strings.Contains(view, "Enter = continue to ACs") {

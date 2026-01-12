@@ -778,8 +778,6 @@ func (m Model) renderBallFormView() string {
 
 	// Priority options
 	priorities := []string{"low", "medium", "high", "urgent"}
-	// State options
-	states := []string{"pending", "in_progress"}
 
 	// Build sessions list for display
 	sessionOptions := []string{"(none)"}
@@ -789,7 +787,7 @@ func (m Model) renderBallFormView() string {
 		}
 	}
 
-	// Field labels and values
+	// Field labels and values (state removed - always pending)
 	fields := []struct {
 		label    string
 		options  []string
@@ -798,7 +796,6 @@ func (m Model) renderBallFormView() string {
 		textVal  string
 	}{
 		{"Priority", priorities, m.pendingBallPriority, false, ""},
-		{"State", states, m.pendingBallState, false, ""},
 		{"Tags", nil, 0, true, m.pendingBallTags},
 		{"Session", sessionOptions, m.pendingBallSession, false, ""},
 	}

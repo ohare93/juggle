@@ -1645,6 +1645,68 @@ func TestPlanNonInteractiveNoIntent(t *testing.T) {
 	}
 }
 
+// TestPlanAlwaysCreatesPendingState verifies that new balls always start in pending state
+func TestPlanAlwaysCreatesPendingState(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Test always pending",
+		"--non-interactive",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Non-interactive plan failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify ball is in pending state
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Intent == "Test always pending" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if ball.State != session.StatePending {
+		t.Errorf("Expected state 'pending', got: %s", ball.State)
+	}
+}
+
+// TestPlanStateFlagRemoved verifies that --state flag no longer exists
+func TestPlanStateFlagRemoved(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Test state flag removed",
+		"--non-interactive",
+		"--state", "in_progress",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+
+	// Should fail with unknown flag error
+	if err == nil {
+		t.Fatalf("Expected error for unknown --state flag, got success: %s", output)
+	}
+	if !strings.Contains(string(output), "unknown flag") {
+		t.Errorf("Expected 'unknown flag' error, got: %s", output)
+	}
+}
+
 // TestSessionDeleteYesFlag tests the --yes flag for session delete
 func TestSessionDeleteYesFlag(t *testing.T) {
 	env := SetupTestEnv(t)

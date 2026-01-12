@@ -160,10 +160,9 @@ type Model struct {
 	// Pending ball creation state (for multi-step ball creation)
 	pendingBallIntent          string   // Intent being created (stored during AC input)
 	pendingBallPriority        int      // Index in priority options (0=low, 1=medium, 2=high, 3=urgent)
-	pendingBallState           int      // Index in state options (0=pending, 1=in_progress)
 	pendingBallTags            string   // Comma-separated tags
 	pendingBallSession         int      // Index in session options (0=none, 1+ = session index)
-	pendingBallFormField       int      // Current field in form (0=priority, 1=state, 2=tags, 3=session)
+	pendingBallFormField       int      // Current field in form (0=priority, 1=tags, 2=session)
 	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
 
 	// File watcher

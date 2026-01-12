@@ -30,7 +30,7 @@ Non-interactive mode (for headless agents):
 In non-interactive mode:
   - Intent is required (via args or --intent flag)
   - Priority defaults to 'medium' if not specified
-  - State defaults to 'pending' if not specified
+  - State is always 'pending' (new balls start in pending state)
   - Tags, session, and acceptance criteria default to empty if not specified
 
 Planned balls can be started later with: juggle <ball-id>`,
@@ -38,7 +38,6 @@ Planned balls can be started later with: juggle <ball-id>`,
 }
 
 var acceptanceCriteriaFlag []string
-var stateFlag string
 var dependsOnFlag []string
 var nonInteractiveFlag bool
 
@@ -47,7 +46,6 @@ func init() {
 	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
 	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -c/--ac instead. Sets first acceptance criterion.")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "", "Priority: low, medium, high, urgent (default: medium)")
-	planCmd.Flags().StringVarP(&stateFlag, "state", "", "", "State: pending, in_progress (default: pending)")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
 	planCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
@@ -101,19 +99,6 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 	if !session.ValidatePriority(priority) {
 		return fmt.Errorf("invalid priority %q, must be one of: low, medium, high, urgent", priority)
-	}
-
-	// Get state from: 1) --state flag, 2) interactive selection, 3) default in non-interactive mode
-	state := stateFlag
-	if state == "" {
-		if nonInteractiveFlag {
-			state = "pending" // Default state in non-interactive mode
-		} else {
-			state = promptSelection(reader, "State", []string{"pending", "in_progress"}, 0)
-		}
-	}
-	if state != "pending" && state != "in_progress" {
-		return fmt.Errorf("invalid state %q, must be one of: pending, in_progress", state)
 	}
 
 	// Get tags from: 1) --tags flag, 2) interactive prompt, 3) empty in non-interactive mode
@@ -179,12 +164,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create planned ball: %w", err)
 	}
 
-	// Set state based on selection
-	if state == "in_progress" {
-		ball.State = session.StateInProgress
-	} else {
-		ball.State = session.StatePending
-	}
+	// New balls always start in pending state
+	ball.State = session.StatePending
 
 	// Set acceptance criteria if provided
 	if len(acceptanceCriteria) > 0 {

@@ -1526,9 +1526,23 @@ func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 		m.pendingBallIntent = value
 		m.pendingAcceptanceCriteria = []string{}
 		m.pendingBallPriority = 1 // Default to medium (index 1)
-		m.pendingBallState = 0    // Default to pending (index 0)
 		m.pendingBallTags = ""
-		m.pendingBallSession = 0 // Default to (none)
+		// Default session to currently selected one (if a real session is selected)
+		m.pendingBallSession = 0 // Start with (none)
+		if m.selectedSession != nil && m.selectedSession.ID != PseudoSessionAll && m.selectedSession.ID != PseudoSessionUntagged {
+			// Find the index of the selected session in real sessions
+			realSessionIdx := 0
+			for _, sess := range m.sessions {
+				if sess.ID == PseudoSessionAll || sess.ID == PseudoSessionUntagged {
+					continue
+				}
+				realSessionIdx++
+				if sess.ID == m.selectedSession.ID {
+					m.pendingBallSession = realSessionIdx
+					break
+				}
+			}
+		}
 		m.pendingBallFormField = 0
 		m.textInput.Reset()
 		m.textInput.Placeholder = "tag1, tag2, ..."
@@ -1615,18 +1629,16 @@ func (m Model) handleAcceptanceCriteriaKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 // handleBallFormKey handles keyboard input for the multi-field ball form
 func (m Model) handleBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Field indices: 0=priority, 1=state, 2=tags, 3=session
+	// Field indices: 0=priority, 1=tags, 2=session (state removed - always pending)
 	const (
 		fieldPriority = 0
-		fieldState    = 1
-		fieldTags     = 2
-		fieldSession  = 3
-		numFields     = 4
+		fieldTags     = 1
+		fieldSession  = 2
+		numFields     = 3
 	)
 
 	// Number of options for each selection field
 	numPriorityOptions := 4 // low, medium, high, urgent
-	numStateOptions := 2    // pending, in_progress
 
 	// Count real sessions (excluding pseudo-sessions)
 	numSessionOptions := 1 // Start with "(none)"
@@ -1704,11 +1716,6 @@ func (m Model) handleBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.pendingBallPriority < 0 {
 				m.pendingBallPriority = numPriorityOptions - 1
 			}
-		case fieldState:
-			m.pendingBallState--
-			if m.pendingBallState < 0 {
-				m.pendingBallState = numStateOptions - 1
-			}
 		case fieldSession:
 			m.pendingBallSession--
 			if m.pendingBallSession < 0 {
@@ -1724,11 +1731,6 @@ func (m Model) handleBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingBallPriority++
 			if m.pendingBallPriority >= numPriorityOptions {
 				m.pendingBallPriority = 0
-			}
-		case fieldState:
-			m.pendingBallState++
-			if m.pendingBallState >= numStateOptions {
-				m.pendingBallState = 0
 			}
 		case fieldSession:
 			m.pendingBallSession++
@@ -1764,12 +1766,8 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Set state based on form selection (0=pending, 1=in_progress)
-	if m.pendingBallState == 1 {
-		ball.State = session.StateInProgress
-	} else {
-		ball.State = session.StatePending
-	}
+	// New balls always start in pending state
+	ball.State = session.StatePending
 
 	// Add tags from the form (comma-separated)
 	if m.pendingBallTags != "" {
@@ -1826,7 +1824,6 @@ func (m *Model) clearPendingBallState() {
 	m.pendingBallIntent = ""
 	m.pendingAcceptanceCriteria = nil
 	m.pendingBallPriority = 1 // Reset to default (medium)
-	m.pendingBallState = 0    // Reset to default (pending)
 	m.pendingBallTags = ""
 	m.pendingBallSession = 0
 	m.pendingBallFormField = 0
