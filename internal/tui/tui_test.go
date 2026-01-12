@@ -2998,3 +2998,403 @@ func TestSessionSelectorIndexCorrection(t *testing.T) {
 		t.Errorf("Expected tag 'session-a' (index corrected), got '%s'", m.editingBall.Tags[0])
 	}
 }
+
+// Test renderStatusBar contextual hints for SessionsPanel
+func TestStatusBarSessionsPanel(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: SessionsPanel,
+		localOnly:   true,
+		width:       120,
+		height:      40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should contain session-specific keybinds
+	expectedKeys := []string{"j/k:nav", "Enter:select", "a:add", "A:agent", "e:edit", "d:del", "/:filter", "P:scope", "?:help", "q:quit"}
+	for _, key := range expectedKeys {
+		if !strings.Contains(statusBar, key) {
+			t.Errorf("Expected status bar to contain '%s', got: %s", key, statusBar)
+		}
+	}
+
+	// Should show local indicator
+	if !strings.Contains(statusBar, "[Local]") {
+		t.Errorf("Expected status bar to show [Local] indicator")
+	}
+}
+
+// Test renderStatusBar contextual hints for BallsPanel
+func TestStatusBarBallsPanel(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		localOnly:   false,
+		width:       120,
+		height:      40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should contain ball-specific keybinds including state change keys
+	expectedKeys := []string{"j/k:nav", "s:start", "c:done", "b:block", "a:add", "e:edit", "t:tag", "d:del", "[/]:session", "o:sort", "?:help"}
+	for _, key := range expectedKeys {
+		if !strings.Contains(statusBar, key) {
+			t.Errorf("Expected status bar to contain '%s', got: %s", key, statusBar)
+		}
+	}
+
+	// Should show all projects indicator when localOnly is false
+	if !strings.Contains(statusBar, "[All Projects]") {
+		t.Errorf("Expected status bar to show [All Projects] indicator")
+	}
+}
+
+// Test renderStatusBar contextual hints for ActivityPanel
+func TestStatusBarActivityPanel(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: ActivityPanel,
+		localOnly:   true,
+		width:       120,
+		height:      40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should contain activity-specific keybinds
+	expectedKeys := []string{"j/k:scroll", "Ctrl+d/u:page", "gg:top", "G:bottom", "Tab:panels", "?:help", "q:quit"}
+	for _, key := range expectedKeys {
+		if !strings.Contains(statusBar, key) {
+			t.Errorf("Expected status bar to contain '%s', got: %s", key, statusBar)
+		}
+	}
+}
+
+// Test renderStatusBar shows agent status when running
+func TestStatusBarWithRunningAgent(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: SessionsPanel,
+		localOnly:   true,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     3,
+			MaxIterations: 10,
+		},
+		width:  120,
+		height: 40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should show agent status
+	if !strings.Contains(statusBar, "[Agent: test-session 3/10]") {
+		t.Errorf("Expected status bar to show agent status, got: %s", statusBar)
+	}
+}
+
+// Test renderStatusBar shows filter indicator when active
+func TestStatusBarWithActiveFilter(t *testing.T) {
+	model := Model{
+		mode:              splitView,
+		activePanel:       BallsPanel,
+		localOnly:         true,
+		panelSearchActive: true,
+		panelSearchQuery:  "myfilter",
+		width:             120,
+		height:            40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should show filter indicator
+	if !strings.Contains(statusBar, "[Filter: myfilter") {
+		t.Errorf("Expected status bar to show filter indicator, got: %s", statusBar)
+	}
+	if !strings.Contains(statusBar, "Ctrl+U:clear") {
+		t.Errorf("Expected status bar to show clear filter hint, got: %s", statusBar)
+	}
+}
+
+// Test renderStatusBar shows message when present
+func TestStatusBarWithMessage(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: SessionsPanel,
+		localOnly:   true,
+		message:     "Operation successful",
+		width:       120,
+		height:      40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Should show message
+	if !strings.Contains(statusBar, "Operation successful") {
+		t.Errorf("Expected status bar to show message, got: %s", statusBar)
+	}
+}
+
+// Test renderSplitHelpView contains all categories
+func TestHelpViewContainsAllCategories(t *testing.T) {
+	model := Model{
+		mode:   splitHelpView,
+		width:  120,
+		height: 60,
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Check all category titles are present
+	categories := []string{
+		"Navigation",
+		"Sessions Panel",
+		"Balls Panel",
+		"Activity Log Panel",
+		"View Options",
+		"Input Dialogs",
+		"Delete Confirmation",
+		"Quit",
+	}
+
+	for _, category := range categories {
+		if !strings.Contains(helpView, category) {
+			t.Errorf("Expected help view to contain category '%s'", category)
+		}
+	}
+}
+
+// Test renderSplitHelpView contains key navigation bindings
+func TestHelpViewContainsNavigationBindings(t *testing.T) {
+	model := Model{
+		mode:   splitHelpView,
+		width:  120,
+		height: 60,
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Check navigation keybinds
+	navigationBindings := []string{
+		"Tab / l",
+		"Shift+Tab / h",
+		"Enter",
+		"Space",
+		"Esc",
+	}
+
+	for _, binding := range navigationBindings {
+		if !strings.Contains(helpView, binding) {
+			t.Errorf("Expected help view to contain navigation binding '%s'", binding)
+		}
+	}
+}
+
+// Test renderSplitHelpView contains balls panel state change bindings
+func TestHelpViewContainsBallsStateBindings(t *testing.T) {
+	model := Model{
+		mode:   splitHelpView,
+		width:  120,
+		height: 60,
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Check balls panel state change keybinds (critical for AC #3)
+	ballsBindings := []string{
+		"Start ball",
+		"Complete ball",
+		"Block ball",
+		"Edit ball",
+		"Tag ball",
+		"Delete ball",
+	}
+
+	for _, binding := range ballsBindings {
+		if !strings.Contains(helpView, binding) {
+			t.Errorf("Expected help view to contain balls binding '%s'", binding)
+		}
+	}
+}
+
+// Test renderSplitHelpView contains view options bindings
+func TestHelpViewContainsViewOptionsBindings(t *testing.T) {
+	model := Model{
+		mode:   splitHelpView,
+		width:  120,
+		height: 60,
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Check view options keybinds
+	viewOptionsBindings := []string{
+		"Toggle bottom pane",
+		"Toggle project scope",
+		"Refresh",
+		"Toggle this help",
+	}
+
+	for _, binding := range viewOptionsBindings {
+		if !strings.Contains(helpView, binding) {
+			t.Errorf("Expected help view to contain view options binding '%s'", binding)
+		}
+	}
+}
+
+// Test help view scrolling works
+func TestHelpViewScrollingJK(t *testing.T) {
+	model := Model{
+		mode:             splitHelpView,
+		width:            120,
+		height:           20, // Small height to force scrolling
+		helpScrollOffset: 0,
+	}
+
+	// Scroll down with j
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m := newModel.(Model)
+	if m.helpScrollOffset != 1 {
+		t.Errorf("Expected helpScrollOffset to be 1 after pressing j, got %d", m.helpScrollOffset)
+	}
+
+	// Scroll up with k
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+	if m.helpScrollOffset != 0 {
+		t.Errorf("Expected helpScrollOffset to be 0 after pressing k, got %d", m.helpScrollOffset)
+	}
+
+	// Don't go negative
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+	if m.helpScrollOffset != 0 {
+		t.Errorf("Expected helpScrollOffset to remain 0, got %d", m.helpScrollOffset)
+	}
+}
+
+// Test help view page up/down with ctrl keys
+func TestHelpViewPageScrollingCtrl(t *testing.T) {
+	model := Model{
+		mode:             splitHelpView,
+		width:            120,
+		height:           20,
+		helpScrollOffset: 20,
+	}
+
+	// Page up with ctrl+u
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m := newModel.(Model)
+	if m.helpScrollOffset != 10 {
+		t.Errorf("Expected helpScrollOffset to be 10 after ctrl+u, got %d", m.helpScrollOffset)
+	}
+
+	// Page down with ctrl+d
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m = newModel.(Model)
+	if m.helpScrollOffset != 20 {
+		t.Errorf("Expected helpScrollOffset to be 20 after ctrl+d, got %d", m.helpScrollOffset)
+	}
+}
+
+// Test help view gg and G for top/bottom
+func TestHelpViewGoToTopBottomGG(t *testing.T) {
+	model := Model{
+		mode:             splitHelpView,
+		width:            120,
+		height:           20,
+		helpScrollOffset: 10,
+		lastKey:          "g",
+	}
+
+	// gg goes to top
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m := newModel.(Model)
+	if m.helpScrollOffset != 0 {
+		t.Errorf("Expected helpScrollOffset to be 0 after gg, got %d", m.helpScrollOffset)
+	}
+	if m.lastKey != "" {
+		t.Errorf("Expected lastKey to be cleared, got '%s'", m.lastKey)
+	}
+
+	// G goes to bottom (large number that will be clamped)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	m = newModel.(Model)
+	if m.helpScrollOffset != 1000 {
+		t.Errorf("Expected helpScrollOffset to be 1000 (before clamping) after G, got %d", m.helpScrollOffset)
+	}
+}
+
+// Test help view closes with ?, q, or esc
+func TestHelpViewCloseKeysAll(t *testing.T) {
+	tests := []struct {
+		name string
+		key  tea.KeyMsg
+	}{
+		{"question mark", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}},
+		{"q", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}},
+		{"esc", tea.KeyMsg{Type: tea.KeyEscape}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model := Model{
+				mode:   splitHelpView,
+				width:  120,
+				height: 40,
+			}
+
+			newModel, _ := model.Update(tt.key)
+			m := newModel.(Model)
+
+			if m.mode != splitView {
+				t.Errorf("Expected mode to return to splitView after pressing %s, got %v", tt.name, m.mode)
+			}
+		})
+	}
+}
+
+// Test help view displays scroll indicators when scrolled
+func TestHelpViewScrollIndicatorsDisplay(t *testing.T) {
+	// With scroll offset > 0, should show "more lines above" indicator
+	model := Model{
+		mode:             splitHelpView,
+		width:            120,
+		height:           20, // Small height
+		helpScrollOffset: 5,
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Should show scroll indicator at top
+	if !strings.Contains(helpView, "more lines above") {
+		t.Errorf("Expected help view to show 'more lines above' indicator when scrolled down")
+	}
+}
+
+// Test footer shows correct hints when panelSearchActive is true
+func TestStatusBarFilterIndicatorPresent(t *testing.T) {
+	model := Model{
+		mode:              splitView,
+		activePanel:       SessionsPanel,
+		localOnly:         true,
+		panelSearchActive: true,
+		panelSearchQuery:  "test",
+		width:             120,
+		height:            40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	// Filter indicator should be present
+	if !strings.Contains(statusBar, "[Filter:") {
+		t.Error("Expected filter indicator to be present")
+	}
+	// Local indicator should also be present
+	if !strings.Contains(statusBar, "[Local]") {
+		t.Error("Expected scope indicator to be present")
+	}
+}

@@ -496,14 +496,26 @@ func (m Model) renderBallDetailPanel(width, height int) string {
 func (m Model) renderStatusBar() string {
 	var hints []string
 
-	// Build base hints based on active panel
+	// Build contextual hints based on active panel
+	// Show the most relevant keybinds for each panel context
 	switch m.activePanel {
 	case SessionsPanel:
-		hints = []string{"Tab:panels", "j/k:nav", "a:add", "A:agent", "e:edit", "d:del", "/:filter", "i:info", "?:help", "q:quit"}
+		hints = []string{
+			"j/k:nav", "Enter:select", "a:add", "A:agent",
+			"e:edit", "d:del", "/:filter", "P:scope",
+			"i:detail", "?:help", "q:quit",
+		}
 	case BallsPanel:
-		hints = []string{"Tab:panels", "j/k:nav", "[/]:session", "Space:back", "a:add", "e:edit", "t:tag", "o:sort", "i:info", "?:help"}
+		hints = []string{
+			"j/k:nav", "s:start", "c:done", "b:block",
+			"a:add", "e:edit", "t:tag", "d:del",
+			"[/]:session", "o:sort", "?:help",
+		}
 	case ActivityPanel:
-		hints = []string{"Tab:panels", "j/k:scroll", "Ctrl+d/u:page", "gg:top", "G:bottom", "i:info", "?:help", "q:quit"}
+		hints = []string{
+			"j/k:scroll", "Ctrl+d/u:page", "gg:top", "G:bottom",
+			"Tab:panels", "i:detail", "?:help", "q:quit",
+		}
 	}
 
 	status := strings.Join(hints, " | ")

@@ -543,21 +543,21 @@ func (m Model) renderSplitHelpView() string {
 	title := titleStyle.Render("Juggler TUI - Complete Keybindings Reference")
 	b.WriteString(title + "\n\n")
 
-	// Build all help sections
+	// Build all help sections - organized by category
 	sections := []struct {
 		title string
 		items []helpItem
 	}{
 		{
-			title: "Global Navigation",
+			title: "Navigation",
 			items: []helpItem{
 				{"Tab / l", "Next panel (Sessions → Balls → Activity)"},
 				{"Shift+Tab / h", "Previous panel"},
 				{"j / ↓", "Move down / Scroll down"},
 				{"k / ↑", "Move up / Scroll up"},
 				{"Enter", "Select item / Expand"},
+				{"Space", "Go back (in Balls panel)"},
 				{"Esc", "Back / Deselect / Close"},
-				{"q / Ctrl+C", "Quit application"},
 			},
 		},
 		{
@@ -577,16 +577,14 @@ func (m Model) renderSplitHelpView() string {
 			title: "Balls Panel",
 			items: []helpItem{
 				{"j/k", "Navigate balls"},
-				{"[ / ]", "Switch session (previous / next)"},
-				{"Space", "Go back to sessions panel"},
-				{"Enter", "Select ball"},
-				{"a", "Add new ball (tagged to current session)"},
-				{"e", "Edit ball in $EDITOR (YAML format)"},
-				{"d", "Delete ball (with confirmation)"},
-				{"t", "Tag ball (add to session)"},
 				{"s", "Start ball (→ in_progress)"},
 				{"c", "Complete ball (→ complete, archives)"},
 				{"b", "Block ball (prompts for reason)"},
+				{"a", "Add new ball (tagged to current session)"},
+				{"e", "Edit ball in $EDITOR (YAML format)"},
+				{"t", "Tag ball (add to session)"},
+				{"d", "Delete ball (with confirmation)"},
+				{"[ / ]", "Switch session (previous / next)"},
 				{"o", "Toggle sort order (ID↑ → ID↓ → Priority → Activity)"},
 				{"/", "Filter balls"},
 				{"Ctrl+U", "Clear filter"},
@@ -603,12 +601,12 @@ func (m Model) renderSplitHelpView() string {
 			},
 		},
 		{
-			title: "Other",
+			title: "View Options",
 			items: []helpItem{
 				{"i", "Toggle bottom pane (activity log ↔ ball details)"},
 				{"P", "Toggle project scope (local ↔ all projects)"},
-				{"?", "Toggle this help"},
 				{"R", "Refresh / Reload data"},
+				{"?", "Toggle this help"},
 			},
 		},
 		{
@@ -623,6 +621,12 @@ func (m Model) renderSplitHelpView() string {
 			items: []helpItem{
 				{"y", "Confirm delete"},
 				{"n / Esc", "Cancel delete"},
+			},
+		},
+		{
+			title: "Quit",
+			items: []helpItem{
+				{"q / Ctrl+C", "Quit application"},
 			},
 		},
 	}
