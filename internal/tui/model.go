@@ -123,6 +123,7 @@ type Model struct {
 	activityLog        []ActivityEntry
 	activityLogOffset  int    // Scroll offset for activity log
 	lastKey            string // Last key pressed (for gg detection)
+	pendingKeySequence string // Pending key for two-key sequences (s, t, etc.)
 	helpScrollOffset   int    // Scroll offset for help view
 	ballsScrollOffset  int    // Scroll offset for balls panel viewport
 	detailScrollOffset int    // Scroll offset for ball detail panel
@@ -234,7 +235,7 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 			"pending":     true,
 			"in_progress": true,
 			"blocked":     true,
-			"complete":    true,
+			"complete":    false, // Hidden by default
 		},
 		cursor:        0,
 		sessionCursor: 0,

@@ -626,15 +626,33 @@ func (m Model) renderSplitHelpView() string {
 			},
 		},
 		{
-			title: "Balls Panel",
+			title: "Balls Panel - State Changes (s + key)",
+			items: []helpItem{
+				{"s", "Start two-key state change sequence:"},
+				{"  sc", "  Complete ball (→ complete, archives)"},
+				{"  ss", "  Start ball (→ in_progress)"},
+				{"  sb", "  Block ball (prompts for reason)"},
+				{"  sp", "  Set to pending"},
+				{"  sa", "  Archive completed ball"},
+			},
+		},
+		{
+			title: "Balls Panel - Toggle Filters (t + key)",
+			items: []helpItem{
+				{"t", "Start two-key toggle filter sequence:"},
+				{"  tc", "  Toggle complete balls visibility"},
+				{"  tb", "  Toggle blocked balls visibility"},
+				{"  ti", "  Toggle in_progress balls visibility"},
+				{"  tp", "  Toggle pending balls visibility"},
+				{"  ta", "  Show all states"},
+			},
+		},
+		{
+			title: "Balls Panel - Other Actions",
 			items: []helpItem{
 				{"j/k", "Navigate balls"},
-				{"s", "Start ball (→ in_progress)"},
-				{"c", "Complete ball (→ complete, archives)"},
-				{"b", "Block ball (prompts for reason)"},
 				{"a", "Add new ball (tagged to current session)"},
 				{"e", "Edit ball in $EDITOR (YAML format)"},
-				{"t", "Tag ball (add to session)"},
 				{"d", "Delete ball (with confirmation)"},
 				{"[ / ]", "Switch session (previous / next)"},
 				{"o", "Toggle sort order (ID↑ → ID↓ → Priority → Activity)"},

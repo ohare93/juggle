@@ -3706,16 +3706,18 @@ func TestHelpViewContainsAllCategories(t *testing.T) {
 	model := Model{
 		mode:   splitHelpView,
 		width:  120,
-		height: 80, // Increased to show all categories
+		height: 200, // Very large to show all categories (no scrolling)
 	}
 
 	helpView := model.renderSplitHelpView()
 
-	// Check all category titles are present
+	// Check all category titles are present (Balls Panel split into multiple sections)
 	categories := []string{
 		"Navigation",
 		"Sessions Panel",
-		"Balls Panel",
+		"Balls Panel - State Changes (s + key)",
+		"Balls Panel - Toggle Filters (t + key)",
+		"Balls Panel - Other Actions",
 		"Activity Log Panel",
 		"View Options",
 		"Bottom Pane Modes",
@@ -3762,19 +3764,20 @@ func TestHelpViewContainsBallsStateBindings(t *testing.T) {
 	model := Model{
 		mode:   splitHelpView,
 		width:  120,
-		height: 60,
+		height: 80, // Increased to show more content
 	}
 
 	helpView := model.renderSplitHelpView()
 
-	// Check balls panel state change keybinds (critical for AC #3)
+	// Check balls panel state change keybinds (using two-key sequences now)
+	// State changes are now sc=complete, ss=start, sb=block
 	ballsBindings := []string{
-		"Start ball",
-		"Complete ball",
-		"Block ball",
-		"Edit ball",
-		"Tag ball",
-		"Delete ball",
+		"Start ball",     // ss
+		"Complete ball",  // sc
+		"Block ball",     // sb (prompts for reason)
+		"Edit ball",      // e key
+		"Delete ball",    // d key
+		"Archive",        // sa key
 	}
 
 	for _, binding := range ballsBindings {
@@ -6823,4 +6826,420 @@ func TestAgentProcessKillNilCancelFunc(t *testing.T) {
 	// Should not panic
 	process.cancelled.Store(true)
 	// The Kill would return early due to nil cmd
+}
+
+// =============================================================================
+// Two-Key Sequence Tests (s+key for state, t+key for toggle)
+// =============================================================================
+
+// Test pressing 's' starts pending key sequence for state changes
+func TestTwoKeySequence_S_StartsPendingSequence(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// Press 's' key
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := newModel.(Model)
+
+	if m.pendingKeySequence != "s" {
+		t.Errorf("Expected pendingKeySequence to be 's', got '%s'", m.pendingKeySequence)
+	}
+
+	// Check that message shows hint
+	if !strings.Contains(m.message, "State change") {
+		t.Errorf("Expected message to contain 'State change', got '%s'", m.message)
+	}
+}
+
+// Test pressing 't' starts pending key sequence for toggle filters
+func TestTwoKeySequence_T_StartsPendingSequence(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// Press 't' key
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	if m.pendingKeySequence != "t" {
+		t.Errorf("Expected pendingKeySequence to be 't', got '%s'", m.pendingKeySequence)
+	}
+
+	// Check that message shows hint
+	if !strings.Contains(m.message, "Toggle filter") {
+		t.Errorf("Expected message to contain 'Toggle filter', got '%s'", m.message)
+	}
+}
+
+// Test 't' key starts sequence from any panel (not just BallsPanel)
+func TestTwoKeySequence_T_WorksFromAnyPanel(t *testing.T) {
+	panels := []Panel{SessionsPanel, BallsPanel, ActivityPanel}
+
+	for _, panel := range panels {
+		model := InitialSplitModel(nil, nil, nil, true)
+		model.activePanel = panel
+
+		newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+		m := newModel.(Model)
+
+		if m.pendingKeySequence != "t" {
+			t.Errorf("Panel %v: Expected pendingKeySequence 't', got '%s'", panel, m.pendingKeySequence)
+		}
+	}
+}
+
+// Test 's' key only starts sequence when in BallsPanel
+func TestTwoKeySequence_S_OnlyWorksInBallsPanel(t *testing.T) {
+	// Test SessionsPanel - should not start sequence
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = SessionsPanel
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := newModel.(Model)
+
+	if m.pendingKeySequence != "" {
+		t.Errorf("SessionsPanel: Expected empty pendingKeySequence, got '%s'", m.pendingKeySequence)
+	}
+
+	// Test ActivityPanel - should not start sequence
+	model = InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = ActivityPanel
+
+	newModel, _ = model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = newModel.(Model)
+
+	if m.pendingKeySequence != "" {
+		t.Errorf("ActivityPanel: Expected empty pendingKeySequence, got '%s'", m.pendingKeySequence)
+	}
+}
+
+// Test toggle complete (tc) sequence
+func TestTwoKeySequence_TC_ToggleComplete(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	// By default, complete is false in the new model
+
+	// Press 't' then 'c'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	if m.pendingKeySequence != "t" {
+		t.Fatalf("Expected pendingKeySequence 't' after first key")
+	}
+
+	// Now 'c' to toggle complete
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(Model)
+
+	// Sequence should be cleared
+	if m.pendingKeySequence != "" {
+		t.Errorf("Expected pendingKeySequence to be cleared, got '%s'", m.pendingKeySequence)
+	}
+
+	// Complete filter should be toggled to true
+	if !m.filterStates["complete"] {
+		t.Error("Expected complete filter to be true after tc toggle")
+	}
+}
+
+// Test toggle blocked (tb) sequence
+func TestTwoKeySequence_TB_ToggleBlocked(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	// By default, blocked is true
+
+	// Press 't' then 'b'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	m = newModel.(Model)
+
+	// Blocked filter should be toggled to false
+	if m.filterStates["blocked"] {
+		t.Error("Expected blocked filter to be false after tb toggle")
+	}
+
+	// Toggle again - should go back to true
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m = newModel.(Model)
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	m = newModel.(Model)
+
+	if !m.filterStates["blocked"] {
+		t.Error("Expected blocked filter to be true after second tb toggle")
+	}
+}
+
+// Test toggle in_progress (ti) sequence
+func TestTwoKeySequence_TI_ToggleInProgress(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+
+	// Press 't' then 'i'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = newModel.(Model)
+
+	// In-progress should be toggled to false
+	if m.filterStates["in_progress"] {
+		t.Error("Expected in_progress filter to be false after ti toggle")
+	}
+}
+
+// Test toggle pending (tp) sequence
+func TestTwoKeySequence_TP_TogglePending(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+
+	// Press 't' then 'p'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = newModel.(Model)
+
+	// Pending should be toggled to false
+	if m.filterStates["pending"] {
+		t.Error("Expected pending filter to be false after tp toggle")
+	}
+}
+
+// Test toggle all (ta) sequence - shows all states
+func TestTwoKeySequence_TA_ShowAll(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	// Start with some filters off
+	model.filterStates["complete"] = false
+	model.filterStates["pending"] = false
+
+	// Press 't' then 'a'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	m := newModel.(Model)
+
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = newModel.(Model)
+
+	// All filters should be true
+	if !m.filterStates["complete"] {
+		t.Error("Expected complete filter to be true after ta")
+	}
+	if !m.filterStates["pending"] {
+		t.Error("Expected pending filter to be true after ta")
+	}
+	if !m.filterStates["in_progress"] {
+		t.Error("Expected in_progress filter to be true after ta")
+	}
+	if !m.filterStates["blocked"] {
+		t.Error("Expected blocked filter to be true after ta")
+	}
+}
+
+// Test Esc cancels pending key sequence
+func TestTwoKeySequence_EscCancels(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// Start 's' sequence
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := newModel.(Model)
+
+	if m.pendingKeySequence != "s" {
+		t.Fatalf("Expected pendingKeySequence 's'")
+	}
+
+	// Press Esc to cancel
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyEscape})
+	m = newModel.(Model)
+
+	if m.pendingKeySequence != "" {
+		t.Errorf("Expected pendingKeySequence cleared after Esc, got '%s'", m.pendingKeySequence)
+	}
+}
+
+// Test unknown key in state sequence shows error message
+func TestTwoKeySequence_UnknownStateKey(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+	model.pendingKeySequence = "s" // Start state sequence
+
+	// Press unknown key 'x'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m := newModel.(Model)
+
+	// Sequence should be cleared
+	if m.pendingKeySequence != "" {
+		t.Errorf("Expected pendingKeySequence cleared, got '%s'", m.pendingKeySequence)
+	}
+
+	// Message should show error hint
+	if !strings.Contains(m.message, "Unknown state") {
+		t.Errorf("Expected 'Unknown state' in message, got '%s'", m.message)
+	}
+}
+
+// Test unknown key in toggle sequence shows error message
+func TestTwoKeySequence_UnknownToggleKey(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.pendingKeySequence = "t" // Start toggle sequence
+
+	// Press unknown key 'x'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	m := newModel.(Model)
+
+	// Sequence should be cleared
+	if m.pendingKeySequence != "" {
+		t.Errorf("Expected pendingKeySequence cleared, got '%s'", m.pendingKeySequence)
+	}
+
+	// Message should show error hint
+	if !strings.Contains(m.message, "Unknown toggle") {
+		t.Errorf("Expected 'Unknown toggle' in message, got '%s'", m.message)
+	}
+}
+
+// Test that completed balls are hidden by default in split view model
+func TestCompleteBallsHiddenByDefault(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+
+	if model.filterStates["complete"] != false {
+		t.Error("Expected complete filter to be false by default")
+	}
+
+	// Other filters should be true
+	if !model.filterStates["pending"] {
+		t.Error("Expected pending filter to be true by default")
+	}
+	if !model.filterStates["in_progress"] {
+		t.Error("Expected in_progress filter to be true by default")
+	}
+	if !model.filterStates["blocked"] {
+		t.Error("Expected blocked filter to be true by default")
+	}
+}
+
+// Test handleStateKeySequence - direct function tests
+func TestHandleStateKeySequence_Complete(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// handleStateKeySequence handles 'c' for complete
+	newModel, _ := model.handleStateKeySequence("c")
+	m := newModel.(Model)
+
+	// Since no balls are loaded, it should return without error
+	// The message should not contain "Unknown state"
+	if strings.Contains(m.message, "Unknown state") {
+		t.Error("Expected no error message for valid 'c' key")
+	}
+}
+
+// Test handleStateKeySequence with invalid key
+func TestHandleStateKeySequence_InvalidKey(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	newModel, _ := model.handleStateKeySequence("z")
+	m := newModel.(Model)
+
+	if !strings.Contains(m.message, "Unknown state") {
+		t.Errorf("Expected 'Unknown state' in message for invalid key, got '%s'", m.message)
+	}
+}
+
+// Test handleToggleKeySequence - all toggle keys
+func TestHandleToggleKeySequence_AllKeys(t *testing.T) {
+	tests := []struct {
+		key          string
+		filterName   string
+		toggleResult bool // expected result after toggle from true
+	}{
+		{"c", "complete", true},  // starts false, toggles to true
+		{"b", "blocked", false},  // starts true, toggles to false
+		{"i", "in_progress", false},
+		{"p", "pending", false},
+	}
+
+	for _, tt := range tests {
+		t.Run("toggle_"+tt.key, func(t *testing.T) {
+			model := InitialSplitModel(nil, nil, nil, true)
+
+			newModel, _ := model.handleToggleKeySequence(tt.key)
+			m := newModel.(Model)
+
+			if m.filterStates[tt.filterName] != tt.toggleResult {
+				t.Errorf("Filter %s: expected %v, got %v", tt.filterName, tt.toggleResult, m.filterStates[tt.filterName])
+			}
+		})
+	}
+}
+
+// Test handleSplitSetPending sets ball to pending state
+func TestHandleSplitSetPending_EmptyBalls(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// No balls loaded, should return without error
+	newModel, cmd := model.handleSplitSetPending()
+	if cmd != nil {
+		t.Error("Expected nil cmd when no balls")
+	}
+
+	// Model should be unchanged
+	m := newModel.(Model)
+	if m.activePanel != BallsPanel {
+		t.Error("Expected activePanel to remain BallsPanel")
+	}
+}
+
+// Test handleSplitArchiveBall only archives complete balls
+func TestHandleSplitArchiveBall_NonCompleteBall(t *testing.T) {
+	// Create test setup with mock data
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.activePanel = BallsPanel
+
+	// Create a ball that is not complete
+	ball := &session.Ball{
+		ID:         "test-1",
+		Intent:     "Test ball",
+		State:      session.StatePending,
+		WorkingDir: "/tmp/test",
+	}
+	model.filteredBalls = []*session.Ball{ball}
+	model.selectedSession = &session.JuggleSession{ID: PseudoSessionAll}
+
+	newModel, cmd := model.handleSplitArchiveBall()
+	m := newModel.(Model)
+
+	// Should not archive and show error message
+	if cmd != nil {
+		t.Error("Expected nil cmd for non-complete ball")
+	}
+	if !strings.Contains(m.message, "Can only archive completed balls") {
+		t.Errorf("Expected error message about completed balls, got '%s'", m.message)
+	}
+}
+
+// Test help view contains new two-key bindings
+func TestHelpViewContainsTwoKeyBindings(t *testing.T) {
+	model := InitialSplitModel(nil, nil, nil, true)
+	model.width = 100
+	model.height = 50 // Enough height to see all content
+	model.mode = splitHelpView
+
+	helpContent := model.renderSplitHelpView()
+
+	// Check for state change section
+	if !strings.Contains(helpContent, "State Changes (s + key)") {
+		t.Error("Help should contain 'State Changes (s + key)' section")
+	}
+
+	// Check for toggle filter section
+	if !strings.Contains(helpContent, "Toggle Filters (t + key)") {
+		t.Error("Help should contain 'Toggle Filters (t + key)' section")
+	}
+
+	// Check for specific bindings
+	bindings := []string{"sc", "ss", "sb", "sp", "sa", "tc", "tb", "ti", "tp", "ta"}
+	for _, binding := range bindings {
+		if !strings.Contains(helpContent, binding) {
+			t.Errorf("Help should contain '%s' keybinding", binding)
+		}
+	}
 }

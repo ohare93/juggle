@@ -451,8 +451,21 @@ func (m Model) handleEditorResult(msg editorResultMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleSplitViewKey handles keyboard input for split view mode
+// Uses two-key sequences for state changes (s+key) and toggles (t+key)
 func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
+
+	// Handle two-key sequences for state changes
+	if m.pendingKeySequence == "s" {
+		m.pendingKeySequence = ""
+		return m.handleStateKeySequence(key)
+	}
+
+	// Handle two-key sequences for toggle filters
+	if m.pendingKeySequence == "t" {
+		m.pendingKeySequence = ""
+		return m.handleToggleKeySequence(key)
+	}
 
 	switch key {
 	case "ctrl+c", "q":
@@ -586,24 +599,18 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "s":
-		// Start ball
+		// Start two-key sequence for state changes (sc=complete, sb=blocked, ss=start, sp=pending, sa=archive)
 		if m.activePanel == BallsPanel {
-			return m.handleSplitStartBall()
+			m.pendingKeySequence = "s"
+			m.message = "s: State change... (c=complete, s=start, b=blocked, p=pending, a=archive)"
+			return m, nil
 		}
 		return m, nil
 
-	case "c":
-		// Complete ball
-		if m.activePanel == BallsPanel {
-			return m.handleSplitCompleteBall()
-		}
-		return m, nil
-
-	case "b":
-		// Block ball
-		if m.activePanel == BallsPanel {
-			return m.handleSplitBlockBall()
-		}
+	case "t":
+		// Start two-key sequence for toggle filters (tc=complete, tb=blocked, ti=in_progress, tp=pending)
+		m.pendingKeySequence = "t"
+		m.message = "t: Toggle filter... (c=complete, b=blocked, i=in_progress, p=pending, a=all)"
 		return m, nil
 
 	case "R":
@@ -636,13 +643,6 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "/":
 		// Open search/filter for current panel
 		return m.handlePanelSearchStart()
-
-	case "t":
-		// Edit tags for selected ball
-		if m.activePanel == BallsPanel {
-			return m.handleTagEditStart()
-		}
-		return m, nil
 
 	case "[":
 		// Switch to previous session while in balls panel
@@ -691,6 +691,153 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// handleStateKeySequence handles the second key in a state change sequence (s+key)
+func (m Model) handleStateKeySequence(key string) (tea.Model, tea.Cmd) {
+	m.message = ""
+
+	if m.activePanel != BallsPanel {
+		return m, nil
+	}
+
+	switch key {
+	case "c":
+		// sc = Complete ball
+		return m.handleSplitCompleteBall()
+	case "s":
+		// ss = Start ball (set to in_progress)
+		return m.handleSplitStartBall()
+	case "b":
+		// sb = Block ball
+		return m.handleSplitBlockBall()
+	case "p":
+		// sp = Set to pending
+		return m.handleSplitSetPending()
+	case "a":
+		// sa = Archive completed ball
+		return m.handleSplitArchiveBall()
+	case "esc":
+		// Cancel sequence
+		m.message = ""
+		return m, nil
+	default:
+		m.message = "Unknown state: " + key + " (use c/s/b/p/a)"
+		return m, nil
+	}
+}
+
+// handleToggleKeySequence handles the second key in a toggle sequence (t+key)
+func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
+	m.message = ""
+
+	switch key {
+	case "c":
+		// tc = Toggle complete visibility
+		m.filterStates["complete"] = !m.filterStates["complete"]
+		if m.filterStates["complete"] {
+			m.addActivity("Showing complete balls")
+			m.message = "Complete: visible"
+		} else {
+			m.addActivity("Hiding complete balls")
+			m.message = "Complete: hidden"
+		}
+		return m, nil
+	case "b":
+		// tb = Toggle blocked visibility
+		m.filterStates["blocked"] = !m.filterStates["blocked"]
+		if m.filterStates["blocked"] {
+			m.addActivity("Showing blocked balls")
+			m.message = "Blocked: visible"
+		} else {
+			m.addActivity("Hiding blocked balls")
+			m.message = "Blocked: hidden"
+		}
+		return m, nil
+	case "i":
+		// ti = Toggle in_progress visibility
+		m.filterStates["in_progress"] = !m.filterStates["in_progress"]
+		if m.filterStates["in_progress"] {
+			m.addActivity("Showing in-progress balls")
+			m.message = "In-progress: visible"
+		} else {
+			m.addActivity("Hiding in-progress balls")
+			m.message = "In-progress: hidden"
+		}
+		return m, nil
+	case "p":
+		// tp = Toggle pending visibility
+		m.filterStates["pending"] = !m.filterStates["pending"]
+		if m.filterStates["pending"] {
+			m.addActivity("Showing pending balls")
+			m.message = "Pending: visible"
+		} else {
+			m.addActivity("Hiding pending balls")
+			m.message = "Pending: hidden"
+		}
+		return m, nil
+	case "a":
+		// ta = Show all states
+		m.filterStates["pending"] = true
+		m.filterStates["in_progress"] = true
+		m.filterStates["blocked"] = true
+		m.filterStates["complete"] = true
+		m.addActivity("Showing all states")
+		m.message = "All states visible"
+		return m, nil
+	case "esc":
+		// Cancel sequence
+		m.message = ""
+		return m, nil
+	default:
+		m.message = "Unknown toggle: " + key + " (use c/b/i/p/a)"
+		return m, nil
+	}
+}
+
+// handleSplitSetPending sets the selected ball to pending state
+func (m Model) handleSplitSetPending() (tea.Model, tea.Cmd) {
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	ball.SetState(session.StatePending)
+	m.addActivity("Set pending: " + ball.ID)
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, ball)
+}
+
+// handleSplitArchiveBall archives a completed ball
+func (m Model) handleSplitArchiveBall() (tea.Model, tea.Cmd) {
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+
+	// Only archive completed balls
+	if ball.State != session.StateComplete {
+		m.message = "Can only archive completed balls (use sc first)"
+		return m, nil
+	}
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	m.addActivity("Archiving ball: " + ball.ID)
+	return m, archiveBall(store, ball)
 }
 
 // handleSplitViewNavUp handles up navigation in split view
