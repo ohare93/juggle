@@ -6338,3 +6338,286 @@ func TestHKeyOpensHistory(t *testing.T) {
 		t.Errorf("Expected loading message, got: %s", m.message)
 	}
 }
+
+// === Agent Output Vim Keybinding Tests ===
+
+// Test j/k keys route to agent output panel when visible
+func TestVimKeybindsRouteToAgentOutputWhenVisible(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: true,
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		height:             30,
+	}
+
+	// Test 'j' routes to agent output scroll down
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m := newModel.(Model)
+	if m.agentOutputOffset != 11 {
+		t.Errorf("Expected agentOutputOffset to be 11 after 'j' key, got %d", m.agentOutputOffset)
+	}
+
+	// Test 'k' routes to agent output scroll up
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = newModel.(Model)
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to be 10 after 'k' key, got %d", m.agentOutputOffset)
+	}
+
+	// Test 'down' routes to agent output scroll down
+	model.agentOutputOffset = 10
+	newModel, _ = model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.agentOutputOffset != 11 {
+		t.Errorf("Expected agentOutputOffset to be 11 after 'down' key, got %d", m.agentOutputOffset)
+	}
+
+	// Test 'up' routes to agent output scroll up
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyUp})
+	m = newModel.(Model)
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to be 10 after 'up' key, got %d", m.agentOutputOffset)
+	}
+}
+
+// Test ctrl+d routes to agent output page down when visible
+func TestCtrlDRoutesToAgentOutputWhenVisible(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: true,
+		agentOutput:        make([]AgentOutputEntry, 100),
+		agentOutputOffset:  0,
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m := newModel.(Model)
+
+	expectedPageSize := model.getAgentOutputVisibleLines() / 2
+	if m.agentOutputOffset != expectedPageSize {
+		t.Errorf("Expected agentOutputOffset to be %d after ctrl+d, got %d", expectedPageSize, m.agentOutputOffset)
+	}
+}
+
+// Test ctrl+u routes to agent output page up when visible
+func TestCtrlURoutesToAgentOutputWhenVisible(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: true,
+		agentOutput:        make([]AgentOutputEntry, 100),
+		agentOutputOffset:  20,
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m := newModel.(Model)
+
+	expectedPageSize := model.getAgentOutputVisibleLines() / 2
+	expectedOffset := 20 - expectedPageSize
+	if m.agentOutputOffset != expectedOffset {
+		t.Errorf("Expected agentOutputOffset to be %d after ctrl+u, got %d", expectedOffset, m.agentOutputOffset)
+	}
+}
+
+// Test gg routes to agent output go to top when visible
+func TestGGRoutesToAgentOutputWhenVisible(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: true,
+		agentOutput:        make([]AgentOutputEntry, 100),
+		agentOutputOffset:  50,
+		height:             30,
+	}
+
+	// First 'g' sets lastKey
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m := newModel.(Model)
+	if m.lastKey != "g" {
+		t.Error("Expected lastKey to be 'g' after first g press")
+	}
+	if m.agentOutputOffset != 50 {
+		t.Errorf("Expected agentOutputOffset to still be 50, got %d", m.agentOutputOffset)
+	}
+
+	// Second 'g' triggers go to top
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m = newModel.(Model)
+	if m.agentOutputOffset != 0 {
+		t.Errorf("Expected agentOutputOffset to be 0 after gg, got %d", m.agentOutputOffset)
+	}
+	if m.lastKey != "" {
+		t.Errorf("Expected lastKey to be cleared after gg, got '%s'", m.lastKey)
+	}
+}
+
+// Test G routes to agent output go to bottom when visible
+func TestGRoutesToAgentOutputWhenVisible(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: true,
+		agentOutput:        make([]AgentOutputEntry, 100),
+		agentOutputOffset:  0,
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	m := newModel.(Model)
+
+	maxOffset := model.getAgentOutputMaxOffset()
+	if m.agentOutputOffset != maxOffset {
+		t.Errorf("Expected agentOutputOffset to be %d after G, got %d", maxOffset, m.agentOutputOffset)
+	}
+}
+
+// Test keys pass through to normal navigation when agent output is hidden
+func TestVimKeybindsPassThroughWhenAgentOutputHidden(t *testing.T) {
+	testBalls := []*session.Ball{
+		{ID: "ball-1"}, {ID: "ball-2"}, {ID: "ball-3"},
+		{ID: "ball-4"}, {ID: "ball-5"}, {ID: "ball-6"},
+		{ID: "ball-7"}, {ID: "ball-8"}, {ID: "ball-9"},
+	}
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel,
+		agentOutputVisible: false, // Hidden
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		cursor:             5,
+		balls:              testBalls,
+		filteredBalls:      testBalls, // Need filteredBalls for getBallsForSession
+		height:             30,
+	}
+
+	// Test 'j' passes through to normal navigation (moves cursor down in balls panel)
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m := newModel.(Model)
+
+	// Agent output offset should not change
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to stay at 10, got %d", m.agentOutputOffset)
+	}
+	// Cursor should have moved
+	if m.cursor != 6 {
+		t.Errorf("Expected cursor to be 6 after 'j' key, got %d", m.cursor)
+	}
+}
+
+// Test ctrl+d passes through to activity log when agent output is hidden
+func TestCtrlDPassesThroughWhenAgentOutputHidden(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        ActivityPanel,
+		agentOutputVisible: false, // Hidden
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		activityLogOffset:  0,
+		activityLog:        make([]ActivityEntry, 100),
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m := newModel.(Model)
+
+	// Agent output offset should not change
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to stay at 10, got %d", m.agentOutputOffset)
+	}
+	// Activity log offset should have changed
+	if m.activityLogOffset == 0 {
+		t.Error("Expected activityLogOffset to change after ctrl+d in activity panel")
+	}
+}
+
+// Test ctrl+u passes through when agent output is hidden and not in activity panel
+func TestCtrlUClearsFilterWhenAgentOutputHidden(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        BallsPanel, // Not activity panel
+		agentOutputVisible: false,      // Hidden
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		panelSearchQuery:   "test",
+		panelSearchActive:  true,
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m := newModel.(Model)
+
+	// Agent output offset should not change
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to stay at 10, got %d", m.agentOutputOffset)
+	}
+	// Filter should be cleared
+	if m.panelSearchQuery != "" {
+		t.Errorf("Expected panelSearchQuery to be cleared, got '%s'", m.panelSearchQuery)
+	}
+	if m.panelSearchActive {
+		t.Error("Expected panelSearchActive to be false")
+	}
+}
+
+// Test gg passes through to activity log when agent output is hidden
+func TestGGPassesThroughWhenAgentOutputHidden(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        ActivityPanel,
+		agentOutputVisible: false, // Hidden
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		activityLogOffset:  50,
+		activityLog:        make([]ActivityEntry, 100),
+		height:             30,
+	}
+
+	// First 'g'
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m := newModel.(Model)
+	if m.lastKey != "g" {
+		t.Error("Expected lastKey to be 'g' after first g press")
+	}
+
+	// Second 'g' - should go to top of activity log
+	newModel, _ = m.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	m = newModel.(Model)
+	if m.activityLogOffset != 0 {
+		t.Errorf("Expected activityLogOffset to be 0 after gg, got %d", m.activityLogOffset)
+	}
+	// Agent output offset should not change
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to stay at 10, got %d", m.agentOutputOffset)
+	}
+}
+
+// Test G passes through to activity log when agent output is hidden
+func TestGPassesThroughWhenAgentOutputHidden(t *testing.T) {
+	model := Model{
+		mode:               splitView,
+		activePanel:        ActivityPanel,
+		agentOutputVisible: false, // Hidden
+		agentOutput:        make([]AgentOutputEntry, 50),
+		agentOutputOffset:  10,
+		activityLogOffset:  0,
+		activityLog:        make([]ActivityEntry, 100),
+		height:             30,
+	}
+
+	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	m := newModel.(Model)
+
+	// Activity log offset should have changed
+	maxOffset := m.getActivityLogMaxOffset()
+	if m.activityLogOffset != maxOffset {
+		t.Errorf("Expected activityLogOffset to be %d, got %d", maxOffset, m.activityLogOffset)
+	}
+	// Agent output offset should not change
+	if m.agentOutputOffset != 10 {
+		t.Errorf("Expected agentOutputOffset to stay at 10, got %d", m.agentOutputOffset)
+	}
+}

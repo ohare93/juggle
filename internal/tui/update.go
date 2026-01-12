@@ -476,13 +476,25 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "up", "k":
 		m.message = ""
+		// Route to agent output panel if visible
+		if m.agentOutputVisible {
+			return m.handleAgentOutputScrollUp()
+		}
 		return m.handleSplitViewNavUp()
 
 	case "down", "j":
 		m.message = ""
+		// Route to agent output panel if visible
+		if m.agentOutputVisible {
+			return m.handleAgentOutputScrollDown()
+		}
 		return m.handleSplitViewNavDown()
 
 	case "ctrl+d":
+		// Page down in agent output panel if visible
+		if m.agentOutputVisible {
+			return m.handleAgentOutputPageDown()
+		}
 		// Page down in activity log
 		if m.activePanel == ActivityPanel {
 			return m.handleActivityLogPageDown()
@@ -490,6 +502,10 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "ctrl+u":
+		// Page up in agent output panel if visible
+		if m.agentOutputVisible {
+			return m.handleAgentOutputPageUp()
+		}
 		// Page up in activity log (or clear filter in other panels)
 		if m.activePanel == ActivityPanel {
 			return m.handleActivityLogPageUp()
@@ -502,6 +518,15 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "g":
+		// Handle gg for go to top of agent output panel if visible
+		if m.agentOutputVisible {
+			if m.lastKey == "g" {
+				m.lastKey = ""
+				return m.handleAgentOutputGoToTop()
+			}
+			m.lastKey = "g"
+			return m, nil
+		}
 		// Handle gg for go to top of activity log
 		if m.activePanel == ActivityPanel {
 			if m.lastKey == "g" {
@@ -514,6 +539,11 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "G":
+		// Go to bottom of agent output panel if visible
+		if m.agentOutputVisible {
+			m.lastKey = ""
+			return m.handleAgentOutputGoToBottom()
+		}
 		// Go to bottom of activity log
 		if m.activePanel == ActivityPanel {
 			m.lastKey = ""
