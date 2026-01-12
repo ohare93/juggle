@@ -105,7 +105,7 @@ func TestValidateModelSize(t *testing.T) {
 func TestBall_SetModelSize(t *testing.T) {
 	ball := &Ball{
 		ID:       "test-1",
-		Intent:   "Test ball",
+		Title:    "Test ball",
 		Priority: PriorityMedium,
 		State:    StatePending,
 	}
@@ -149,6 +149,119 @@ func TestBall_ModelSize_JSON(t *testing.T) {
 
 	if balls[0].ModelSize != ModelSizeLarge {
 		t.Errorf("expected ModelSize 'large' after reload, got '%s'", balls[0].ModelSize)
+	}
+}
+
+func TestBall_ContextAndTitle_JSON(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create ball with context and title
+	ball, _ := NewBall(tmpDir, "Test ball title", PriorityMedium)
+	ball.Context = "This is the context for the ball"
+
+	if err := store.AppendBall(ball); err != nil {
+		t.Fatalf("failed to save ball: %v", err)
+	}
+
+	// Load balls back
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	if balls[0].Title != "Test ball title" {
+		t.Errorf("expected Title 'Test ball title' after reload, got '%s'", balls[0].Title)
+	}
+
+	if balls[0].Context != "This is the context for the ball" {
+		t.Errorf("expected Context 'This is the context for the ball' after reload, got '%s'", balls[0].Context)
+	}
+}
+
+func TestBall_IntentToTitle_Migration(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Manually write a legacy ball with "intent" field instead of "title"
+	legacyJSON := `{"id":"test-legacy-1","intent":"Legacy intent value","priority":"medium","state":"pending","started_at":"2024-01-01T00:00:00Z","last_activity":"2024-01-01T00:00:00Z","update_count":0}`
+	ballsPath := filepath.Join(tmpDir, ".juggler", "balls.jsonl")
+	if err := os.WriteFile(ballsPath, []byte(legacyJSON+"\n"), 0644); err != nil {
+		t.Fatalf("failed to write legacy ball: %v", err)
+	}
+
+	// Load balls - should migrate intent to title
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	if balls[0].Title != "Legacy intent value" {
+		t.Errorf("expected Title 'Legacy intent value' after migration, got '%s'", balls[0].Title)
+	}
+
+	// Context should default to empty for migrated balls
+	if balls[0].Context != "" {
+		t.Errorf("expected Context to be empty for migrated ball, got '%s'", balls[0].Context)
+	}
+}
+
+func TestBall_MigrationPreservesTitle(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Write a ball that has both intent and title - title should take precedence
+	mixedJSON := `{"id":"test-mixed-1","intent":"Old intent","title":"New title","priority":"medium","state":"pending","started_at":"2024-01-01T00:00:00Z","last_activity":"2024-01-01T00:00:00Z","update_count":0}`
+	ballsPath := filepath.Join(tmpDir, ".juggler", "balls.jsonl")
+	if err := os.WriteFile(ballsPath, []byte(mixedJSON+"\n"), 0644); err != nil {
+		t.Fatalf("failed to write mixed ball: %v", err)
+	}
+
+	// Load balls - title should be preferred over intent
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	// Title should be the new value, not the old intent
+	if balls[0].Title != "New title" {
+		t.Errorf("expected Title 'New title' to be preserved, got '%s'", balls[0].Title)
 	}
 }
 

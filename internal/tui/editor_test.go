@@ -29,13 +29,13 @@ func TestBallToYAML(t *testing.T) {
 			name: "basic ball",
 			ball: &session.Ball{
 				ID:       "test-1",
-				Intent:   "Test intent",
+				Title:   "Test intent",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			},
 			contains: []string{
 				"id: test-1",
-				"intent: Test intent",
+				"title: Test intent",
 				"priority: medium",
 				"state: pending",
 			},
@@ -44,14 +44,14 @@ func TestBallToYAML(t *testing.T) {
 			name: "ball with acceptance criteria",
 			ball: &session.Ball{
 				ID:                 "test-2",
-				Intent:             "Multi-criteria task",
+				Title:             "Multi-criteria task",
 				Priority:           session.PriorityHigh,
 				State:              session.StateInProgress,
 				AcceptanceCriteria: []string{"First criterion", "Second criterion"},
 			},
 			contains: []string{
 				"id: test-2",
-				"intent: Multi-criteria task",
+				"title: Multi-criteria task",
 				"priority: high",
 				"state: in_progress",
 				"acceptance_criteria:",
@@ -63,7 +63,7 @@ func TestBallToYAML(t *testing.T) {
 			name: "ball with blocked reason",
 			ball: &session.Ball{
 				ID:            "test-3",
-				Intent:        "Blocked task",
+				Title:        "Blocked task",
 				Priority:      session.PriorityLow,
 				State:         session.StateBlocked,
 				BlockedReason: "Waiting for dependency",
@@ -78,7 +78,7 @@ func TestBallToYAML(t *testing.T) {
 			name: "ball with tags",
 			ball: &session.Ball{
 				ID:       "test-4",
-				Intent:   "Tagged task",
+				Title:   "Tagged task",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 				Tags:     []string{"backend", "api"},
@@ -94,7 +94,7 @@ func TestBallToYAML(t *testing.T) {
 			name: "ball with model size",
 			ball: &session.Ball{
 				ID:        "test-5",
-				Intent:    "Model size task",
+				Title:    "Model size task",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeLarge,
@@ -138,19 +138,19 @@ func TestYamlToBall_ValidInput(t *testing.T) {
 			name: "update intent",
 			yamlContent: `
 id: test-1
-intent: Updated intent
+title: Updated intent
 priority: medium
 state: pending
 `,
 			initialBall: &session.Ball{
 				ID:       "test-1",
-				Intent:   "Original intent",
+				Title:   "Original intent",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			},
 			expectedBall: &session.Ball{
 				ID:       "test-1",
-				Intent:   "Updated intent",
+				Title:   "Updated intent",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			},
@@ -159,19 +159,19 @@ state: pending
 			name: "update priority",
 			yamlContent: `
 id: test-2
-intent: Test task
+title: Test task
 priority: urgent
 state: pending
 `,
 			initialBall: &session.Ball{
 				ID:       "test-2",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			},
 			expectedBall: &session.Ball{
 				ID:       "test-2",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityUrgent,
 				State:    session.StatePending,
 			},
@@ -180,19 +180,19 @@ state: pending
 			name: "update state",
 			yamlContent: `
 id: test-3
-intent: Test task
+title: Test task
 priority: medium
 state: in_progress
 `,
 			initialBall: &session.Ball{
 				ID:       "test-3",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			},
 			expectedBall: &session.Ball{
 				ID:       "test-3",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityMedium,
 				State:    session.StateInProgress,
 			},
@@ -201,7 +201,7 @@ state: in_progress
 			name: "update acceptance criteria",
 			yamlContent: `
 id: test-4
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 acceptance_criteria:
@@ -210,14 +210,14 @@ acceptance_criteria:
 `,
 			initialBall: &session.Ball{
 				ID:                 "test-4",
-				Intent:             "Test task",
+				Title:             "Test task",
 				Priority:           session.PriorityMedium,
 				State:              session.StatePending,
 				AcceptanceCriteria: []string{"Old criterion"},
 			},
 			expectedBall: &session.Ball{
 				ID:                 "test-4",
-				Intent:             "Test task",
+				Title:             "Test task",
 				Priority:           session.PriorityMedium,
 				State:              session.StatePending,
 				AcceptanceCriteria: []string{"New criterion 1", "New criterion 2"},
@@ -227,7 +227,7 @@ acceptance_criteria:
 			name: "update tags",
 			yamlContent: `
 id: test-5
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 tags:
@@ -236,14 +236,14 @@ tags:
 `,
 			initialBall: &session.Ball{
 				ID:       "test-5",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 				Tags:     []string{"old-tag"},
 			},
 			expectedBall: &session.Ball{
 				ID:       "test-5",
-				Intent:   "Test task",
+				Title:   "Test task",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 				Tags:     []string{"new-tag", "another-tag"},
@@ -253,21 +253,21 @@ tags:
 			name: "update blocked reason",
 			yamlContent: `
 id: test-6
-intent: Blocked task
+title: Blocked task
 priority: medium
 state: blocked
 blocked_reason: New blocking reason
 `,
 			initialBall: &session.Ball{
 				ID:            "test-6",
-				Intent:        "Blocked task",
+				Title:        "Blocked task",
 				Priority:      session.PriorityMedium,
 				State:         session.StateBlocked,
 				BlockedReason: "Old reason",
 			},
 			expectedBall: &session.Ball{
 				ID:            "test-6",
-				Intent:        "Blocked task",
+				Title:        "Blocked task",
 				Priority:      session.PriorityMedium,
 				State:         session.StateBlocked,
 				BlockedReason: "New blocking reason",
@@ -277,21 +277,21 @@ blocked_reason: New blocking reason
 			name: "update model size",
 			yamlContent: `
 id: test-7
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 model_size: small
 `,
 			initialBall: &session.Ball{
 				ID:        "test-7",
-				Intent:    "Test task",
+				Title:    "Test task",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeLarge,
 			},
 			expectedBall: &session.Ball{
 				ID:        "test-7",
-				Intent:    "Test task",
+				Title:    "Test task",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeSmall,
@@ -301,21 +301,21 @@ model_size: small
 			name: "clear model size with empty string",
 			yamlContent: `
 id: test-8
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 model_size: ""
 `,
 			initialBall: &session.Ball{
 				ID:        "test-8",
-				Intent:    "Test task",
+				Title:    "Test task",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeLarge,
 			},
 			expectedBall: &session.Ball{
 				ID:        "test-8",
-				Intent:    "Test task",
+				Title:    "Test task",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeBlank,
@@ -334,8 +334,8 @@ model_size: ""
 			}
 
 			// Check fields
-			if ball.Intent != tt.expectedBall.Intent {
-				t.Errorf("Intent = %q, want %q", ball.Intent, tt.expectedBall.Intent)
+			if ball.Title != tt.expectedBall.Title {
+				t.Errorf("Intent = %q, want %q", ball.Title, tt.expectedBall.Title)
 			}
 			if ball.Priority != tt.expectedBall.Priority {
 				t.Errorf("Priority = %q, want %q", ball.Priority, tt.expectedBall.Priority)
@@ -385,7 +385,7 @@ func TestYamlToBall_InvalidInput(t *testing.T) {
 			name: "invalid priority",
 			yamlContent: `
 id: test-1
-intent: Test task
+title: Test task
 priority: invalid_priority
 state: pending
 `,
@@ -395,7 +395,7 @@ state: pending
 			name: "invalid state",
 			yamlContent: `
 id: test-2
-intent: Test task
+title: Test task
 priority: medium
 state: invalid_state
 `,
@@ -405,7 +405,7 @@ state: invalid_state
 			name: "invalid model size",
 			yamlContent: `
 id: test-3
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 model_size: extra_large
@@ -423,7 +423,7 @@ model_size: extra_large
 		t.Run(tt.name, func(t *testing.T) {
 			ball := &session.Ball{
 				ID:       "test",
-				Intent:   "Test",
+				Title:   "Test",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			}
@@ -443,13 +443,13 @@ func TestYamlToBall_PreservesID(t *testing.T) {
 	// Verify that ID cannot be changed through YAML editing
 	yamlContent := `
 id: new-id-attempt
-intent: Test task
+title: Test task
 priority: medium
 state: pending
 `
 	ball := &session.Ball{
 		ID:       "original-id",
-		Intent:   "Original",
+		Title:   "Original",
 		Priority: session.PriorityMedium,
 		State:    session.StatePending,
 	}
@@ -469,7 +469,7 @@ func TestBallToYAML_RoundTrip(t *testing.T) {
 	// Test that a ball can be converted to YAML and back without data loss
 	originalBall := &session.Ball{
 		ID:                 "roundtrip-1",
-		Intent:             "Roundtrip test task",
+		Title:             "Roundtrip test task",
 		Priority:           session.PriorityHigh,
 		State:              session.StateBlocked,
 		BlockedReason:      "Test blocker",
@@ -492,8 +492,8 @@ func TestBallToYAML_RoundTrip(t *testing.T) {
 	}
 
 	// Verify all fields match
-	if parsedBall.Intent != originalBall.Intent {
-		t.Errorf("Intent mismatch: got %q, want %q", parsedBall.Intent, originalBall.Intent)
+	if parsedBall.Title != originalBall.Title {
+		t.Errorf("Intent mismatch: got %q, want %q", parsedBall.Title, originalBall.Title)
 	}
 	if parsedBall.Priority != originalBall.Priority {
 		t.Errorf("Priority mismatch: got %q, want %q", parsedBall.Priority, originalBall.Priority)
@@ -533,7 +533,7 @@ func TestBallToYAML_RoundTrip(t *testing.T) {
 func TestHandleEditorResult_Success(t *testing.T) {
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Original intent",
+		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test-project",
@@ -545,7 +545,7 @@ func TestHandleEditorResult_Success(t *testing.T) {
 
 	editedYAML := `
 id: test-1
-intent: Updated intent
+title: Updated intent
 priority: high
 state: in_progress
 `
@@ -563,8 +563,8 @@ state: in_progress
 	updatedModel := newModel.(Model)
 
 	// The ball should have been updated
-	if ball.Intent != "Updated intent" {
-		t.Errorf("Ball intent not updated: got %q, want %q", ball.Intent, "Updated intent")
+	if ball.Title != "Updated intent" {
+		t.Errorf("Ball intent not updated: got %q, want %q", ball.Title, "Updated intent")
 	}
 	if ball.Priority != session.PriorityHigh {
 		t.Errorf("Ball priority not updated: got %q, want %q", ball.Priority, session.PriorityHigh)
@@ -582,7 +582,7 @@ state: in_progress
 func TestHandleEditorResult_Cancelled(t *testing.T) {
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Original intent",
+		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test-project",
@@ -601,8 +601,8 @@ func TestHandleEditorResult_Cancelled(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Ball should not have changed
-	if ball.Intent != "Original intent" {
-		t.Errorf("Ball intent should not have changed on cancel: got %q", ball.Intent)
+	if ball.Title != "Original intent" {
+		t.Errorf("Ball intent should not have changed on cancel: got %q", ball.Title)
 	}
 
 	// Check message indicates cancellation
@@ -614,7 +614,7 @@ func TestHandleEditorResult_Cancelled(t *testing.T) {
 func TestHandleEditorResult_Error(t *testing.T) {
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Original intent",
+		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test-project",
@@ -633,8 +633,8 @@ func TestHandleEditorResult_Error(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Ball should not have changed
-	if ball.Intent != "Original intent" {
-		t.Errorf("Ball intent should not have changed on error: got %q", ball.Intent)
+	if ball.Title != "Original intent" {
+		t.Errorf("Ball intent should not have changed on error: got %q", ball.Title)
 	}
 
 	// Check message indicates error
@@ -646,7 +646,7 @@ func TestHandleEditorResult_Error(t *testing.T) {
 func TestHandleEditorResult_ParseError(t *testing.T) {
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Original intent",
+		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test-project",
@@ -667,8 +667,8 @@ func TestHandleEditorResult_ParseError(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Ball should not have changed
-	if ball.Intent != "Original intent" {
-		t.Errorf("Ball intent should not have changed on parse error: got %q", ball.Intent)
+	if ball.Title != "Original intent" {
+		t.Errorf("Ball intent should not have changed on parse error: got %q", ball.Title)
 	}
 
 	// Check message indicates parse error
@@ -739,7 +739,7 @@ func TestBallYAMLStruct(t *testing.T) {
 	// Test that BallYAML struct has all expected fields
 	yamlBall := BallYAML{
 		ID:                 "test-id",
-		Intent:             "test intent",
+		Title:             "test intent",
 		Priority:           "high",
 		State:              "pending",
 		BlockedReason:      "test reason",
@@ -751,8 +751,8 @@ func TestBallYAMLStruct(t *testing.T) {
 	if yamlBall.ID != "test-id" {
 		t.Errorf("ID = %q, want %q", yamlBall.ID, "test-id")
 	}
-	if yamlBall.Intent != "test intent" {
-		t.Errorf("Intent = %q, want %q", yamlBall.Intent, "test intent")
+	if yamlBall.Title != "test intent" {
+		t.Errorf("Intent = %q, want %q", yamlBall.Title, "test intent")
 	}
 	if yamlBall.Priority != "high" {
 		t.Errorf("Priority = %q, want %q", yamlBall.Priority, "high")
@@ -778,7 +778,7 @@ func TestEditKeyInSplitView(t *testing.T) {
 	// Test that 'e' key opens the unified ball form (not editor)
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Test task",
+		Title:     "Test task",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test",
@@ -821,8 +821,8 @@ func TestEditKeyInSplitView(t *testing.T) {
 	}
 
 	// Verify form was prepopulated with ball values
-	if updatedModel.pendingBallIntent != ball.Intent {
-		t.Errorf("Expected pendingBallIntent to be %q, got %q", ball.Intent, updatedModel.pendingBallIntent)
+	if updatedModel.pendingBallIntent != ball.Title {
+		t.Errorf("Expected pendingBallIntent to be %q, got %q", ball.Title, updatedModel.pendingBallIntent)
 	}
 
 	// Check that activity log was updated
@@ -835,7 +835,7 @@ func TestShiftEKeyOpenEditorInSplitView(t *testing.T) {
 	// Test that 'E' key (uppercase) opens the editor
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Test task",
+		Title:     "Test task",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test",
@@ -896,14 +896,14 @@ func TestYamlToBall_AllStates(t *testing.T) {
 		t.Run(s.yamlState, func(t *testing.T) {
 			yamlContent := fmt.Sprintf(`
 id: test
-intent: Test
+title: Test
 priority: medium
 state: %s
 `, s.yamlState)
 
 			ball := &session.Ball{
 				ID:       "test",
-				Intent:   "Test",
+				Title:   "Test",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			}
@@ -935,14 +935,14 @@ func TestYamlToBall_AllPriorities(t *testing.T) {
 		t.Run(p.yamlPriority, func(t *testing.T) {
 			yamlContent := fmt.Sprintf(`
 id: test
-intent: Test
+title: Test
 priority: %s
 state: pending
 `, p.yamlPriority)
 
 			ball := &session.Ball{
 				ID:       "test",
-				Intent:   "Test",
+				Title:   "Test",
 				Priority: session.PriorityMedium,
 				State:    session.StatePending,
 			}
@@ -980,14 +980,14 @@ func TestYamlToBall_AllModelSizes(t *testing.T) {
 			if s.yamlSize == "" {
 				yamlContent = `
 id: test
-intent: Test
+title: Test
 priority: medium
 state: pending
 `
 			} else {
 				yamlContent = fmt.Sprintf(`
 id: test
-intent: Test
+title: Test
 priority: medium
 state: pending
 model_size: %s
@@ -996,7 +996,7 @@ model_size: %s
 
 			ball := &session.Ball{
 				ID:        "test",
-				Intent:    "Test",
+				Title:    "Test",
 				Priority:  session.PriorityMedium,
 				State:     session.StatePending,
 				ModelSize: session.ModelSizeLarge, // Start with different value
@@ -1016,13 +1016,13 @@ model_size: %s
 func TestYamlToBall_UpdatesActivity(t *testing.T) {
 	yamlContent := `
 id: test
-intent: Test
+title: Test
 priority: medium
 state: pending
 `
 	ball := &session.Ball{
 		ID:           "test",
-		Intent:       "Test",
+		Title:       "Test",
 		Priority:     session.PriorityMedium,
 		State:        session.StatePending,
 		LastActivity: time.Time{}, // Zero time
@@ -1048,7 +1048,7 @@ func TestBallToYAML_ShowsAllFieldsEvenWhenEmpty(t *testing.T) {
 	// Test that all fields are shown in YAML even when empty
 	ball := &session.Ball{
 		ID:                 "test-1",
-		Intent:             "Test task",
+		Title:             "Test task",
 		Priority:           session.PriorityMedium,
 		State:              session.StatePending,
 		BlockedReason:      "",    // Empty
@@ -1065,7 +1065,7 @@ func TestBallToYAML_ShowsAllFieldsEvenWhenEmpty(t *testing.T) {
 	// All fields should be present
 	requiredFields := []string{
 		"id:",
-		"intent:",
+		"title:",
 		"priority:",
 		"state:",
 		"blocked_reason:",
@@ -1085,13 +1085,13 @@ func TestYamlToBall_EmptyValuesPreserveRequired(t *testing.T) {
 	// Test that empty required fields preserve existing values
 	yamlContent := `
 id: test
-intent: ""
+title: ""
 priority: ""
 state: ""
 `
 	ball := &session.Ball{
 		ID:       "test",
-		Intent:   "Original Intent",
+		Title:   "Original Intent",
 		Priority: session.PriorityHigh,
 		State:    session.StateInProgress,
 	}
@@ -1102,8 +1102,8 @@ state: ""
 	}
 
 	// Required fields should keep original values
-	if ball.Intent != "Original Intent" {
-		t.Errorf("Intent should preserve original value, got %q", ball.Intent)
+	if ball.Title != "Original Intent" {
+		t.Errorf("Intent should preserve original value, got %q", ball.Title)
 	}
 	if ball.Priority != session.PriorityHigh {
 		t.Errorf("Priority should preserve original value, got %q", ball.Priority)
@@ -1117,13 +1117,13 @@ func TestYamlToBall_WhitespaceOnlyValuesPreserveRequired(t *testing.T) {
 	// Test that whitespace-only required fields preserve existing values
 	yamlContent := `
 id: test
-intent: "   "
+title: "   "
 priority: "  "
 state: "	"
 `
 	ball := &session.Ball{
 		ID:       "test",
-		Intent:   "Original Intent",
+		Title:   "Original Intent",
 		Priority: session.PriorityHigh,
 		State:    session.StateInProgress,
 	}
@@ -1134,8 +1134,8 @@ state: "	"
 	}
 
 	// Required fields should keep original values when whitespace-only
-	if ball.Intent != "Original Intent" {
-		t.Errorf("Intent should preserve original value, got %q", ball.Intent)
+	if ball.Title != "Original Intent" {
+		t.Errorf("Intent should preserve original value, got %q", ball.Title)
 	}
 	if ball.Priority != session.PriorityHigh {
 		t.Errorf("Priority should preserve original value, got %q", ball.Priority)
@@ -1149,7 +1149,7 @@ func TestYamlToBall_EmptyOptionalFieldsClear(t *testing.T) {
 	// Test that empty optional fields can clear existing values
 	yamlContent := `
 id: test
-intent: Test
+title: Test
 priority: medium
 state: pending
 blocked_reason: ""
@@ -1159,7 +1159,7 @@ model_size: ""
 `
 	ball := &session.Ball{
 		ID:                 "test",
-		Intent:             "Test",
+		Title:             "Test",
 		Priority:           session.PriorityMedium,
 		State:              session.StatePending,
 		BlockedReason:      "Was blocked",
@@ -1192,7 +1192,7 @@ func TestYamlToBall_TrimsWhitespaceFromArrayElements(t *testing.T) {
 	// Test that whitespace is trimmed from array elements
 	yamlContent := `
 id: test
-intent: Test
+title: Test
 priority: medium
 state: pending
 tags:
@@ -1207,7 +1207,7 @@ acceptance_criteria:
 `
 	ball := &session.Ball{
 		ID:       "test",
-		Intent:   "Test",
+		Title:   "Test",
 		Priority: session.PriorityMedium,
 		State:    session.StatePending,
 	}

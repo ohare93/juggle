@@ -63,7 +63,7 @@ func runNext(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("→ Next ball: %s\n", nextBall.ID)
 	fmt.Printf("  Project: %s\n", nextBall.WorkingDir)
-	fmt.Printf("  Intent: %s\n", nextBall.Intent)
+	fmt.Printf("  Title: %s\n", nextBall.Title)
 	fmt.Printf("  State: %s\n", nextBall.State)
 	if nextBall.BlockedReason != "" {
 		fmt.Printf("  Blocked: %s\n", nextBall.BlockedReason)

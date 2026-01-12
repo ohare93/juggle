@@ -29,7 +29,7 @@ func TestExportLocal(t *testing.T) {
 	ball1 := &session.Ball{
 		ID:           "test1-1",
 		WorkingDir:   project1,
-		Intent:       "Ball in project 1",
+		Title:       "Ball in project 1",
 		Priority:     session.PriorityMedium,
 		State:        session.StateInProgress,
 		StartedAt:    time.Now(),
@@ -48,7 +48,7 @@ func TestExportLocal(t *testing.T) {
 	ball2 := &session.Ball{
 		ID:           "test2-1",
 		WorkingDir:   project2,
-		Intent:       "Ball in project 2",
+		Title:       "Ball in project 2",
 		Priority:     session.PriorityHigh,
 		State:        session.StateInProgress,
 		StartedAt:    time.Now(),
@@ -132,7 +132,7 @@ func TestExportBallIDs(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Ball 1",
+			Title:       "Ball 1",
 			Priority:     session.PriorityMedium,
 			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
@@ -141,7 +141,7 @@ func TestExportBallIDs(t *testing.T) {
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "Ball 2",
+			Title:       "Ball 2",
 			Priority:     session.PriorityHigh,
 			State:        session.StatePending,
 			StartedAt:    time.Now(),
@@ -150,7 +150,7 @@ func TestExportBallIDs(t *testing.T) {
 		{
 			ID:           "project-3",
 			WorkingDir:   project,
-			Intent:       "Ball 3",
+			Title:       "Ball 3",
 			Priority:     session.PriorityLow,
 			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
@@ -323,7 +323,7 @@ func TestExportFilterState(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Pending ball",
+			Title:       "Pending ball",
 			Priority:     session.PriorityMedium,
 			State:        session.StatePending,
 			StartedAt:    time.Now(),
@@ -332,7 +332,7 @@ func TestExportFilterState(t *testing.T) {
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "In progress ball 1",
+			Title:       "In progress ball 1",
 			Priority:     session.PriorityHigh,
 			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
@@ -341,7 +341,7 @@ func TestExportFilterState(t *testing.T) {
 		{
 			ID:           "project-3",
 			WorkingDir:   project,
-			Intent:       "In progress ball 2",
+			Title:       "In progress ball 2",
 			Priority:     session.PriorityLow,
 			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
@@ -350,7 +350,7 @@ func TestExportFilterState(t *testing.T) {
 		{
 			ID:            "project-4",
 			WorkingDir:    project,
-			Intent:        "Blocked ball",
+			Title:        "Blocked ball",
 			Priority:      session.PriorityMedium,
 			State:         session.StateBlocked,
 			BlockedReason: "waiting for input",
@@ -481,7 +481,7 @@ func TestExportIncludeDone(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Active ball",
+			Title:       "Active ball",
 			Priority:     session.PriorityMedium,
 			State:        session.StateInProgress,
 			StartedAt:    time.Now(),
@@ -490,7 +490,7 @@ func TestExportIncludeDone(t *testing.T) {
 		{
 			ID:             "project-2",
 			WorkingDir:     project,
-			Intent:         "Completed ball",
+			Title:         "Completed ball",
 			Priority:       session.PriorityHigh,
 			State:          session.StateComplete,
 			StartedAt:      time.Now().Add(-1 * time.Hour),
@@ -547,7 +547,7 @@ func TestExportCSVFormat(t *testing.T) {
 	ball := &session.Ball{
 		ID:                 "project-1",
 		WorkingDir:         project,
-		Intent:             "Ball with acceptance criteria",
+		Title:             "Ball with acceptance criteria",
 		Priority:           session.PriorityHigh,
 		State:              session.StateInProgress,
 		StartedAt:          time.Now(),
@@ -658,7 +658,7 @@ func exportToCSV(balls []*session.Ball) ([]byte, error) {
 		row := []string{
 			ball.ID,
 			ball.WorkingDir,
-			ball.Intent,
+			ball.Title,
 			string(ball.Priority),
 			string(ball.State),
 			ball.BlockedReason,
@@ -695,7 +695,7 @@ func TestExportJSONFormat(t *testing.T) {
 	ball := &session.Ball{
 		ID:           "project-1",
 		WorkingDir:   project,
-		Intent:       "Test ball",
+		Title:       "Test ball",
 		Priority:     session.PriorityMedium,
 		State:        session.StatePending,
 		StartedAt:    time.Now(),
@@ -796,7 +796,7 @@ func TestExportRalphFormat(t *testing.T) {
 		{
 			ID:                 "project-1",
 			WorkingDir:         project,
-			Intent:             "Implement feature A",
+			Title:             "Implement feature A",
 			Priority:           session.PriorityHigh,
 			State:              session.StateInProgress,
 			StartedAt:          time.Now(),
@@ -807,7 +807,7 @@ func TestExportRalphFormat(t *testing.T) {
 		{
 			ID:            "project-2",
 			WorkingDir:    project,
-			Intent:        "Implement feature B",
+			Title:        "Implement feature B",
 			Priority:      session.PriorityMedium,
 			State:         session.StateBlocked,
 			BlockedReason: "waiting for API spec",
@@ -868,7 +868,7 @@ func TestExportRalphFormat(t *testing.T) {
 	if !strings.Contains(outputStr, "## project-1 [in_progress] (priority: high)") {
 		t.Error("Missing task header for project-1")
 	}
-	if !strings.Contains(outputStr, "Intent: Implement feature A") {
+	if !strings.Contains(outputStr, "Title: Implement feature A") {
 		t.Error("Missing intent for project-1")
 	}
 	if !strings.Contains(outputStr, "Design API completed") {
@@ -951,7 +951,7 @@ func exportToRalph(projectDir, sessionID string, balls []*session.Ball) ([]byte,
 // writeBallForRalphTest writes a single ball in Ralph format (test helper)
 func writeBallForRalphTest(buf *strings.Builder, ball *session.Ball) {
 	buf.WriteString("## " + ball.ID + " [" + string(ball.State) + "] (priority: " + string(ball.Priority) + ")\n")
-	buf.WriteString("Intent: " + ball.Intent + "\n")
+	buf.WriteString("Title: " + ball.Title + "\n")
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 		buf.WriteString("Blocked: " + ball.BlockedReason + "\n")
 	}
@@ -981,7 +981,7 @@ func TestExportSessionWithAllFlag(t *testing.T) {
 	ball1 := &session.Ball{
 		ID:           "project1-1",
 		WorkingDir:   project1,
-		Intent:       "Feature A in project 1",
+		Title:       "Feature A in project 1",
 		Priority:     session.PriorityMedium,
 		State:        session.StateInProgress,
 		Tags:         []string{"shared-session"},
@@ -996,7 +996,7 @@ func TestExportSessionWithAllFlag(t *testing.T) {
 	ball1NoSession := &session.Ball{
 		ID:           "project1-2",
 		WorkingDir:   project1,
-		Intent:       "Unrelated feature in project 1",
+		Title:       "Unrelated feature in project 1",
 		Priority:     session.PriorityLow,
 		State:        session.StatePending,
 		Tags:         []string{"other-tag"},
@@ -1016,7 +1016,7 @@ func TestExportSessionWithAllFlag(t *testing.T) {
 	ball2 := &session.Ball{
 		ID:           "project2-1",
 		WorkingDir:   project2,
-		Intent:       "Feature B in project 2",
+		Title:       "Feature B in project 2",
 		Priority:     session.PriorityHigh,
 		State:        session.StateInProgress,
 		Tags:         []string{"shared-session"},
@@ -1164,7 +1164,7 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Pending urgent ball",
+			Title:       "Pending urgent ball",
 			Priority:     session.PriorityUrgent,
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1174,7 +1174,7 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "In progress low priority ball",
+			Title:       "In progress low priority ball",
 			Priority:     session.PriorityLow,
 			State:        session.StateInProgress,
 			Tags:         []string{"test-session"},
@@ -1184,7 +1184,7 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 		{
 			ID:           "project-3",
 			WorkingDir:   project,
-			Intent:       "Blocked high priority ball",
+			Title:       "Blocked high priority ball",
 			Priority:     session.PriorityHigh,
 			State:        session.StateBlocked,
 			Tags:         []string{"test-session"},
@@ -1194,7 +1194,7 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 		{
 			ID:           "project-4",
 			WorkingDir:   project,
-			Intent:       "In progress high priority ball",
+			Title:       "In progress high priority ball",
 			Priority:     session.PriorityHigh,
 			State:        session.StateInProgress,
 			Tags:         []string{"test-session"},
@@ -1204,7 +1204,7 @@ func TestExportSortsBallsWithInProgressFirst(t *testing.T) {
 		{
 			ID:           "project-5",
 			WorkingDir:   project,
-			Intent:       "Pending low priority ball",
+			Title:       "Pending low priority ball",
 			Priority:     session.PriorityLow,
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1299,7 +1299,7 @@ func TestExportSortsBallsWithDependencies(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Independent ball",
+			Title:       "Independent ball",
 			Priority:     session.PriorityMedium,
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1310,7 +1310,7 @@ func TestExportSortsBallsWithDependencies(t *testing.T) {
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "Dependent ball (depends on project-1)",
+			Title:       "Dependent ball (depends on project-1)",
 			Priority:     session.PriorityHigh, // Higher priority but has unsatisfied dep
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1368,7 +1368,7 @@ func TestExportSortsBallsWithSatisfiedDependencies(t *testing.T) {
 		{
 			ID:           "project-1",
 			WorkingDir:   project,
-			Intent:       "Completed base task",
+			Title:       "Completed base task",
 			Priority:     session.PriorityMedium,
 			State:        session.StateComplete, // Already complete
 			Tags:         []string{"test-session"},
@@ -1378,7 +1378,7 @@ func TestExportSortsBallsWithSatisfiedDependencies(t *testing.T) {
 		{
 			ID:           "project-2",
 			WorkingDir:   project,
-			Intent:       "Task with satisfied dep (project-1 is complete)",
+			Title:       "Task with satisfied dep (project-1 is complete)",
 			Priority:     session.PriorityMedium,
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1389,7 +1389,7 @@ func TestExportSortsBallsWithSatisfiedDependencies(t *testing.T) {
 		{
 			ID:           "project-3",
 			WorkingDir:   project,
-			Intent:       "Task with unsatisfied dep",
+			Title:       "Task with unsatisfied dep",
 			Priority:     session.PriorityMedium,
 			State:        session.StatePending,
 			Tags:         []string{"test-session"},
@@ -1455,7 +1455,7 @@ func TestExportAgentIncludesInProgressBalls(t *testing.T) {
 	inProgressBall := &session.Ball{
 		ID:                 "project-1",
 		WorkingDir:         project,
-		Intent:             "In progress work item",
+		Title:             "In progress work item",
 		Priority:           session.PriorityHigh,
 		State:              session.StateInProgress,
 		Tags:               []string{"test-session"},
@@ -1536,7 +1536,7 @@ func TestExportAgentExcludesCompleteBallsByDefault(t *testing.T) {
 	inProgressBall := &session.Ball{
 		ID:                 "project-inprogress",
 		WorkingDir:         project,
-		Intent:             "In progress work item",
+		Title:             "In progress work item",
 		Priority:           session.PriorityHigh,
 		State:              session.StateInProgress,
 		Tags:               []string{"test-session"},
@@ -1549,7 +1549,7 @@ func TestExportAgentExcludesCompleteBallsByDefault(t *testing.T) {
 	pendingBall := &session.Ball{
 		ID:                 "project-pending",
 		WorkingDir:         project,
-		Intent:             "Pending work item",
+		Title:             "Pending work item",
 		Priority:           session.PriorityMedium,
 		State:              session.StatePending,
 		Tags:               []string{"test-session"},
@@ -1563,7 +1563,7 @@ func TestExportAgentExcludesCompleteBallsByDefault(t *testing.T) {
 	completeBall := &session.Ball{
 		ID:                 "project-complete",
 		WorkingDir:         project,
-		Intent:             "Completed work item",
+		Title:             "Completed work item",
 		Priority:           session.PriorityLow,
 		State:              session.StateComplete,
 		Tags:               []string{"test-session"},
@@ -1676,7 +1676,7 @@ func TestExportRalphExcludesCompleteBallsByDefault(t *testing.T) {
 	pendingBall := &session.Ball{
 		ID:         "project-pending",
 		WorkingDir: project,
-		Intent:     "Pending task for ralph",
+		Title:     "Pending task for ralph",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		Tags:       []string{"ralph-test"},
@@ -1687,7 +1687,7 @@ func TestExportRalphExcludesCompleteBallsByDefault(t *testing.T) {
 	completeBall := &session.Ball{
 		ID:             "project-complete",
 		WorkingDir:     project,
-		Intent:         "Completed task for ralph",
+		Title:         "Completed task for ralph",
 		Priority:       session.PriorityMedium,
 		State:          session.StateComplete,
 		Tags:           []string{"ralph-test"},

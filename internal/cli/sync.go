@@ -164,7 +164,7 @@ func syncPRDFile(prdPath, projectDir string) error {
 	// Build lookup by title (intent)
 	ballsByTitle := make(map[string]*session.Ball)
 	for _, ball := range balls {
-		ballsByTitle[ball.Intent] = ball
+		ballsByTitle[ball.Title] = ball
 	}
 
 	var created, updated, skipped int
@@ -320,7 +320,7 @@ func writeToPRD(prdPath, projectDir string) error {
 	// Build lookup by title (intent)
 	ballsByTitle := make(map[string]*session.Ball)
 	for _, ball := range balls {
-		ballsByTitle[ball.Intent] = ball
+		ballsByTitle[ball.Title] = ball
 	}
 
 	var updated, unchanged int
@@ -513,7 +513,7 @@ func detectConflicts(prdPath, projectDir string) ([]SyncConflict, error) {
 	// Build lookup by title (intent)
 	ballsByTitle := make(map[string]*session.Ball)
 	for _, ball := range balls {
-		ballsByTitle[ball.Intent] = ball
+		ballsByTitle[ball.Title] = ball
 	}
 
 	var conflicts []SyncConflict

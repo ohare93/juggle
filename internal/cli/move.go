@@ -117,7 +117,7 @@ func runMove(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("  ID: %s\n", ball.ID)
 	}
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Println()
 
 	// Append to target

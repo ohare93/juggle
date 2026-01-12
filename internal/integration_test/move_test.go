@@ -181,8 +181,8 @@ func testMovePreservesMetadata(t *testing.T) {
 	}
 
 	// Verify intent
-	if movedBall.Intent != "Complex task" {
-		t.Errorf("Expected intent 'Complex task', got %s", movedBall.Intent)
+	if movedBall.Title != "Complex task" {
+		t.Errorf("Expected intent 'Complex task', got %s", movedBall.Title)
 	}
 
 	// Verify priority

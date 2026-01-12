@@ -84,9 +84,9 @@ func TestSyncRalph(t *testing.T) {
 	// Find balls by intent
 	var firstBall, secondBall *session.Ball
 	for _, ball := range balls {
-		if ball.Intent == "First Story" {
+		if ball.Title == "First Story" {
 			firstBall = ball
-		} else if ball.Intent == "Second Story" {
+		} else if ball.Title == "Second Story" {
 			secondBall = ball
 		}
 	}
@@ -330,7 +330,7 @@ func TestWriteToPRD(t *testing.T) {
 
 	var firstBall *session.Ball
 	for _, ball := range balls {
-		if ball.Intent == "First Story" {
+		if ball.Title == "First Story" {
 			firstBall = ball
 			break
 		}

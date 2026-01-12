@@ -387,7 +387,7 @@ func createTestBall(t *testing.T, name, workingDir string, state session.BallSta
 	return &session.Ball{
 		ID:         name + "-1",
 		WorkingDir: workingDir,
-		Intent:     "Test ball",
+		Title:      "Test ball",
 		Priority:   session.PriorityMedium,
 		State:      state,
 		StartedAt:  startedAt,

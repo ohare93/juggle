@@ -276,7 +276,7 @@ func renderGroupedSessions(ballsByProject map[string][]*session.Ball, cwd string
 			criteriaCell = padRight(criteriaCell, 10)
 
 			// Intent (truncated)
-			intentCell := truncate(ball.Intent, 40)
+			intentCell := truncate(ball.Title, 40)
 			intentCell = padRight(intentCell, 40)
 
 			// Highlight current ball with arrow

@@ -219,7 +219,7 @@ func TestAgentRun_BallFlagWithoutSession(t *testing.T) {
 		t.Fatalf("Failed to generate prompt: %v", err)
 	}
 
-	if !strings.Contains(prompt, ball.Intent) {
+	if !strings.Contains(prompt, ball.Title) {
 		t.Error("Prompt should contain the ball's intent")
 	}
 }
@@ -243,7 +243,7 @@ func TestAgentRun_BallFlagWithoutSession_FindsBall(t *testing.T) {
 		t.Fatalf("Failed to generate prompt: %v", err)
 	}
 
-	if !strings.Contains(prompt, ball.Intent) {
+	if !strings.Contains(prompt, ball.Title) {
 		t.Error("Prompt should contain the ball's intent even when ball has other session tags")
 	}
 }
@@ -265,7 +265,7 @@ func TestAgentRun_BallFlagWithoutSession_ShortID(t *testing.T) {
 		t.Fatalf("Failed to generate prompt with short ID: %v", err)
 	}
 
-	if !strings.Contains(prompt, ball.Intent) {
+	if !strings.Contains(prompt, ball.Title) {
 		t.Error("Prompt should contain the ball's intent when using short ID")
 	}
 }

@@ -47,7 +47,7 @@ func CompleteBallIDs(cmd *cobra.Command, args []string, toComplete string) ([]st
 	for _, ball := range matches {
 		// Show minimal unique ID with intent as description
 		minID := minimalIDs[ball.ID]
-		completions = append(completions, minID+"\t"+ball.Intent)
+		completions = append(completions, minID+"\t"+ball.Title)
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
@@ -90,7 +90,7 @@ func CompleteArchivedBallIDs(cmd *cobra.Command, args []string, toComplete strin
 	for _, ball := range matches {
 		// Show minimal unique ID with intent as description
 		minID := minimalIDs[ball.ID]
-		completions = append(completions, minID+"\t"+ball.Intent)
+		completions = append(completions, minID+"\t"+ball.Title)
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp

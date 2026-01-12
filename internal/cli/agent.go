@@ -1378,8 +1378,8 @@ func writeBallForRefine(buf *strings.Builder, ball *session.Ball) {
 	// Header with ID, state, and priority
 	buf.WriteString(fmt.Sprintf("## %s [%s] (priority: %s)\n", ball.ID, ball.State, ball.Priority))
 
-	// Intent
-	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+	// Title
+	buf.WriteString(fmt.Sprintf("Title: %s\n", ball.Title))
 
 	// Project directory
 	if ball.WorkingDir != "" {

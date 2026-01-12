@@ -83,7 +83,7 @@ func renderCurrentSession(sess *session.Ball) {
 	fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Render("Current Session"))
 	fmt.Println()
 	fmt.Println(labelStyle.Render("ID:"), valueStyle.Render(sess.ID))
-	fmt.Println(labelStyle.Render("Intent:"), valueStyle.Render(sess.Intent))
+	fmt.Println(labelStyle.Render("Title:"), valueStyle.Render(sess.Title))
 	fmt.Println(labelStyle.Render("State:"), statusStyle.Render(string(sess.State)))
 	fmt.Println(labelStyle.Render("Priority:"), valueStyle.Render(string(sess.Priority)))
 

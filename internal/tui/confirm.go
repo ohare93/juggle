@@ -25,7 +25,7 @@ func (m Model) renderConfirmDeleteView() string {
 
 	// Ball info
 	b.WriteString(fmt.Sprintf("ID:       %s\n", ball.ID))
-	b.WriteString(fmt.Sprintf("Intent:   %s\n", ball.Intent))
+	b.WriteString(fmt.Sprintf("Title:    %s\n", ball.Title))
 	b.WriteString(fmt.Sprintf("State:    %s\n", formatState(ball)))
 	b.WriteString(fmt.Sprintf("Priority: %s\n", ball.Priority))
 	if len(ball.Tags) > 0 {

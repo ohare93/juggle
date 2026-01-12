@@ -219,7 +219,7 @@ func renderArchivedBalls(balls []*session.Ball) {
 		priorityCell := padRight(string(ball.Priority), 10)
 
 		// Intent (truncated)
-		intentCell := truncate(ball.Intent, 40)
+		intentCell := truncate(ball.Title, 40)
 		intentCell = padRight(intentCell, 40)
 
 		fmt.Println(

@@ -224,10 +224,10 @@ func (m Model) renderInputView() string {
 	case inputBlockedView:
 		if m.editingBall != nil {
 			b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
-			b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
+			b.WriteString(fmt.Sprintf("Title: %s\n\n", m.editingBall.Title))
 		}
 	case inputAcceptanceCriteriaView:
-		b.WriteString(fmt.Sprintf("Intent: %s\n", m.pendingBallIntent))
+		b.WriteString(fmt.Sprintf("Title: %s\n", m.pendingBallIntent))
 		if len(m.pendingAcceptanceCriteria) > 0 {
 			b.WriteString("\nCriteria entered:\n")
 			for i, ac := range m.pendingAcceptanceCriteria {
@@ -286,7 +286,7 @@ func (m Model) renderSplitConfirmDelete() string {
 		if m.cursor < len(balls) {
 			ball := balls[m.cursor]
 			b.WriteString(fmt.Sprintf("Ball: %s\n", ball.ID))
-			b.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+			b.WriteString(fmt.Sprintf("Title: %s\n", ball.Title))
 			b.WriteString(fmt.Sprintf("State: %s\n", ball.State))
 			b.WriteString(fmt.Sprintf("Criteria: %d\n", len(ball.AcceptanceCriteria)))
 		}
@@ -458,7 +458,7 @@ func (m Model) renderSessionSelectorView() string {
 	// Show ball context
 	if m.editingBall != nil {
 		b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
-		b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
+		b.WriteString(fmt.Sprintf("Title: %s\n\n", m.editingBall.Title))
 
 		// Show current sessions/tags
 		if len(m.editingBall.Tags) > 0 {
@@ -575,7 +575,7 @@ func (m Model) renderDependencySelectorView() string {
 
 			// Ball info
 			shortID := ball.ShortID()
-			intent := truncate(ball.Intent, 40)
+			intent := truncate(ball.Title, 40)
 			state := string(ball.State)
 
 			fullLine := fmt.Sprintf("%s%s %s %s - %s", cursor, checkbox, shortID, "("+state+")", intent)
@@ -629,7 +629,7 @@ func (m Model) renderTagView() string {
 	// Show ball context
 	if m.editingBall != nil {
 		b.WriteString(fmt.Sprintf("Ball: %s\n", m.editingBall.ID))
-		b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.editingBall.Intent))
+		b.WriteString(fmt.Sprintf("Title: %s\n\n", m.editingBall.Title))
 
 		// Show current tags
 		if len(m.editingBall.Tags) > 0 {
@@ -896,7 +896,7 @@ func (m Model) renderBallFormView() string {
 	b.WriteString(titleStyled + "\n\n")
 
 	// Show the intent that was entered
-	b.WriteString(fmt.Sprintf("Intent: %s\n\n", m.pendingBallIntent))
+	b.WriteString(fmt.Sprintf("Title: %s\n\n", m.pendingBallIntent))
 
 	// Priority options
 	priorities := []string{"low", "medium", "high", "urgent"}
@@ -1214,13 +1214,14 @@ func (m Model) renderUnifiedBallFormView() string {
 
 	// Field constants
 	const (
-		fieldIntent    = 0
-		fieldPriority  = 1
-		fieldTags      = 2
-		fieldSession   = 3
-		fieldModelSize = 4
-		fieldDependsOn = 5
-		fieldACStart   = 6 // ACs start at index 6
+		fieldContext   = 0
+		fieldIntent    = 1 // Title field (was intent)
+		fieldPriority  = 2
+		fieldTags      = 3
+		fieldSession   = 4
+		fieldModelSize = 5
+		fieldDependsOn = 6
+		fieldACStart   = 7 // ACs start at index 7
 	)
 
 	// Priority options
@@ -1243,19 +1244,54 @@ func (m Model) renderUnifiedBallFormView() string {
 	acNumberStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	editingACStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("240"))
 
-	// --- Intent field ---
+	// --- Context field ---
 	labelStyle := normalStyle
+	if m.pendingBallFormField == fieldContext {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Context: "))
+	if m.pendingBallFormField == fieldContext {
+		b.WriteString(m.textInput.View())
+	} else {
+		if m.pendingBallContext == "" {
+			b.WriteString(optionNormalStyle.Render("(empty)"))
+		} else {
+			b.WriteString(m.pendingBallContext)
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Title field (was Intent) ---
+	labelStyle = normalStyle
 	if m.pendingBallFormField == fieldIntent {
 		labelStyle = activeFieldStyle
 	}
-	b.WriteString(labelStyle.Render("Intent: "))
+	b.WriteString(labelStyle.Render("Title: "))
 	if m.pendingBallFormField == fieldIntent {
 		b.WriteString(m.textInput.View())
+		// Show character count with color warnings
+		titleLen := len(m.textInput.Value())
+		countStyle := lipgloss.NewStyle().Faint(true)
+		if titleLen >= 50 {
+			countStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // Red
+		} else if titleLen >= 40 {
+			countStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
+		}
+		b.WriteString(countStyle.Render(fmt.Sprintf(" (%d/50)", titleLen)))
 	} else {
 		if m.pendingBallIntent == "" {
 			b.WriteString(optionNormalStyle.Render("(empty)"))
 		} else {
+			titleLen := len(m.pendingBallIntent)
 			b.WriteString(m.pendingBallIntent)
+			// Show character count with color if over 40 chars
+			if titleLen >= 50 {
+				countStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // Red
+				b.WriteString(countStyle.Render(fmt.Sprintf(" (%d/50)", titleLen)))
+			} else if titleLen >= 40 {
+				countStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow
+				b.WriteString(countStyle.Render(fmt.Sprintf(" (%d/50)", titleLen)))
+			}
 		}
 	}
 	b.WriteString("\n")

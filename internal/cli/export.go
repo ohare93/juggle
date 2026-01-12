@@ -378,7 +378,7 @@ func exportCSV(balls []*session.Ball) ([]byte, error) {
 		row := []string{
 			ball.ID,
 			ball.WorkingDir,
-			ball.Intent,
+			ball.Title,
 			string(ball.Priority),
 			string(ball.State),
 			ball.BlockedReason,
@@ -521,8 +521,8 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 	}
 	buf.WriteString(header + "\n")
 
-	// Intent
-	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+	// Title
+	buf.WriteString(fmt.Sprintf("Title: %s\n", ball.Title))
 
 	// Acceptance criteria (preferred over deprecated Description)
 	if len(ball.AcceptanceCriteria) > 0 {
@@ -726,8 +726,8 @@ func writeBallForAgent(buf *strings.Builder, ball *session.Ball) {
 	}
 	buf.WriteString(header + "\n")
 
-	// Intent
-	buf.WriteString(fmt.Sprintf("Intent: %s\n", ball.Intent))
+	// Title
+	buf.WriteString(fmt.Sprintf("Title: %s\n", ball.Title))
 
 	// Acceptance criteria
 	if len(ball.AcceptanceCriteria) > 0 {

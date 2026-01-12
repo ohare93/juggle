@@ -233,7 +233,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	_ = session.EnsureProjectInSearchPaths(cwd)
 
 	fmt.Printf("✓ Planned ball added: %s\n", ball.ID)
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
 	if len(ball.Tags) > 0 {

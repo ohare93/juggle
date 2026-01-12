@@ -399,8 +399,8 @@ func testUnarchivePreservesMetadata(t *testing.T) {
 	if restored.ID != ballID {
 		t.Errorf("Expected ID %s, got %s", ballID, restored.ID)
 	}
-	if restored.Intent != "Rich metadata ball" {
-		t.Errorf("Expected intent 'Rich metadata ball', got '%s'", restored.Intent)
+	if restored.Title != "Rich metadata ball" {
+		t.Errorf("Expected intent 'Rich metadata ball', got '%s'", restored.Title)
 	}
 	if restored.Priority != session.PriorityUrgent {
 		t.Errorf("Expected priority %s, got %s", session.PriorityUrgent, restored.Priority)

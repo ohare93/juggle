@@ -77,9 +77,9 @@ func TestImportGitHubBasic(t *testing.T) {
 	// Find and verify first ball
 	var loginBall, darkModeBall *session.Ball
 	for _, b := range balls {
-		if b.Intent == "Fix login bug" {
+		if b.Title == "Fix login bug" {
 			loginBall = b
-		} else if b.Intent == "Add dark mode" {
+		} else if b.Title == "Add dark mode" {
 			darkModeBall = b
 		}
 	}
@@ -245,7 +245,7 @@ func TestImportGitHubSkipsDuplicates(t *testing.T) {
 	// Verify new ball was imported
 	found := false
 	for _, b := range balls {
-		if b.Intent == "New bug" {
+		if b.Title == "New bug" {
 			found = true
 			break
 		}

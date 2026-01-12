@@ -48,8 +48,8 @@ func TestAgentRefine_SessionFilter(t *testing.T) {
 	if len(balls) != 1 {
 		t.Errorf("Expected 1 ball, got %d", len(balls))
 	}
-	if len(balls) > 0 && balls[0].Intent != "Ball in session" {
-		t.Errorf("Expected ball 'Ball in session', got '%s'", balls[0].Intent)
+	if len(balls) > 0 && balls[0].Title != "Ball in session" {
+		t.Errorf("Expected ball 'Ball in session', got '%s'", balls[0].Title)
 	}
 }
 
@@ -253,7 +253,7 @@ func TestAgentRefine_ExcludesCompletedBalls(t *testing.T) {
 	// Verify only non-complete balls are included
 	for _, ball := range balls {
 		if ball.State == session.StateComplete {
-			t.Errorf("Completed ball should be excluded: %s", ball.Intent)
+			t.Errorf("Completed ball should be excluded: %s", ball.Title)
 		}
 	}
 }
@@ -403,7 +403,7 @@ func TestAgentRefine_AllExcludesCompletedBalls(t *testing.T) {
 	if len(balls) != 1 {
 		t.Errorf("Expected 1 ball (excluding completed), got %d", len(balls))
 	}
-	if len(balls) > 0 && balls[0].Intent != "Pending ball" {
-		t.Errorf("Expected 'Pending ball', got '%s'", balls[0].Intent)
+	if len(balls) > 0 && balls[0].Title != "Pending ball" {
+		t.Errorf("Expected 'Pending ball', got '%s'", balls[0].Title)
 	}
 }

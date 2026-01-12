@@ -15,7 +15,8 @@ import (
 // Note: no omitempty tags so all fields are always shown in the editor
 type BallYAML struct {
 	ID                 string   `yaml:"id"`
-	Intent             string   `yaml:"intent"`
+	Context            string   `yaml:"context"`
+	Title              string   `yaml:"title"`
 	Priority           string   `yaml:"priority"`
 	State              string   `yaml:"state"`
 	BlockedReason      string   `yaml:"blocked_reason"`
@@ -39,7 +40,8 @@ func ballToYAML(ball *session.Ball) (string, error) {
 
 	yamlBall := BallYAML{
 		ID:                 ball.ID,
-		Intent:             ball.Intent,
+		Context:            ball.Context,
+		Title:              ball.Title,
 		Priority:           string(ball.Priority),
 		State:              string(ball.State),
 		BlockedReason:      ball.BlockedReason,
@@ -78,10 +80,13 @@ func yamlToBall(yamlContent string, ball *session.Ball) error {
 	// Validate and apply changes
 	// Note: ID is read-only (can't change ball ID)
 
-	// Update intent (only if non-empty after trimming whitespace)
-	intent := strings.TrimSpace(yamlBall.Intent)
-	if intent != "" {
-		ball.Intent = intent
+	// Update context (can be cleared - trim whitespace)
+	ball.Context = strings.TrimSpace(yamlBall.Context)
+
+	// Update title (only if non-empty after trimming whitespace)
+	title := strings.TrimSpace(yamlBall.Title)
+	if title != "" {
+		ball.Title = title
 	}
 
 	// Update priority (only if non-empty after trimming whitespace)

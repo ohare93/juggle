@@ -122,9 +122,9 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		priorityPadded = GetPriorityStyle(priorityStr).Render(priorityPadded)
 
 		// Build the line with optional blocked reason and tests indicator
-		intentDisplay := ball.Intent
+		intentDisplay := ball.Title
 		if ball.BlockedReason != "" {
-			intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
+			intentDisplay = fmt.Sprintf("%s %s", ball.Title, dimStyle.Render("("+ball.BlockedReason+")"))
 		}
 		// Add tests state indicator
 		testsIndicator := ""
@@ -309,9 +309,9 @@ func listAllBalls(cmd *cobra.Command) error {
 
 				// Build the line with optional blocked reason and tests indicator
 				dimStyle := StyleDim
-				intentDisplay := ball.Intent
+				intentDisplay := ball.Title
 				if ball.BlockedReason != "" {
-					intentDisplay = fmt.Sprintf("%s %s", ball.Intent, dimStyle.Render("("+ball.BlockedReason+")"))
+					intentDisplay = fmt.Sprintf("%s %s", ball.Title, dimStyle.Render("("+ball.BlockedReason+")"))
 				}
 				// Add tests state indicator
 				testsIndicator := ""
@@ -493,7 +493,7 @@ func activateBall(ball *session.Ball, store *session.Store) error {
 
 	fmt.Printf("✓ Started ball: %s\n", ball.ID)
 	fmt.Printf("  State: in_progress\n")
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 
 	return nil
 }
@@ -644,7 +644,7 @@ func handleBallEdit(ball *session.Ball, args []string, store *session.Store) err
 			return fmt.Errorf("new intent text required")
 		}
 		newIntent := strings.Join(args[1:], " ")
-		ball.Intent = newIntent
+		ball.Title = newIntent
 
 	case "priority":
 		if len(args) < 2 {
@@ -680,9 +680,9 @@ func handleBallUpdate(ball *session.Ball, args []string, store *session.Store) e
 			if i+1 >= len(args) {
 				return fmt.Errorf("--intent requires a value")
 			}
-			ball.Intent = args[i+1]
+			ball.Title = args[i+1]
 			modified = true
-			fmt.Printf("✓ Updated intent: %s\n", ball.Intent)
+			fmt.Printf("✓ Updated intent: %s\n", ball.Title)
 			i += 2
 		case "--priority":
 			if i+1 >= len(args) {
@@ -799,7 +799,7 @@ func handleBallDelete(ball *session.Ball, args []string, store *session.Store) e
 	// Show ball information
 	fmt.Printf("Ball to delete:\n")
 	fmt.Printf("  ID: %s\n", ball.ID)
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
 	if len(ball.AcceptanceCriteria) > 0 {

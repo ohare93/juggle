@@ -13,13 +13,13 @@ func renderBallList(balls []*session.Ball, cursor int, width int) string {
 
 	// Header
 	header := fmt.Sprintf("%-15s %-40s %-20s %-10s %s",
-		"ID", "Intent", "State", "Priority", "Tags")
+		"ID", "Title", "State", "Priority", "Tags")
 	output.WriteString(lipgloss.NewStyle().Bold(true).Render(header) + "\n")
 	output.WriteString(strings.Repeat("─", width) + "\n")
 
 	for i, ball := range balls {
 		// Format ball info
-		intent := truncate(ball.Intent, 40)
+		title := truncate(ball.Title, 40)
 		stateStr := formatState(ball)
 		tagsStr := strings.Join(ball.Tags, ", ")
 		if len(tagsStr) > 20 {
@@ -28,7 +28,7 @@ func renderBallList(balls []*session.Ball, cursor int, width int) string {
 
 		line := fmt.Sprintf("%-15s %-40s %-20s %-10s %s",
 			truncateID(ball.ID, 15),
-			intent,
+			title,
 			stateStr,
 			ball.Priority,
 			tagsStr,

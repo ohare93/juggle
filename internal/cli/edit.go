@@ -65,7 +65,7 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	modified := false
 
 	if editIntent != "" {
-		foundBall.Intent = editIntent
+		foundBall.Title = editIntent
 		modified = true
 		fmt.Printf("✓ Updated intent: %s\n", editIntent)
 	}
@@ -123,12 +123,12 @@ func runInteractiveEdit(ball *session.Ball, store *session.Store) error {
 	fmt.Println("(Press Enter to keep current value)")
 	fmt.Println()
 
-	// Edit intent
-	fmt.Printf("Intent [%s]: ", ball.Intent)
+	// Edit title
+	fmt.Printf("Title [%s]: ", ball.Title)
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
-		ball.Intent = input
+		ball.Title = input
 	}
 
 	// Edit priority
@@ -178,7 +178,7 @@ func runInteractiveEdit(ball *session.Ball, store *session.Store) error {
 
 	fmt.Printf("\n✓ Ball %s updated successfully\n", ball.ID)
 	fmt.Println("\nUpdated values:")
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
 	if len(ball.Tags) > 0 {

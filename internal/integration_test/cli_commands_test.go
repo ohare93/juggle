@@ -28,8 +28,8 @@ func TestShowCommand(t *testing.T) {
 		t.Fatalf("Failed to retrieve ball: %v", err)
 	}
 
-	if retrieved.Intent != "Test ball for show" {
-		t.Errorf("Expected intent 'Test ball for show', got '%s'", retrieved.Intent)
+	if retrieved.Title != "Test ball for show" {
+		t.Errorf("Expected intent 'Test ball for show', got '%s'", retrieved.Title)
 	}
 
 	if retrieved.Priority != session.PriorityHigh {
@@ -254,7 +254,7 @@ func TestSearchCommand(t *testing.T) {
 	// Search for "login" should find 2 balls
 	loginMatches := 0
 	for _, b := range balls {
-		if containsIgnoreCase(b.Intent, "login") || containsIgnoreCase(b.Intent, "logout") {
+		if containsIgnoreCase(b.Title, "login") || containsIgnoreCase(b.Title, "logout") {
 			loginMatches++
 		}
 	}
@@ -514,8 +514,8 @@ func TestMoveCommandPreservesData(t *testing.T) {
 	// Retrieve and verify all data is preserved
 	retrieved, _ := store.GetBallByID(ball.ID)
 
-	if retrieved.Intent != "Ball to move" {
-		t.Errorf("Expected intent 'Ball to move', got '%s'", retrieved.Intent)
+	if retrieved.Title != "Ball to move" {
+		t.Errorf("Expected intent 'Ball to move', got '%s'", retrieved.Title)
 	}
 	if len(retrieved.AcceptanceCriteria) != 2 {
 		t.Errorf("Expected 2 acceptance criteria, got %d", len(retrieved.AcceptanceCriteria))
@@ -850,7 +850,7 @@ func TestPlanOutputDoesNotRepeatAcceptanceCriteria(t *testing.T) {
 	// Find the ball we just created
 	var ball *session.Ball
 	for _, b := range balls {
-		if b.Intent == "Test intent for AC output" {
+		if b.Title == "Test intent for AC output" {
 			ball = b
 			break
 		}
@@ -1147,8 +1147,8 @@ func TestBallOutputJSONFlag(t *testing.T) {
 	if result["id"] != ball.ID {
 		t.Errorf("Expected id '%s', got '%v'", ball.ID, result["id"])
 	}
-	if result["intent"] != "JSON output test ball" {
-		t.Errorf("Expected intent 'JSON output test ball', got '%v'", result["intent"])
+	if result["title"] != "JSON output test ball" {
+		t.Errorf("Expected title 'JSON output test ball', got '%v'", result["title"])
 	}
 	if result["state"] != "in_progress" {
 		t.Errorf("Expected state 'in_progress', got '%v'", result["state"])
@@ -1190,7 +1190,7 @@ func TestBallOutputConsistency(t *testing.T) {
 	// Both should show all the same key information
 	expectedFields := []string{
 		"Ball ID:",
-		"Intent:",
+		"Title:",
 		"Priority:",
 		"State:",
 		"Acceptance Criteria:",
@@ -1251,7 +1251,7 @@ func TestBallOutputJSONConsistency(t *testing.T) {
 	}
 
 	// Compare key fields
-	fieldsToCompare := []string{"id", "intent", "priority", "state"}
+	fieldsToCompare := []string{"id", "title", "priority", "state"}
 	for _, field := range fieldsToCompare {
 		if directJSON[field] != showJSON[field] {
 			t.Errorf("Field '%s' mismatch: direct=%v, show=%v", field, directJSON[field], showJSON[field])
@@ -1296,7 +1296,7 @@ func TestBallOutputWithAllFields(t *testing.T) {
 	// Verify all fields appear in text output
 	textChecks := []string{
 		"Ball ID:",
-		"Intent:",
+		"Title:",
 		"Priority:",
 		"State:",
 		"Tests:",
@@ -1324,7 +1324,7 @@ func TestBallOutputWithAllFields(t *testing.T) {
 	}
 
 	// Verify JSON has key fields
-	jsonFields := []string{"id", "intent", "priority", "state", "tests_state", "tags", "depends_on", "acceptance_criteria"}
+	jsonFields := []string{"id", "title", "priority", "state", "tests_state", "tags", "depends_on", "acceptance_criteria"}
 	for _, field := range jsonFields {
 		if _, ok := result[field]; !ok {
 			t.Errorf("JSON missing field: %s", field)
@@ -1551,7 +1551,7 @@ func TestPlanNonInteractiveFlag(t *testing.T) {
 	balls, _ := store.LoadBalls()
 	var ball *session.Ball
 	for _, b := range balls {
-		if b.Intent == "Non-interactive test ball" {
+		if b.Title == "Non-interactive test ball" {
 			ball = b
 			break
 		}
@@ -1596,7 +1596,7 @@ func TestPlanNonInteractiveWithAllFlags(t *testing.T) {
 	balls, _ := store.LoadBalls()
 	var ball *session.Ball
 	for _, b := range balls {
-		if b.Intent == "Full flags test" {
+		if b.Title == "Full flags test" {
 			ball = b
 			break
 		}
@@ -1668,7 +1668,7 @@ func TestPlanAlwaysCreatesPendingState(t *testing.T) {
 	balls, _ := store.LoadBalls()
 	var ball *session.Ball
 	for _, b := range balls {
-		if b.Intent == "Test always pending" {
+		if b.Title == "Test always pending" {
 			ball = b
 			break
 		}
@@ -2098,14 +2098,14 @@ func TestStoreResolveBallIDStrict(t *testing.T) {
 	// Create balls with known IDs by manually setting them
 	ball1 := &session.Ball{
 		ID:         "test-aaa111",
-		Intent:     "Ball A",
+		Title:     "Ball A",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
 		WorkingDir: env.ProjectDir,
 	}
 	ball2 := &session.Ball{
 		ID:         "test-aaa222",
-		Intent:     "Ball B",
+		Title:     "Ball B",
 		Priority:   session.PriorityHigh,
 		State:      session.StatePending,
 		WorkingDir: env.ProjectDir,
@@ -2171,8 +2171,8 @@ func TestCLIBallCommandWithMinimalID(t *testing.T) {
 
 	// Should show the ball info
 	outputStr := string(output)
-	if !strings.Contains(outputStr, ball.Intent) {
-		t.Errorf("expected output to contain intent %q, got: %s", ball.Intent, outputStr)
+	if !strings.Contains(outputStr, ball.Title) {
+		t.Errorf("expected output to contain intent %q, got: %s", ball.Title, outputStr)
 	}
 }
 

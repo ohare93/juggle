@@ -124,7 +124,7 @@ func handleSingleInProgressBall(ball *session.Ball, pendingBalls []*session.Ball
 	stateStr := string(ball.State)
 
 	fmt.Println(focusStyle.Render("🎯 Currently in progress: " + ball.ShortID()))
-	fmt.Println(labelStyle.Render("Intent:"), valueStyle.Render(ball.Intent))
+	fmt.Println(labelStyle.Render("Title:"), valueStyle.Render(ball.Title))
 	fmt.Println(labelStyle.Render("State:"), stateStyle.Render(stateStr))
 	if ball.BlockedReason != "" {
 		messageStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
@@ -181,7 +181,7 @@ func handleMultipleInProgressBalls(inProgressBalls []*session.Ball, pendingBalls
 		fmt.Printf("%d. %s: %s [%s]\n",
 			i+1,
 			ball.ShortID(),
-			ball.Intent,
+			ball.Title,
 			stateStyle.Render(stateStr),
 		)
 	}
@@ -204,7 +204,7 @@ func handleMultipleInProgressBalls(inProgressBalls []*session.Ball, pendingBalls
 	selectedBall := inProgressBalls[selected-1]
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	fmt.Println()
-	fmt.Println(successStyle.Render(fmt.Sprintf("✓ Working on: %s - %s", selectedBall.ShortID(), selectedBall.Intent)))
+	fmt.Println(successStyle.Render(fmt.Sprintf("✓ Working on: %s - %s", selectedBall.ShortID(), selectedBall.Title)))
 	fmt.Println()
 	fmt.Println(dimStyle.Render("Consider moving other balls to pending:"))
 	fmt.Println(dimStyle.Render("  juggle <ball-id> pending"))
@@ -231,7 +231,7 @@ func promptForPendingBalls(pendingBalls []*session.Ball) error {
 		fmt.Printf("%d. %s: %s [%s]\n",
 			i+1,
 			ball.ShortID(),
-			ball.Intent,
+			ball.Title,
 			priorityStyle.Render(string(ball.Priority)),
 		)
 	}
@@ -302,7 +302,7 @@ func showAllPendingBalls(pendingBalls []*session.Ball) error {
 			i+1,
 			ball.ShortID(),
 			priorityStyle.Render(string(ball.Priority)),
-			ball.Intent,
+			ball.Title,
 		)
 	}
 	fmt.Println()

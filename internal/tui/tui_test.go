@@ -409,7 +409,7 @@ func TestCyclePriority(t *testing.T) {
 func TestConfirmDeleteRendering(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Intent:   "Test ball",
+		Title:   "Test ball",
 		Priority: session.PriorityMedium,
 	}
 
@@ -844,9 +844,9 @@ func TestFilterSessions(t *testing.T) {
 // Test filterBallsForSession
 func TestFilterBallsForSession(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "ball-1", Intent: "First task", Tags: []string{"session-a"}},
-		{ID: "ball-2", Intent: "Second task", Tags: []string{"session-a"}},
-		{ID: "ball-3", Intent: "Third task", Tags: []string{"session-b"}},
+		{ID: "ball-1", Title: "First task", Tags: []string{"session-a"}},
+		{ID: "ball-2", Title: "Second task", Tags: []string{"session-a"}},
+		{ID: "ball-3", Title: "Third task", Tags: []string{"session-b"}},
 	}
 
 	t.Run("no filter returns all session balls", func(t *testing.T) {
@@ -1097,7 +1097,7 @@ func TestListViewKeyHandling(t *testing.T) {
 // Test entering detail view
 func TestEnterDetailView(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-1", Intent: "Test ball", State: session.StatePending},
+		{ID: "test-1", Title: "Test ball", State: session.StatePending},
 	}
 
 	model := Model{
@@ -1388,7 +1388,7 @@ func TestAcceptanceCriteriaViewRendering(t *testing.T) {
 	}
 
 	// Check for intent display
-	if !strings.Contains(view, "Intent: Implement feature X") {
+	if !strings.Contains(view, "Title: Implement feature X") {
 		t.Error("Expected view to contain intent")
 	}
 
@@ -2326,9 +2326,9 @@ func TestFilterBallsReturnsAllWhenCleared(t *testing.T) {
 		panelSearchActive: false,
 		selectedSession:   &session.JuggleSession{ID: PseudoSessionAll},
 		filteredBalls: []*session.Ball{
-			{ID: "ball-1", Intent: "First ball"},
-			{ID: "ball-2", Intent: "Second ball"},
-			{ID: "ball-3", Intent: "Third ball"},
+			{ID: "ball-1", Title: "First ball"},
+			{ID: "ball-2", Title: "Second ball"},
+			{ID: "ball-3", Title: "Third ball"},
 		},
 		filterStates: map[string]bool{
 			"pending":     true,
@@ -2709,7 +2709,7 @@ func TestBallsPanelScrollingDown(t *testing.T) {
 		balls[i] = &session.Ball{
 			ID:     fmt.Sprintf("test-%d", i),
 			State:  session.StatePending,
-			Intent: fmt.Sprintf("Ball %d", i),
+			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
 
@@ -2756,7 +2756,7 @@ func TestBallsPanelScrollingUp(t *testing.T) {
 		balls[i] = &session.Ball{
 			ID:     fmt.Sprintf("test-%d", i),
 			State:  session.StatePending,
-			Intent: fmt.Sprintf("Ball %d", i),
+			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
 
@@ -3022,7 +3022,7 @@ func TestBallsPanelLastItemVisible(t *testing.T) {
 		balls[i] = &session.Ball{
 			ID:     fmt.Sprintf("test-%d", i),
 			State:  session.StatePending,
-			Intent: fmt.Sprintf("Ball %d", i),
+			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
 
@@ -3093,7 +3093,7 @@ func TestBallsPanelNoBottomIndicatorAtEnd(t *testing.T) {
 		balls[i] = &session.Ball{
 			ID:     fmt.Sprintf("test-%d", i),
 			State:  session.StatePending,
-			Intent: fmt.Sprintf("Ball %d", i),
+			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
 
@@ -3147,7 +3147,7 @@ func TestBallsPanelNoIndicatorsWhenAllFit(t *testing.T) {
 		balls[i] = &session.Ball{
 			ID:     fmt.Sprintf("test-%d", i),
 			State:  session.StatePending,
-			Intent: fmt.Sprintf("Ball %d", i),
+			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
 
@@ -3192,7 +3192,7 @@ func TestTagKeyOpensSessionSelector(t *testing.T) {
 	}
 
 	balls := []*session.Ball{
-		{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"},
+		{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"},
 	}
 
 	model := Model{
@@ -3231,7 +3231,7 @@ func TestTagKeyBallAlreadyInAllSessions(t *testing.T) {
 	}
 
 	balls := []*session.Ball{
-		{ID: "ball-1", Intent: "Test task", Tags: []string{"session-a"}, WorkingDir: "/tmp"},
+		{ID: "ball-1", Title: "Test task", Tags: []string{"session-a"}, WorkingDir: "/tmp"},
 	}
 
 	model := Model{
@@ -3265,7 +3265,7 @@ func TestTagKeyFiltersExistingSessions(t *testing.T) {
 	}
 
 	balls := []*session.Ball{
-		{ID: "ball-1", Intent: "Test task", Tags: []string{"session-a"}, WorkingDir: "/tmp"},
+		{ID: "ball-1", Title: "Test task", Tags: []string{"session-a"}, WorkingDir: "/tmp"},
 	}
 
 	model := Model{
@@ -3315,7 +3315,7 @@ func TestSessionSelectorNavigation(t *testing.T) {
 		{ID: "session-c", Description: "Third session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3364,7 +3364,7 @@ func TestSessionSelectorBoundaries(t *testing.T) {
 		{ID: "session-b", Description: "Second session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3399,7 +3399,7 @@ func TestSessionSelectorCancel(t *testing.T) {
 		{ID: "session-a", Description: "First session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3431,7 +3431,7 @@ func TestSessionSelectorCancelWithQ(t *testing.T) {
 		{ID: "session-a", Description: "First session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3460,7 +3460,7 @@ func TestSessionSelectorSelectWithEnter(t *testing.T) {
 		{ID: "session-b", Description: "Second session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3497,7 +3497,7 @@ func TestSessionSelectorSelectWithSpace(t *testing.T) {
 		{ID: "session-a", Description: "First session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3527,7 +3527,7 @@ func TestSessionSelectorViewRendering(t *testing.T) {
 		{ID: "session-b", Description: "Second session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{"existing-tag"}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{"existing-tag"}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3581,7 +3581,7 @@ func TestSessionSelectorViewShowsCursor(t *testing.T) {
 		{ID: "session-b", Description: "Second session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3607,7 +3607,7 @@ func TestTagKeyOnlyWorksInBallsPanel(t *testing.T) {
 	}
 
 	balls := []*session.Ball{
-		{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"},
+		{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"},
 	}
 
 	model := Model{
@@ -3658,7 +3658,7 @@ func TestTagKeyNoBallSelected(t *testing.T) {
 
 // Test submitSessionSelection with empty items
 func TestSubmitSessionSelectionEmpty(t *testing.T) {
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -3710,7 +3710,7 @@ func TestSessionSelectorIndexCorrection(t *testing.T) {
 		{ID: "session-a", Description: "First session"},
 	}
 
-	ball := &session.Ball{ID: "ball-1", Intent: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
+	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
 		mode:               sessionSelectorView,
@@ -4739,7 +4739,7 @@ func TestCompleteSessionSwitchWorkflow(t *testing.T) {
 func TestBallDetailPanelShowsAllAcceptanceCriteria(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Intent:   "Test ball",
+		Title:   "Test ball",
 		State:    session.StateInProgress,
 		Priority: session.PriorityMedium,
 		AcceptanceCriteria: []string{
@@ -4788,8 +4788,8 @@ func TestBallDetailPanelShowsAllAcceptanceCriteria(t *testing.T) {
 // TestBallDetailPanelUpdatesWithNavigation verifies that the detail panel updates when navigating balls
 func TestBallDetailPanelUpdatesWithNavigation(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-1", Intent: "First ball", State: session.StatePending, Priority: session.PriorityMedium},
-		{ID: "test-2", Intent: "Second ball", State: session.StateInProgress, Priority: session.PriorityHigh},
+		{ID: "test-1", Title: "First ball", State: session.StatePending, Priority: session.PriorityMedium},
+		{ID: "test-2", Title: "Second ball", State: session.StateInProgress, Priority: session.PriorityHigh},
 	}
 
 	model := Model{
@@ -4842,7 +4842,7 @@ func TestBallDetailPanelUpdatesWithNavigation(t *testing.T) {
 func TestBallDetailPanelShowsAllProperties(t *testing.T) {
 	ball := &session.Ball{
 		ID:            "test-1",
-		Intent:        "Test ball intent",
+		Title:        "Test ball intent",
 		State:         session.StateBlocked,
 		Priority:      session.PriorityHigh,
 		BlockedReason: "Waiting for API",
@@ -4897,7 +4897,7 @@ func TestBallDetailPanelShowsAllProperties(t *testing.T) {
 func TestBottomPaneSplitModeRendering(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Intent:   "Test ball",
+		Title:   "Test ball",
 		State:    session.StateInProgress,
 		Priority: session.PriorityMedium,
 		AcceptanceCriteria: []string{
@@ -5068,7 +5068,7 @@ func TestDetailScrollOffsetResetOnToggle(t *testing.T) {
 func TestBallDetailPanelShowsOutput(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Intent:   "Research task",
+		Title:   "Research task",
 		State:    session.StateResearched,
 		Priority: session.PriorityMedium,
 		Output:   "Research findings:\nLine 1\nLine 2",
@@ -5312,9 +5312,9 @@ func TestBuildBallsStats(t *testing.T) {
 // TestBallsPanelDisplaysStats verifies stats appear in the balls panel
 func TestBallsPanelDisplaysStats(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-1", Intent: "First ball", State: session.StatePending, Tags: []string{"test-session"}},
-		{ID: "test-2", Intent: "Second ball", State: session.StateInProgress, Tags: []string{"test-session"}},
-		{ID: "test-3", Intent: "Third ball", State: session.StateBlocked, Tags: []string{"test-session"}},
+		{ID: "test-1", Title: "First ball", State: session.StatePending, Tags: []string{"test-session"}},
+		{ID: "test-2", Title: "Second ball", State: session.StateInProgress, Tags: []string{"test-session"}},
+		{ID: "test-3", Title: "Third ball", State: session.StateBlocked, Tags: []string{"test-session"}},
 	}
 
 	model := Model{
@@ -5355,8 +5355,8 @@ func TestBallsPanelDisplaysStats(t *testing.T) {
 // TestStatsUpdateOnStateChange verifies stats reflect current ball states
 func TestStatsUpdateOnStateChange(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-		{ID: "test-2", Intent: "Ball 2", State: session.StatePending},
+		{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+		{ID: "test-2", Title: "Ball 2", State: session.StatePending},
 	}
 
 	model := Model{}
@@ -5385,7 +5385,7 @@ func TestStatsUpdateOnStateChange(t *testing.T) {
 // TestStatsPanelPosition verifies stats appear at the right position
 func TestStatsPanelPosition(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-1", Intent: "Ball 1", State: session.StatePending, Tags: []string{"test-session"}},
+		{ID: "test-1", Title: "Ball 1", State: session.StatePending, Tags: []string{"test-session"}},
 	}
 
 	model := Model{
@@ -7537,7 +7537,7 @@ func TestHandleSplitArchiveBall_NonCompleteBall(t *testing.T) {
 	// Create a ball that is not complete
 	ball := &session.Ball{
 		ID:         "test-1",
-		Intent:     "Test ball",
+		Title:     "Test ball",
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test",
 	}
@@ -7852,7 +7852,7 @@ func TestUnifiedBallFormViewRendersAllFields(t *testing.T) {
 		pendingBallPriority:       1, // medium
 		pendingBallTags:           "tag1, tag2",
 		pendingBallSession:        0,
-		pendingBallFormField:      0, // on intent
+		pendingBallFormField:      1, // on title (was intent)
 		pendingAcceptanceCriteria: []string{"AC 1", "AC 2"},
 		textInput:                 ti,
 		sessions: []*session.JuggleSession{
@@ -7865,7 +7865,7 @@ func TestUnifiedBallFormViewRendersAllFields(t *testing.T) {
 	view := model.renderUnifiedBallFormView()
 
 	// Check for all field labels
-	if !strings.Contains(view, "Intent:") {
+	if !strings.Contains(view, "Title:") {
 		t.Error("View should contain Intent field")
 	}
 	if !strings.Contains(view, "Priority:") {
@@ -7907,41 +7907,41 @@ func TestUnifiedBallFormNavigation(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      0, // Start at intent
+		pendingBallFormField:      1, // Start at title (was intent)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 	}
 
-	// Test down arrow navigation from intent to priority
+	// Test down arrow navigation from title to priority
 	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m := newModel.(Model)
-	if m.pendingBallFormField != 1 {
-		t.Errorf("Expected field to be 1 (priority) after down, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 2 {
+		t.Errorf("Expected field to be 2 (priority) after down, got %d", m.pendingBallFormField)
 	}
 
-	// Test up arrow navigation back to intent
+	// Test up arrow navigation back to title
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyUp})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 0 {
-		t.Errorf("Expected field to be 0 (intent) after up, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to be 1 (title) after up, got %d", m.pendingBallFormField)
 	}
 
-	// Test that j/k don't work on text fields (intent field is a text field)
+	// Test that j/k don't work on text fields (title field is a text field)
 	// j should be typed as a character, not move the form
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	m = newModel.(Model)
-	// Still on field 0 (intent), because j doesn't navigate in text fields
-	if m.pendingBallFormField != 0 {
-		t.Errorf("Expected field to still be 0 after j in text field, got %d", m.pendingBallFormField)
+	// Still on field 1 (title), because j doesn't navigate in text fields
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to still be 1 after j in text field, got %d", m.pendingBallFormField)
 	}
 
 	// Now move to priority field using down arrow, then test that j/k work on selection fields
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 1 {
-		t.Errorf("Expected field to be 1 (priority) after down, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 2 {
+		t.Errorf("Expected field to be 2 (priority) after down, got %d", m.pendingBallFormField)
 	}
 
 	// On priority field (selection field), j/k should be ignored (not navigate, not cycle)
@@ -7949,9 +7949,9 @@ func TestUnifiedBallFormNavigation(t *testing.T) {
 	originalPriority := m.pendingBallPriority
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	m = newModel.(Model)
-	// Still on field 1 (priority), and priority is unchanged
-	if m.pendingBallFormField != 1 {
-		t.Errorf("Expected field to still be 1 after j on priority field, got %d", m.pendingBallFormField)
+	// Still on field 2 (priority), and priority is unchanged
+	if m.pendingBallFormField != 2 {
+		t.Errorf("Expected field to still be 2 after j on priority field, got %d", m.pendingBallFormField)
 	}
 	if m.pendingBallPriority != originalPriority {
 		t.Errorf("Expected priority to be unchanged after j, but it changed")
@@ -7960,8 +7960,8 @@ func TestUnifiedBallFormNavigation(t *testing.T) {
 	// k should also have no effect
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 1 {
-		t.Errorf("Expected field to still be 1 after k on priority field, got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 2 {
+		t.Errorf("Expected field to still be 2 after k on priority field, got %d", m.pendingBallFormField)
 	}
 	if m.pendingBallPriority != originalPriority {
 		t.Errorf("Expected priority to be unchanged after k, but it changed")
@@ -7977,7 +7977,7 @@ func TestUnifiedBallFormCanTypeJKLH(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "",
-		pendingBallFormField:      0, // On intent field
+		pendingBallFormField:      1, // On title field (was intent)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8032,7 +8032,7 @@ func TestUnifiedBallFormCanTypeJKLHInAC(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test",
-		pendingBallFormField:      6, // On first AC field
+		pendingBallFormField:      7, // On first AC field
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8067,7 +8067,7 @@ func TestUnifiedBallFormPrioritySelection(t *testing.T) {
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test",
 		pendingBallPriority:       1, // medium
-		pendingBallFormField:      1, // on priority field
+		pendingBallFormField:      2, // on priority field
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8109,7 +8109,7 @@ func TestUnifiedBallFormAddAC(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      6, // On the "new AC" field (index 6 = first AC position, after model_size and depends_on)
+		pendingBallFormField:      7, // On the "new AC" field (index 7 = first AC position, after context, title, priority, tags, session, model_size, depends_on)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8128,9 +8128,9 @@ func TestUnifiedBallFormAddAC(t *testing.T) {
 		t.Errorf("Expected AC to be 'New acceptance criterion', got '%s'", m.pendingAcceptanceCriteria[0])
 	}
 
-	// Should stay on new AC field for adding more
-	if m.pendingBallFormField != 7 {
-		t.Errorf("Expected to stay on new AC field (7), got %d", m.pendingBallFormField)
+	// Should stay on new AC field for adding more (after adding 1 AC, new AC is at index 8)
+	if m.pendingBallFormField != 8 {
+		t.Errorf("Expected to stay on new AC field (8), got %d", m.pendingBallFormField)
 	}
 }
 
@@ -8147,7 +8147,7 @@ func TestUnifiedBallFormEditAC(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      6, // On first existing AC (index 6, after model_size and depends_on)
+		pendingBallFormField:      7, // On first existing AC (index 7, after context, title, priority, tags, session, model_size, depends_on)
 		pendingAcceptanceCriteria: []string{"Original AC"},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8176,46 +8176,46 @@ func TestUnifiedBallFormNavigateThroughACs(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      5, // On depends_on field (was 4 before model_size was added)
+		pendingBallFormField:      6, // On depends_on field
 		pendingAcceptanceCriteria: []string{"AC 1", "AC 2", "AC 3"},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 	}
 
-	// Navigate down to first AC (field 6)
+	// Navigate down to first AC (field 7)
 	newModel, _ := model.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m := newModel.(Model)
-	if m.pendingBallFormField != 6 {
-		t.Errorf("Expected field 6 (AC 1), got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 7 {
+		t.Errorf("Expected field 7 (AC 1), got %d", m.pendingBallFormField)
 	}
 
 	// Navigate to second AC
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 7 {
-		t.Errorf("Expected field 7 (AC 2), got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 8 {
+		t.Errorf("Expected field 8 (AC 2), got %d", m.pendingBallFormField)
 	}
 
 	// Navigate to third AC
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 8 {
-		t.Errorf("Expected field 8 (AC 3), got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 9 {
+		t.Errorf("Expected field 9 (AC 3), got %d", m.pendingBallFormField)
 	}
 
 	// Navigate to "new AC" field
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
-	if m.pendingBallFormField != 9 {
-		t.Errorf("Expected field 9 (new AC), got %d", m.pendingBallFormField)
+	if m.pendingBallFormField != 10 {
+		t.Errorf("Expected field 10 (new AC), got %d", m.pendingBallFormField)
 	}
 
-	// Navigate wrap to intent
+	// Navigate wrap to context
 	newModel, _ = m.handleUnifiedBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
 	m = newModel.(Model)
 	if m.pendingBallFormField != 0 {
-		t.Errorf("Expected field 0 (intent) after wrap, got %d", m.pendingBallFormField)
+		t.Errorf("Expected field 0 (context) after wrap, got %d", m.pendingBallFormField)
 	}
 }
 
@@ -8266,7 +8266,7 @@ func TestUnifiedBallFormCreateOnEmptyAC(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      6, // On the "new AC" field (index 6, after model_size and depends_on)
+		pendingBallFormField:      7, // On the "new AC" field (index 7, after context, title, priority, tags, session, model_size, depends_on)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8305,7 +8305,7 @@ func TestUnifiedBallFormCtrlEnterCreates(t *testing.T) {
 		pendingBallIntent:         "Test intent",
 		pendingBallPriority:       2,
 		pendingBallTags:           "tag1",
-		pendingBallFormField:      1, // On priority field
+		pendingBallFormField:      2, // On priority field
 		pendingAcceptanceCriteria: []string{"AC 1"},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8342,7 +8342,7 @@ func TestUnifiedBallFormRequiresIntent(t *testing.T) {
 		pendingBallIntent:         "", // Empty intent
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
-		pendingBallFormField:      6, // On new AC field (index 6, after model_size and depends_on)
+		pendingBallFormField:      7, // On new AC field (index 7, after context, title, priority, tags, session, model_size, depends_on)
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8373,7 +8373,7 @@ func TestUnifiedBallFormSessionSelection(t *testing.T) {
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test",
 		pendingBallSession:        0, // (none)
-		pendingBallFormField:      3, // on session field
+		pendingBallFormField:      4, // on session field
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions: []*session.JuggleSession{
@@ -8444,16 +8444,16 @@ func TestOpenDependencySelector(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      5, // On depends_on field (was 4 before model_size was added)
+		pendingBallFormField:      6, // On depends_on field
 		pendingAcceptanceCriteria: []string{},
 		pendingBallDependsOn:      []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 		balls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
-			{ID: "test-3", Intent: "Ball 3", State: session.StateComplete}, // Should not appear
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
+			{ID: "test-3", Title: "Ball 3", State: session.StateComplete}, // Should not appear
 		},
 	}
 
@@ -8483,9 +8483,9 @@ func TestDependencySelectorNavigation(t *testing.T) {
 		dependencySelectIndex:  0,
 		dependencySelectActive: make(map[string]bool),
 		dependencySelectBalls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
-			{ID: "test-3", Intent: "Ball 3", State: session.StateBlocked},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
+			{ID: "test-3", Title: "Ball 3", State: session.StateBlocked},
 		},
 		activityLog: make([]ActivityEntry, 0),
 	}
@@ -8526,8 +8526,8 @@ func TestDependencySelectorToggle(t *testing.T) {
 		dependencySelectIndex:  0,
 		dependencySelectActive: make(map[string]bool),
 		dependencySelectBalls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
 		},
 		activityLog: make([]ActivityEntry, 0),
 	}
@@ -8569,8 +8569,8 @@ func TestDependencySelectorConfirm(t *testing.T) {
 			"test-2": true,
 		},
 		dependencySelectBalls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
 		},
 		pendingBallDependsOn: []string{},
 		activityLog:          make([]ActivityEntry, 0),
@@ -8606,7 +8606,7 @@ func TestDependencySelectorCancel(t *testing.T) {
 			"test-1": true,
 		},
 		dependencySelectBalls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
 		},
 		pendingBallDependsOn: []string{}, // Should remain empty
 		activityLog:          make([]ActivityEntry, 0),
@@ -8635,15 +8635,15 @@ func TestDependencySelectorPreservesExisting(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      5, // On depends_on field (was 4 before model_size was added)
+		pendingBallFormField:      6, // On depends_on field
 		pendingBallDependsOn:      []string{"test-1"}, // Pre-existing dependency
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 		balls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
 		},
 	}
 
@@ -8677,7 +8677,7 @@ func TestBallCreationWithDependencies(t *testing.T) {
 		pendingBallTags:           "",
 		pendingBallSession:        0,
 		pendingBallDependsOn:      []string{"dep-1", "dep-2"},
-		pendingBallFormField:      7, // On "new AC" field (field 6=first AC, 7=new AC input)
+		pendingBallFormField:      8, // On "new AC" field (field 7=first AC, 8=new AC input)
 		pendingAcceptanceCriteria: []string{"Test AC"},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8727,15 +8727,15 @@ func TestDependencySelectorNoBalls(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      5, // On depends_on field (was 4 before model_size was added)
+		pendingBallFormField:      6, // On depends_on field
 		pendingBallDependsOn:      []string{},
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
 		activityLog:               make([]ActivityEntry, 0),
 		balls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StateComplete},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateResearched},
+			{ID: "test-1", Title: "Ball 1", State: session.StateComplete},
+			{ID: "test-2", Title: "Ball 2", State: session.StateResearched},
 		},
 	}
 
@@ -8788,8 +8788,8 @@ func TestRenderDependencySelectorView(t *testing.T) {
 			"test-1": true,
 		},
 		dependencySelectBalls: []*session.Ball{
-			{ID: "test-1", Intent: "Ball 1", State: session.StatePending},
-			{ID: "test-2", Intent: "Ball 2", State: session.StateInProgress},
+			{ID: "test-1", Title: "Ball 1", State: session.StatePending},
+			{ID: "test-2", Title: "Ball 2", State: session.StateInProgress},
 		},
 	}
 
@@ -8847,7 +8847,7 @@ func TestUnifiedBallFormModelSizeSelection(t *testing.T) {
 		pendingBallIntent:    "Test",
 		pendingBallPriority:  1, // medium
 		pendingBallModelSize: 0, // default
-		pendingBallFormField: 4, // model_size field
+		pendingBallFormField: 5, // model_size field
 		textInput:            ti,
 		sessions:             []*session.JuggleSession{},
 		activityLog:          make([]ActivityEntry, 0),
@@ -8903,7 +8903,7 @@ func TestBallCreationWithModelSize(t *testing.T) {
 		pendingBallIntent:         "Ball with model size",
 		pendingBallPriority:       1,
 		pendingBallModelSize:      2, // medium
-		pendingBallFormField:      6, // On "new AC" field
+		pendingBallFormField:      7, // On "new AC" field
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -8984,7 +8984,7 @@ func TestClearPendingBallStateClearsModelSize(t *testing.T) {
 func TestEditBallFormPrepopulatesFields(t *testing.T) {
 	ball := &session.Ball{
 		ID:                 "test-1",
-		Intent:             "Original intent",
+		Title:             "Original intent",
 		Priority:           session.PriorityHigh,
 		State:              session.StateInProgress,
 		Tags:               []string{"tag1", "tag2"},
@@ -9027,8 +9027,8 @@ func TestEditBallFormPrepopulatesFields(t *testing.T) {
 	}
 
 	// Verify fields are prepopulated
-	if m.pendingBallIntent != ball.Intent {
-		t.Errorf("Expected intent %q, got %q", ball.Intent, m.pendingBallIntent)
+	if m.pendingBallIntent != ball.Title {
+		t.Errorf("Expected intent %q, got %q", ball.Title, m.pendingBallIntent)
 	}
 
 	// Priority: high = index 2

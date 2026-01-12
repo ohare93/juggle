@@ -93,7 +93,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		query = strings.ToLower(args[0])
 		filtered := make([]*session.Ball, 0)
 		for _, ball := range activeBalls {
-			if strings.Contains(strings.ToLower(ball.Intent), query) {
+			if strings.Contains(strings.ToLower(ball.Title), query) {
 				filtered = append(filtered, ball)
 			}
 		}
@@ -251,7 +251,7 @@ func renderSearchResults(balls []*session.Ball) {
 		priorityCell := GetPriorityStyle(priorityStr).Render(padRight(priorityStr, 10))
 
 		// Intent (truncated)
-		intentCell := truncate(ball.Intent, 40)
+		intentCell := truncate(ball.Title, 40)
 		intentCell = padRight(intentCell, 40)
 
 		fmt.Println(

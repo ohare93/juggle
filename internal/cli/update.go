@@ -103,10 +103,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	modified := false
 
 	if updateIntent != "" {
-		foundBall.Intent = updateIntent
+		foundBall.Title = updateIntent
 		modified = true
 		if !updateJSONFlag {
-			fmt.Printf("✓ Updated intent: %s\n", updateIntent)
+			fmt.Printf("✓ Updated title: %s\n", updateIntent)
 		}
 	}
 
@@ -355,11 +355,11 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	fmt.Println()
 
 	// Edit intent
-	fmt.Printf("Intent [%s]: ", ball.Intent)
+	fmt.Printf("Intent [%s]: ", ball.Title)
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
-		ball.Intent = input
+		ball.Title = input
 	}
 
 	// Edit priority
@@ -502,7 +502,7 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 
 	fmt.Printf("\n✓ Ball %s updated successfully\n", ball.ID)
 	fmt.Println("\nUpdated values:")
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	fmt.Printf("  State: %s\n", ball.State)
 	if ball.BlockedReason != "" {

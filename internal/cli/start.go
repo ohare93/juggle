@@ -122,7 +122,7 @@ func startPlannedBall(store *session.Store, cwd, ballID string) error {
 	_ = session.EnsureProjectInSearchPaths(cwd)
 
 	fmt.Printf("✓ Started planned ball: %s\n", ball.ID)
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 
 	return nil
@@ -311,7 +311,7 @@ func createAndStartBall(store *session.Store, cwd, intent string) error {
 	// Export ball ID for hooks to use
 	fmt.Printf("export JUGGLER_CURRENT_BALL=%s\n", ball.ID)
 	fmt.Printf("\n✓ Started ball: %s\n", ball.ID)
-	fmt.Printf("  Intent: %s\n", ball.Intent)
+	fmt.Printf("  Title: %s\n", ball.Title)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))

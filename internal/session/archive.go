@@ -69,9 +69,12 @@ func QueryArchive(projectPaths []string, query ArchiveQuery) ([]*Ball, error) {
 	filtered := make([]*Ball, 0)
 
 	for _, ball := range balls {
-		// Text search filter
+		// Text search filter (searches both title and context)
 		if query.Query != "" {
-			if !strings.Contains(strings.ToLower(ball.Intent), strings.ToLower(query.Query)) {
+			queryLower := strings.ToLower(query.Query)
+			titleMatch := strings.Contains(strings.ToLower(ball.Title), queryLower)
+			contextMatch := strings.Contains(strings.ToLower(ball.Context), queryLower)
+			if !titleMatch && !contextMatch {
 				continue
 			}
 		}

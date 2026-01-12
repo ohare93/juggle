@@ -422,7 +422,7 @@ func (m Model) renderBallsPanel(width, height int) string {
 
 		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 			// Show blocked reason inline for blocked balls
-			intent := truncate(ball.Intent, width-25-len(idPrefix)-suffixLen)
+			intent := truncate(ball.Title, width-25-len(idPrefix)-suffixLen)
 			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(idPrefix)-suffixLen)
 			line = fmt.Sprintf("%s %s%s [%s]%s%s%s%s%s",
 				stateIcon,
@@ -441,7 +441,7 @@ func (m Model) renderBallsPanel(width, height int) string {
 				stateIcon,
 				idPrefix,
 				availWidth,
-				truncate(ball.Intent, availWidth),
+				truncate(ball.Title, availWidth),
 				string(ball.State),
 				prioritySuffix,
 				tagsSuffix,
@@ -622,12 +622,12 @@ func (m Model) buildBallDetailLines(ball *session.Ball, width int) []string {
 	}
 	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", idLabel, valueStyle.Render(idValue), stateLabel, styleBallByState(ball, stateValue)))
 
-	// Row 2: Priority and Intent
+	// Row 2: Priority and Title
 	priorityLabel := labelStyle.Render("Priority:")
 	priorityValue := string(ball.Priority)
-	intentLabel := labelStyle.Render("Intent:")
-	intentValue := truncate(ball.Intent, width-50)
-	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", priorityLabel, valueStyle.Render(priorityValue), intentLabel, valueStyle.Render(intentValue)))
+	titleLabel := labelStyle.Render("Title:")
+	titleValue := truncate(ball.Title, width-50)
+	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", priorityLabel, valueStyle.Render(priorityValue), titleLabel, valueStyle.Render(titleValue)))
 
 	// Row 3: Tags and Tests State
 	tagsLabel := labelStyle.Render("Tags:")

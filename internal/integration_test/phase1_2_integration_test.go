@@ -377,8 +377,8 @@ func TestPlanCommand(t *testing.T) {
 		}
 
 		// Verify the intent was preserved correctly
-		if ball.Intent != multiWordIntent {
-			t.Errorf("Expected intent %q, got %q", multiWordIntent, ball.Intent)
+		if ball.Title != multiWordIntent {
+			t.Errorf("Expected intent %q, got %q", multiWordIntent, ball.Title)
 		}
 
 		// Verify it's a ready ball (planned)
@@ -392,8 +392,8 @@ func TestPlanCommand(t *testing.T) {
 			t.Fatalf("Failed to reload ball: %v", err)
 		}
 
-		if reloaded.Intent != multiWordIntent {
-			t.Errorf("Intent not persisted correctly: expected %q, got %q", multiWordIntent, reloaded.Intent)
+		if reloaded.Title != multiWordIntent {
+			t.Errorf("Intent not persisted correctly: expected %q, got %q", multiWordIntent, reloaded.Title)
 		}
 	})
 
@@ -411,8 +411,8 @@ func TestPlanCommand(t *testing.T) {
 			t.Fatalf("Failed to save ball: %v", err)
 		}
 
-		if ball.Intent != intent {
-			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		if ball.Title != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Title)
 		}
 	})
 
@@ -430,8 +430,8 @@ func TestPlanCommand(t *testing.T) {
 			t.Fatalf("Failed to save ball: %v", err)
 		}
 
-		if ball.Intent != intent {
-			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		if ball.Title != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Title)
 		}
 	})
 
@@ -449,8 +449,8 @@ func TestPlanCommand(t *testing.T) {
 			t.Fatalf("Failed to save ball: %v", err)
 		}
 
-		if ball.Intent != intent {
-			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+		if ball.Title != intent {
+			t.Errorf("Expected intent %q, got %q", intent, ball.Title)
 		}
 	})
 
@@ -580,8 +580,8 @@ func TestPlanCommand(t *testing.T) {
 			t.Fatalf("Failed to reload ball: %v", err)
 		}
 
-		if reloaded.Intent != "Complete task" {
-			t.Errorf("Expected intent 'Complete task', got %s", reloaded.Intent)
+		if reloaded.Title != "Complete task" {
+			t.Errorf("Expected intent 'Complete task', got %s", reloaded.Title)
 		}
 		if reloaded.Priority != session.PriorityUrgent {
 			t.Errorf("Expected priority urgent, got %s", reloaded.Priority)

@@ -134,7 +134,7 @@ func testCompleteAllBallsEmptyPrefix(t *testing.T) {
 		if ball.ID == "" {
 			t.Error("Expected ball to have non-empty ID")
 		}
-		if ball.Intent == "" {
+		if ball.Title == "" {
 			t.Error("Expected ball to have non-empty Intent")
 		}
 	}
@@ -311,8 +311,8 @@ func testCompleteShowsIntent(t *testing.T) {
 	ball := env.CreateBall(t, intent, session.PriorityHigh)
 
 	// Verify intent is available for completion display
-	if ball.Intent != intent {
-		t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
+	if ball.Title != intent {
+		t.Errorf("Expected intent %q, got %q", intent, ball.Title)
 	}
 }
 

@@ -179,7 +179,7 @@ func importPRDFile(prdPath, projectDir, sessionID string) error {
 	// Build lookup by title (intent) to check for existing balls
 	existingTitles := make(map[string]bool)
 	for _, ball := range balls {
-		existingTitles[ball.Intent] = true
+		existingTitles[ball.Title] = true
 	}
 
 	var imported, skipped int
@@ -413,7 +413,7 @@ func ImportGitHubIssues(issues []GitHubIssue, projectDir, sessionID string) erro
 	// Build lookup by title (intent) to check for existing balls
 	existingTitles := make(map[string]bool)
 	for _, ball := range balls {
-		existingTitles[ball.Intent] = true
+		existingTitles[ball.Title] = true
 	}
 
 	var imported, skipped int

@@ -40,8 +40,8 @@ func TestPlanBallCreation(t *testing.T) {
 		t.Fatalf("Failed to retrieve ball: %v", err)
 	}
 
-	if retrieved.Intent != "User can authenticate with OAuth" {
-		t.Errorf("Unexpected intent: %s", retrieved.Intent)
+	if retrieved.Title != "User can authenticate with OAuth" {
+		t.Errorf("Unexpected intent: %s", retrieved.Title)
 	}
 
 	if len(retrieved.AcceptanceCriteria) != 3 {
@@ -60,7 +60,7 @@ func TestInteractiveUpdateLogic(t *testing.T) {
 	ball := env.CreateBall(t, "Original intent", session.PriorityLow)
 
 	// Simulate interactive update - modify all fields
-	ball.Intent = "Updated intent"
+	ball.Title = "Updated intent"
 	ball.Priority = session.PriorityHigh
 	ball.SetAcceptanceCriteria([]string{"New criterion"})
 	ball.Tags = []string{"updated", "interactive"}
@@ -75,8 +75,8 @@ func TestInteractiveUpdateLogic(t *testing.T) {
 		t.Fatalf("Failed to retrieve ball: %v", err)
 	}
 
-	if retrieved.Intent != "Updated intent" {
-		t.Errorf("Intent not updated: %s", retrieved.Intent)
+	if retrieved.Title != "Updated intent" {
+		t.Errorf("Intent not updated: %s", retrieved.Title)
 	}
 
 	if retrieved.Priority != session.PriorityHigh {

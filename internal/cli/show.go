@@ -68,7 +68,10 @@ func renderBallDetails(ball *session.Ball) {
 
 	fmt.Println(labelStyle.Render("Ball ID:"), valueStyle.Render(ball.ID))
 	fmt.Println(labelStyle.Render("Working Dir:"), valueStyle.Render(ball.WorkingDir))
-	fmt.Println(labelStyle.Render("Intent:"), valueStyle.Render(ball.Intent))
+	if ball.Context != "" {
+		fmt.Println(labelStyle.Render("Context:"), valueStyle.Render(ball.Context))
+	}
+	fmt.Println(labelStyle.Render("Title:"), valueStyle.Render(ball.Title))
 	fmt.Println(labelStyle.Render("Priority:"), valueStyle.Render(string(ball.Priority)))
 	fmt.Println(labelStyle.Render("State:"), valueStyle.Render(string(ball.State)))
 

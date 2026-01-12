@@ -17,7 +17,10 @@ func renderBallDetail(ball *session.Ball) string {
 	b.WriteString(titleStyle.Render(title) + "\n\n")
 
 	// Basic info
-	b.WriteString(renderField("Intent", ball.Intent))
+	if ball.Context != "" {
+		b.WriteString(renderField("Context", ball.Context))
+	}
+	b.WriteString(renderField("Title", ball.Title))
 	b.WriteString(renderField("Priority", string(ball.Priority)))
 	b.WriteString(renderField("State", formatState(ball)))
 	if ball.State == session.StateBlocked && ball.BlockedReason != "" {

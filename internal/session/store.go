@@ -104,6 +104,13 @@ func (s *Store) AppendBall(ball *Ball) error {
 	return nil
 }
 
+// ballJSON is used for JSON unmarshaling with migration support
+// It includes both old (intent) and new (title) field names
+type ballJSON struct {
+	Ball
+	Intent string `json:"intent,omitempty"` // Legacy field, migrated to Title
+}
+
 // LoadBalls reads all balls from the JSONL file
 func (s *Store) LoadBalls() ([]*Ball, error) {
 	// If file doesn't exist, return empty slice
@@ -126,11 +133,18 @@ func (s *Store) LoadBalls() ([]*Ball, error) {
 			continue // Skip empty lines
 		}
 
-		var ball Ball
-		if err := json.Unmarshal([]byte(line), &ball); err != nil {
+		var ballData ballJSON
+		if err := json.Unmarshal([]byte(line), &ballData); err != nil {
 			// Log error but continue
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse ball line: %v\n", err)
 			continue
+		}
+
+		ball := ballData.Ball
+
+		// Migrate legacy "intent" field to "title"
+		if ball.Title == "" && ballData.Intent != "" {
+			ball.Title = ballData.Intent
 		}
 
 		// Set WorkingDir from store location (not stored in JSON)
@@ -168,11 +182,18 @@ func (s *Store) LoadArchivedBalls() ([]*Ball, error) {
 			continue // Skip empty lines
 		}
 
-		var ball Ball
-		if err := json.Unmarshal([]byte(line), &ball); err != nil {
+		var ballData ballJSON
+		if err := json.Unmarshal([]byte(line), &ballData); err != nil {
 			// Log error but continue
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse archived ball line: %v\n", err)
 			continue
+		}
+
+		ball := ballData.Ball
+
+		// Migrate legacy "intent" field to "title"
+		if ball.Title == "" && ballData.Intent != "" {
+			ball.Title = ballData.Intent
 		}
 
 		// Set WorkingDir from store location (not stored in JSON)

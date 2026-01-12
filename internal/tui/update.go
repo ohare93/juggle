@@ -1727,7 +1727,8 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 		m.editingBall = ball
 
 		// Use unified ball form with prepopulated fields
-		m.pendingBallIntent = ball.Intent
+		m.pendingBallContext = ball.Context
+		m.pendingBallIntent = ball.Title
 		// Convert priority to index (low=0, medium=1, high=2, urgent=3)
 		switch ball.Priority {
 		case session.PriorityLow:
@@ -1780,7 +1781,7 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 		}
 
 		m.pendingBallFormField = 0 // Start at intent field
-		m.textInput.SetValue(ball.Intent)
+		m.textInput.SetValue(ball.Title)
 		m.textInput.Placeholder = "What is this ball about?"
 		m.mode = unifiedBallFormView
 		m.addActivity("Editing ball: " + ball.ID)
@@ -1971,7 +1972,7 @@ func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 			m.mode = splitView
 			return m, nil
 		}
-		m.editingBall.Intent = value
+		m.editingBall.Title = value
 		store, err := session.NewStore(m.editingBall.WorkingDir)
 		if err != nil {
 			m.message = "Error: " + err.Error()
@@ -2206,7 +2207,8 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	if m.inputAction == actionEdit && m.editingBall != nil {
 		// Update existing ball
 		ball := m.editingBall
-		ball.Intent = m.pendingBallIntent
+		ball.Context = m.pendingBallContext
+		ball.Title = m.pendingBallIntent
 		ball.Priority = priority
 		ball.Tags = tags
 		ball.ModelSize = modelSize
@@ -2251,6 +2253,7 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 
 		// New balls always start in pending state
 		ball.State = session.StatePending
+		ball.Context = m.pendingBallContext // Set context from form
 		ball.Tags = tags
 		ball.ModelSize = modelSize
 
@@ -2287,6 +2290,7 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 
 // clearPendingBallState clears all pending ball creation/editing state
 func (m *Model) clearPendingBallState() {
+	m.pendingBallContext = ""
 	m.pendingBallIntent = ""
 	m.pendingAcceptanceCriteria = nil
 	m.pendingBallPriority = 1   // Reset to default (medium)
@@ -2476,7 +2480,7 @@ func (m *Model) filterBallsForSession() []*session.Ball {
 		query := strings.ToLower(m.panelSearchQuery)
 		filtered := make([]*session.Ball, 0)
 		for _, ball := range balls {
-			if strings.Contains(strings.ToLower(ball.Intent), query) ||
+			if strings.Contains(strings.ToLower(ball.Title), query) ||
 				strings.Contains(strings.ToLower(ball.ID), query) {
 				filtered = append(filtered, ball)
 			}
@@ -3099,13 +3103,14 @@ func (m Model) handleHistoryOutputViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Field indices
 	const (
-		fieldIntent    = 0
-		fieldPriority  = 1
-		fieldTags      = 2
-		fieldSession   = 3
-		fieldModelSize = 4
-		fieldDependsOn = 5 // Depends On field - opens selector on Enter
-		fieldACStart   = 6 // ACs start at index 6
+		fieldContext   = 0
+		fieldIntent    = 1 // Title field (was intent)
+		fieldPriority  = 2
+		fieldTags      = 3
+		fieldSession   = 4
+		fieldModelSize = 5
+		fieldDependsOn = 6 // Depends On field - opens selector on Enter
+		fieldACStart   = 7 // ACs start at index 7
 	)
 
 	// Number of options for selection fields
@@ -3125,13 +3130,15 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Helper to check if we're on a text input field
 	isTextInputField := func(field int) bool {
-		return field == fieldIntent || field == fieldTags || field >= fieldACStart
+		return field == fieldContext || field == fieldIntent || field == fieldTags || field >= fieldACStart
 	}
 
 	// Helper to save current field value before moving
 	saveCurrentFieldValue := func() {
 		value := strings.TrimSpace(m.textInput.Value())
 		switch m.pendingBallFormField {
+		case fieldContext:
+			m.pendingBallContext = value
 		case fieldIntent:
 			m.pendingBallIntent = value
 		case fieldTags:
@@ -3161,9 +3168,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	loadFieldValue := func(field int) {
 		m.textInput.Reset()
 		switch field {
+		case fieldContext:
+			m.textInput.SetValue(m.pendingBallContext)
+			m.textInput.Placeholder = "Background context for this task"
 		case fieldIntent:
 			m.textInput.SetValue(m.pendingBallIntent)
-			m.textInput.Placeholder = "What is this ball about?"
+			m.textInput.Placeholder = "What is this ball about? (50 char recommended)"
 		case fieldTags:
 			m.textInput.SetValue(m.pendingBallTags)
 			m.textInput.Placeholder = "tag1, tag2, ..."

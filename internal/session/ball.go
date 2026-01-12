@@ -55,7 +55,8 @@ const (
 type Ball struct {
 	ID                 string      `json:"id"`
 	WorkingDir         string      `json:"-"` // Computed from file location, not stored
-	Intent             string      `json:"intent"`
+	Context            string      `json:"context,omitempty"` // Detailed description/background for the ball
+	Title              string      `json:"title"`             // Short title (50 char soft limit)
 	AcceptanceCriteria []string    `json:"acceptance_criteria,omitempty"`
 	Priority           Priority    `json:"priority"`
 	State              BallState   `json:"state"`
@@ -73,7 +74,7 @@ type Ball struct {
 }
 
 // NewBall creates a new ball with the given parameters in pending state
-func NewBall(workingDir, intent string, priority Priority) (*Ball, error) {
+func NewBall(workingDir, title string, priority Priority) (*Ball, error) {
 	now := time.Now()
 	id, err := generateID(workingDir)
 	if err != nil {
@@ -83,7 +84,7 @@ func NewBall(workingDir, intent string, priority Priority) (*Ball, error) {
 	ball := &Ball{
 		ID:           id,
 		WorkingDir:   workingDir,
-		Intent:       intent,
+		Title:        title,
 		Priority:     priority,
 		State:        StatePending,
 		StartedAt:    now,

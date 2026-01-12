@@ -21,7 +21,7 @@ func TestLocalFlag(t *testing.T) {
 	ball1 := &session.Ball{
 		ID:         "test1-1",
 		WorkingDir: project1,
-		Intent:     "Ball in project 1",
+		Title:     "Ball in project 1",
 		Priority:   session.PriorityMedium,
 		State:      session.StateInProgress,
 	}
@@ -38,7 +38,7 @@ func TestLocalFlag(t *testing.T) {
 	ball2 := &session.Ball{
 		ID:         "test2-1",
 		WorkingDir: project2,
-		Intent:     "Ball in project 2",
+		Title:     "Ball in project 2",
 		Priority:   session.PriorityMedium,
 		State:      session.StateInProgress,
 	}

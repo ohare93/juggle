@@ -411,7 +411,7 @@ func runSessionsShow(cmd *cobra.Command, args []string) error {
 			case session.StateComplete:
 				stateStyle = stateStyle.Foreground(lipgloss.Color("8"))
 			}
-			fmt.Printf("  - %s [%s] %s\n", ball.ID, stateStyle.Render(string(ball.State)), ball.Intent)
+			fmt.Printf("  - %s [%s] %s\n", ball.ID, stateStyle.Render(string(ball.State)), ball.Title)
 		}
 	} else {
 		fmt.Println("  (no balls linked to this session)")
