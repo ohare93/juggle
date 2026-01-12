@@ -189,10 +189,11 @@ type Model struct {
 	agentStatus AgentStatus // Status of running agent
 
 	// Agent output panel state
-	agentOutputVisible bool               // Whether agent output panel is shown
-	agentOutput        []AgentOutputEntry // Buffer of agent output lines
-	agentOutputOffset  int                // Scroll offset for agent output panel
-	agentOutputCh      chan agentOutputMsg // Channel for receiving agent output
+	agentOutputVisible  bool               // Whether agent output panel is shown
+	agentOutputExpanded bool               // Whether agent output panel is expanded (half screen)
+	agentOutput         []AgentOutputEntry // Buffer of agent output lines
+	agentOutputOffset   int                // Scroll offset for agent output panel
+	agentOutputCh       chan agentOutputMsg // Channel for receiving agent output
 
 	// Agent process tracking for cancellation
 	agentProcess *AgentProcess // Reference to running agent process for cancellation

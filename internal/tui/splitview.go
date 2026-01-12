@@ -10,11 +10,12 @@ import (
 
 // Panel dimensions as fractions of available space
 const (
-	leftPanelRatio   = 0.25 // 25% for sessions
-	rightPanelRatio  = 0.75 // 75% for balls
-	bottomPanelRows  = 6    // Fixed height for activity log
-	minLeftWidth     = 20
-	minRightWidth    = 40
+	leftPanelRatio          = 0.25 // 25% for sessions
+	rightPanelRatio         = 0.75 // 75% for balls
+	bottomPanelRows         = 6    // Fixed height for activity log
+	bottomPanelRowsExpanded = 15   // Expanded height for agent output panel
+	minLeftWidth            = 20
+	minRightWidth           = 40
 )
 
 // Panel styles
@@ -56,8 +57,19 @@ func (m Model) renderSplitView() string {
 		return "Loading..."
 	}
 
+	// Calculate effective bottom panel height (expanded when agent output visible and expanded)
+	effectiveBottomRows := bottomPanelRows
+	if m.agentOutputVisible && m.agentOutputExpanded {
+		effectiveBottomRows = bottomPanelRowsExpanded
+		// Cap at half the screen height
+		halfScreen := m.height / 2
+		if effectiveBottomRows > halfScreen {
+			effectiveBottomRows = halfScreen
+		}
+	}
+
 	// Calculate dimensions
-	mainHeight := m.height - bottomPanelRows - 4 // Account for borders and status
+	mainHeight := m.height - effectiveBottomRows - 4 // Account for borders and status
 	leftWidth := int(float64(m.width) * leftPanelRatio)
 	rightWidth := m.width - leftWidth - 3 // Account for borders
 
@@ -79,15 +91,15 @@ func (m Model) renderSplitView() string {
 	var bottomPanel string
 	if m.agentOutputVisible {
 		// Agent output panel takes over the bottom pane when visible
-		bottomPanel = m.renderAgentOutputPanel(m.width-2, bottomPanelRows-2)
+		bottomPanel = m.renderAgentOutputPanel(m.width-2, effectiveBottomRows-2)
 	} else {
 		switch m.bottomPaneMode {
 		case BottomPaneDetail:
-			bottomPanel = m.renderBallDetailPanel(m.width-2, bottomPanelRows-2)
+			bottomPanel = m.renderBallDetailPanel(m.width-2, effectiveBottomRows-2)
 		case BottomPaneSplit:
-			bottomPanel = m.renderSplitBottomPane(m.width-2, bottomPanelRows-2)
+			bottomPanel = m.renderSplitBottomPane(m.width-2, effectiveBottomRows-2)
 		default:
-			bottomPanel = m.renderActivityPanel(m.width-2, bottomPanelRows-2)
+			bottomPanel = m.renderActivityPanel(m.width-2, effectiveBottomRows-2)
 		}
 	}
 
@@ -107,9 +119,9 @@ func (m Model) renderSplitView() string {
 
 	var activityBorder lipgloss.Style
 	if m.activePanel == ActivityPanel {
-		activityBorder = activePanelBorderStyle.Width(m.width).Height(bottomPanelRows)
+		activityBorder = activePanelBorderStyle.Width(m.width).Height(effectiveBottomRows)
 	} else {
-		activityBorder = panelBorderStyle.Width(m.width).Height(bottomPanelRows)
+		activityBorder = panelBorderStyle.Width(m.width).Height(effectiveBottomRows)
 	}
 
 	// Build the layout
@@ -180,14 +192,39 @@ func (m Model) renderSessionsPanel(width, height int) string {
 				displayName = "○ Untagged"
 			}
 
-			line := fmt.Sprintf("%-*s (%d)",
-				width-6,
-				truncate(displayName, width-6),
+			// Check if agent is running for this session
+			agentRunningForSession := m.agentStatus.Running && m.agentStatus.SessionID == sess.ID
+
+			// Add agent indicator prefix
+			prefix := "  "
+			if agentRunningForSession {
+				prefix = "▶ " // Running indicator
+			}
+
+			line := fmt.Sprintf("%s%-*s (%d)",
+				prefix,
+				width-8, // Adjusted for prefix width
+				truncate(displayName, width-8),
 				ballCount,
 			)
 
 			if i == m.sessionCursor && m.activePanel == SessionsPanel {
-				b.WriteString(selectedSessionItemStyle.Render(line) + "\n")
+				if agentRunningForSession {
+					// Use distinct style for running agent + selected
+					runningSelectedStyle := lipgloss.NewStyle().
+						Bold(true).
+						Foreground(lipgloss.Color("3")). // Yellow for running
+						Background(lipgloss.Color("237"))
+					b.WriteString(runningSelectedStyle.Render(line) + "\n")
+				} else {
+					b.WriteString(selectedSessionItemStyle.Render(line) + "\n")
+				}
+			} else if agentRunningForSession {
+				// Highlight running agent session distinctly
+				runningStyle := lipgloss.NewStyle().
+					Bold(true).
+					Foreground(lipgloss.Color("3")) // Yellow for running
+				b.WriteString(runningStyle.Render(line) + "\n")
 			} else if m.selectedSession != nil && m.selectedSession.ID == sess.ID {
 				// Highlight selected session even when not in sessions panel
 				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Render(line) + "\n")
@@ -788,7 +825,11 @@ func (m Model) renderStatusBar() string {
 	// Add bottom pane mode indicator
 	var modeIndicator string
 	if m.agentOutputVisible {
-		modeIndicator = "[Output]"
+		if m.agentOutputExpanded {
+			modeIndicator = "[Output+]" // + indicates expanded
+		} else {
+			modeIndicator = "[Output]"
+		}
 	} else {
 		switch m.bottomPaneMode {
 		case BottomPaneActivity:
@@ -971,25 +1012,37 @@ func (m Model) renderAgentOutputPanel(width, height int) string {
 	}
 
 	// Calculate visible range
-	visibleLines := height - 3 // Account for title, separator, and possible scroll indicator
+	visibleLines := height - 2 // Account for title and separator
 	if visibleLines < 1 {
 		visibleLines = 1
 	}
 
 	startIdx := m.agentOutputOffset
+	needTopIndicator := startIdx > 0
+
+	// Pre-calculate if we'll need scroll indicators
+	tentativeEndIdx := startIdx + visibleLines
+	needBottomIndicator := tentativeEndIdx < len(m.agentOutput)
+
+	// Reduce visible lines for scroll indicators
+	if needTopIndicator {
+		visibleLines--
+	}
+	if needBottomIndicator {
+		visibleLines--
+	}
+	if visibleLines < 1 {
+		visibleLines = 1
+	}
+
 	endIdx := startIdx + visibleLines
 	if endIdx > len(m.agentOutput) {
 		endIdx = len(m.agentOutput)
 	}
 
 	// Show scroll indicator at top if not at beginning
-	if startIdx > 0 {
+	if needTopIndicator {
 		b.WriteString(helpStyle.Render(fmt.Sprintf("  ↑ %d more lines above", startIdx)) + "\n")
-		visibleLines--
-		endIdx = startIdx + visibleLines
-		if endIdx > len(m.agentOutput) {
-			endIdx = len(m.agentOutput)
-		}
 	}
 
 	// Render visible lines

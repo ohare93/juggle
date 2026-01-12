@@ -728,6 +728,13 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Toggle agent output panel visibility
 		return m.handleToggleAgentOutput()
 
+	case "E":
+		// Toggle agent output panel expansion (when visible)
+		if m.agentOutputVisible {
+			return m.handleToggleAgentOutputExpand()
+		}
+		return m, nil
+
 	case "X":
 		// Cancel running agent (with confirmation)
 		return m.handleCancelAgent()
@@ -1140,10 +1147,27 @@ func (m Model) handleToggleAgentOutput() (tea.Model, tea.Cmd) {
 	m.agentOutputVisible = !m.agentOutputVisible
 	if m.agentOutputVisible {
 		m.addActivity("Agent output panel shown")
-		m.message = "Agent output visible (O to hide)"
+		m.message = "Agent output visible (O to hide, E to expand)"
 	} else {
 		m.addActivity("Agent output panel hidden")
 		m.message = "Agent output hidden (O to show)"
+	}
+	return m, nil
+}
+
+// handleToggleAgentOutputExpand toggles the agent output panel between normal and expanded sizes
+func (m Model) handleToggleAgentOutputExpand() (tea.Model, tea.Cmd) {
+	if !m.agentOutputVisible {
+		// Can't expand if not visible
+		return m, nil
+	}
+	m.agentOutputExpanded = !m.agentOutputExpanded
+	if m.agentOutputExpanded {
+		m.addActivity("Agent output panel expanded")
+		m.message = "Agent output expanded (E to collapse)"
+	} else {
+		m.addActivity("Agent output panel collapsed")
+		m.message = "Agent output collapsed (E to expand)"
 	}
 	return m, nil
 }
