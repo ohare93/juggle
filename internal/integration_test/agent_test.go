@@ -1912,3 +1912,195 @@ func TestAgentLoop_LockErrorMessageIncludesPID(t *testing.T) {
 		t.Errorf("Expected error to contain PID or 'locked', got: %v", err)
 	}
 }
+
+// Iteration delay tests
+
+func TestAgentLoop_IterationDelayNotAppliedBeforeFirstRun(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create a session
+	env.CreateSession(t, "test-session", "Test session for agent")
+
+	// Create a ball that's in_progress to prevent early termination
+	ball := env.CreateInProgressBall(t, "Test ball", session.PriorityMedium)
+	ball.Tags = []string{"test-session"}
+	store := env.GetStore(t)
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Record timestamps for each call to verify timing
+	callTimes := make([]time.Time, 0, 3)
+	mock := agent.NewMockRunner(
+		&agent.RunResult{Output: "Iteration 1"},
+		&agent.RunResult{Output: "Iteration 2"},
+		&agent.RunResult{Output: "Iteration 3"},
+	)
+
+	// Wrap the mock to track call times
+	origRunner := agent.DefaultRunner
+	agent.SetRunner(&timingMockRunner{
+		mock:      mock,
+		callTimes: &callTimes,
+	})
+	defer func() { agent.DefaultRunner = origRunner }()
+
+	// Run with a significant delay (100ms) - enough to measure but fast for tests
+	iterDelay := 100 * time.Millisecond
+	startTime := time.Now()
+
+	config := cli.AgentLoopConfig{
+		SessionID:     "test-session",
+		ProjectDir:    env.ProjectDir,
+		MaxIterations: 3,
+		Trust:         false,
+		IterDelay:     iterDelay,
+	}
+
+	result, err := cli.RunAgentLoop(config)
+	if err != nil {
+		t.Fatalf("Agent run failed: %v", err)
+	}
+
+	// Verify 3 iterations ran
+	if result.Iterations != 3 {
+		t.Errorf("Expected 3 iterations, got %d", result.Iterations)
+	}
+
+	// Verify timing:
+	// 1. First call should be almost immediate (< 50ms after start)
+	// 2. Second call should be ~100ms after first call (the delay)
+	// 3. Third call should be ~100ms after second call (the delay)
+	if len(callTimes) != 3 {
+		t.Fatalf("Expected 3 call times, got %d", len(callTimes))
+	}
+
+	// First iteration should start immediately (no delay before it)
+	firstCallDelay := callTimes[0].Sub(startTime)
+	if firstCallDelay > 50*time.Millisecond {
+		t.Errorf("First iteration should start immediately, but took %v to start", firstCallDelay)
+	}
+
+	// Second iteration should be after the delay
+	secondCallDelay := callTimes[1].Sub(callTimes[0])
+	if secondCallDelay < 80*time.Millisecond { // Allow some tolerance
+		t.Errorf("Expected delay between 1st and 2nd iteration (~%v), got %v", iterDelay, secondCallDelay)
+	}
+
+	// Third iteration should also be after the delay
+	thirdCallDelay := callTimes[2].Sub(callTimes[1])
+	if thirdCallDelay < 80*time.Millisecond {
+		t.Errorf("Expected delay between 2nd and 3rd iteration (~%v), got %v", iterDelay, thirdCallDelay)
+	}
+}
+
+func TestAgentLoop_IterationDelayWithFuzziness(t *testing.T) {
+	// Test the fuzzy delay calculation function directly
+	// The calculateFuzzyDelay function is tested via the exported wrapper
+
+	// Test with no fuzz (exact delay)
+	delay := cli.CalculateFuzzyDelayForTest(5, 0)
+	if delay != 5*time.Minute {
+		t.Errorf("Expected 5m with no fuzz, got %v", delay)
+	}
+
+	// Test with fuzz - run multiple times to verify randomness produces valid range
+	baseMinutes := 5
+	fuzz := 2
+	minDelay := time.Duration(baseMinutes-fuzz) * time.Minute // 3 minutes
+	maxDelay := time.Duration(baseMinutes+fuzz) * time.Minute // 7 minutes
+
+	// Run 100 iterations to verify the range is respected
+	for i := 0; i < 100; i++ {
+		delay := cli.CalculateFuzzyDelayForTest(baseMinutes, fuzz)
+		if delay < minDelay || delay > maxDelay {
+			t.Errorf("Fuzzy delay %v outside expected range [%v, %v]", delay, minDelay, maxDelay)
+		}
+	}
+
+	// Test edge case: fuzz larger than base (should never go negative)
+	delay = cli.CalculateFuzzyDelayForTest(1, 5)
+	if delay < 0 {
+		t.Errorf("Fuzzy delay should never be negative, got %v", delay)
+	}
+}
+
+func TestAgentLoop_NoDelayAfterLastIteration(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create a session
+	env.CreateSession(t, "test-session", "Test session for agent")
+
+	// Create a ball in pending state
+	ball := env.CreateBall(t, "Test ball", session.PriorityMedium)
+	ball.Tags = []string{"test-session"}
+	ball.State = session.StatePending
+	store := env.GetStore(t)
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Track elapsed time
+	callTimes := make([]time.Time, 0, 2)
+	mock := agent.NewMockRunner(
+		&agent.RunResult{Output: "Iteration 1"},
+		&agent.RunResult{Output: "Iteration 2"},
+	)
+
+	origRunner := agent.DefaultRunner
+	agent.SetRunner(&timingMockRunner{
+		mock:      mock,
+		callTimes: &callTimes,
+	})
+	defer func() { agent.DefaultRunner = origRunner }()
+
+	// Run with delay and max 2 iterations
+	iterDelay := 100 * time.Millisecond
+	startTime := time.Now()
+
+	config := cli.AgentLoopConfig{
+		SessionID:     "test-session",
+		ProjectDir:    env.ProjectDir,
+		MaxIterations: 2,
+		Trust:         false,
+		IterDelay:     iterDelay,
+	}
+
+	result, err := cli.RunAgentLoop(config)
+	endTime := time.Now()
+	if err != nil {
+		t.Fatalf("Agent run failed: %v", err)
+	}
+
+	// Verify 2 iterations
+	if result.Iterations != 2 {
+		t.Errorf("Expected 2 iterations, got %d", result.Iterations)
+	}
+
+	// Total time should be:
+	// - ~0ms: first iteration starts immediately
+	// - ~100ms: delay before second iteration
+	// - After 2nd iteration, NO delay (because it's the last one)
+	//
+	// So total should be ~100ms of delays (one delay between iter 1 and 2)
+	// NOT ~200ms (which would indicate delay after last iteration too)
+	totalTime := endTime.Sub(startTime)
+	expectedMaxTime := 200 * time.Millisecond // 100ms delay + generous execution time
+
+	if totalTime > expectedMaxTime {
+		t.Errorf("Total time %v suggests delay was applied after last iteration (expected < %v)", totalTime, expectedMaxTime)
+	}
+}
+
+// timingMockRunner wraps MockRunner and records call timestamps
+type timingMockRunner struct {
+	mock      *agent.MockRunner
+	callTimes *[]time.Time
+}
+
+func (t *timingMockRunner) Run(opts agent.RunOptions) (*agent.RunResult, error) {
+	*t.callTimes = append(*t.callTimes, time.Now())
+	return t.mock.Run(opts)
+}
