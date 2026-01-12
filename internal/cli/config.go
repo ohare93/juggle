@@ -14,14 +14,18 @@ import (
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Manage repository-level configuration",
-	Long: `Manage repository-level juggler configuration.
+	Short: "Manage juggler configuration",
+	Long: `Manage juggler configuration (repository and global).
 
 Commands:
   config ac list              List repo-level acceptance criteria
   config ac add "criterion"   Add an acceptance criterion
   config ac set --edit        Edit acceptance criteria in $EDITOR
-  config ac clear             Remove all acceptance criteria`,
+  config ac clear             Remove all acceptance criteria
+
+  config delay show           Show current iteration delay settings
+  config delay set <mins>     Set delay between iterations (in minutes)
+  config delay clear          Remove iteration delay`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	},
@@ -285,5 +289,142 @@ func runConfigACClear(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("Cleared all repository-level acceptance criteria.")
+	return nil
+}
+
+// Delay command variables
+var configDelayFuzz int
+
+// configDelayCmd is the parent command for delay settings
+var configDelayCmd = &cobra.Command{
+	Use:   "delay",
+	Short: "Manage iteration delay settings (global)",
+	Long: `Manage the delay between agent iterations.
+
+This is a global setting stored in ~/.juggler/config.json.
+
+The delay adds a wait time between each agent iteration, with an optional
+"fuzz" factor that adds randomness (+/- the specified minutes).
+
+Commands:
+  config delay show           Show current delay settings
+  config delay set <mins>     Set delay in minutes (use --fuzz for variance)
+  config delay clear          Remove delay settings
+
+Examples:
+  juggle config delay show
+  juggle config delay set 5              # 5 minute delay
+  juggle config delay set 5 --fuzz 2     # 5 ± 2 minutes (3-7 min range)
+  juggle config delay clear`,
+	RunE: runConfigDelayShow,
+}
+
+var configDelayShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show current iteration delay settings",
+	RunE:  runConfigDelayShow,
+}
+
+var configDelaySetCmd = &cobra.Command{
+	Use:   "set <minutes>",
+	Short: "Set the delay between agent iterations",
+	Long: `Set the delay between agent iterations in minutes.
+
+The delay is applied after each agent iteration before starting the next.
+Use --fuzz to add randomness: the actual delay will be base ± fuzz minutes.
+
+Examples:
+  juggle config delay set 5              # Fixed 5 minute delay
+  juggle config delay set 10 --fuzz 3    # 10 ± 3 minutes (7-13 min range)
+  juggle config delay set 2 --fuzz 1     # 2 ± 1 minutes (1-3 min range)`,
+	Args: cobra.ExactArgs(1),
+	RunE: runConfigDelaySet,
+}
+
+var configDelayClearCmd = &cobra.Command{
+	Use:   "clear",
+	Short: "Remove iteration delay settings",
+	RunE:  runConfigDelayClear,
+}
+
+func init() {
+	configDelaySetCmd.Flags().IntVarP(&configDelayFuzz, "fuzz", "f", 0, "Random variance (+/-) in minutes")
+
+	configDelayCmd.AddCommand(configDelayShowCmd)
+	configDelayCmd.AddCommand(configDelaySetCmd)
+	configDelayCmd.AddCommand(configDelayClearCmd)
+
+	configCmd.AddCommand(configDelayCmd)
+}
+
+func runConfigDelayShow(cmd *cobra.Command, args []string) error {
+	delayMinutes, fuzz, err := session.GetGlobalIterationDelayWithOptions(GetConfigOptions())
+	if err != nil {
+		return fmt.Errorf("failed to load delay settings: %w", err)
+	}
+
+	if delayMinutes == 0 {
+		fmt.Println("No iteration delay configured.")
+		fmt.Println("\nSet a delay with: juggle config delay set <minutes>")
+		fmt.Println("Add variance with: juggle config delay set <minutes> --fuzz <minutes>")
+		return nil
+	}
+
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	fmt.Println(labelStyle.Render("Iteration Delay Settings:"))
+	fmt.Println()
+	fmt.Printf("  Base delay: %d minute(s)\n", delayMinutes)
+	if fuzz > 0 {
+		minDelay := delayMinutes - fuzz
+		if minDelay < 0 {
+			minDelay = 0
+		}
+		maxDelay := delayMinutes + fuzz
+		fmt.Printf("  Fuzz: ± %d minute(s)\n", fuzz)
+		fmt.Printf("  Actual range: %d - %d minutes\n", minDelay, maxDelay)
+	} else {
+		fmt.Printf("  Fuzz: none (fixed delay)\n")
+	}
+	fmt.Println()
+	fmt.Println("This delay is applied between each agent iteration.")
+
+	return nil
+}
+
+func runConfigDelaySet(cmd *cobra.Command, args []string) error {
+	var delayMinutes int
+	_, err := fmt.Sscanf(args[0], "%d", &delayMinutes)
+	if err != nil || delayMinutes < 0 {
+		return fmt.Errorf("invalid delay: %s (must be a non-negative integer)", args[0])
+	}
+
+	if configDelayFuzz < 0 {
+		return fmt.Errorf("invalid fuzz: %d (must be a non-negative integer)", configDelayFuzz)
+	}
+
+	if err := session.UpdateGlobalIterationDelayWithOptions(GetConfigOptions(), delayMinutes, configDelayFuzz); err != nil {
+		return fmt.Errorf("failed to save delay settings: %w", err)
+	}
+
+	fmt.Printf("Set iteration delay: %d minute(s)", delayMinutes)
+	if configDelayFuzz > 0 {
+		minDelay := delayMinutes - configDelayFuzz
+		if minDelay < 0 {
+			minDelay = 0
+		}
+		maxDelay := delayMinutes + configDelayFuzz
+		fmt.Printf(" ± %d (range: %d-%d minutes)", configDelayFuzz, minDelay, maxDelay)
+	}
+	fmt.Println()
+
+	return nil
+}
+
+func runConfigDelayClear(cmd *cobra.Command, args []string) error {
+	if err := session.ClearGlobalIterationDelayWithOptions(GetConfigOptions()); err != nil {
+		return fmt.Errorf("failed to clear delay settings: %w", err)
+	}
+
+	fmt.Println("Cleared iteration delay settings.")
 	return nil
 }

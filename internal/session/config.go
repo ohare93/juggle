@@ -29,6 +29,9 @@ func DefaultConfigOptions() ConfigOptions {
 
 type Config struct {
 	SearchPaths []string `json:"search_paths"`
+	// Agent iteration delay settings
+	IterationDelayMinutes int `json:"iteration_delay_minutes,omitempty"` // Base delay between iterations in minutes
+	IterationDelayFuzz    int `json:"iteration_delay_fuzz,omitempty"`    // Random +/- variance in minutes
 }
 
 // DefaultConfig returns a configuration with common project locations
@@ -134,6 +137,30 @@ func (c *Config) RemoveSearchPath(path string) bool {
 		}
 	}
 	return false
+}
+
+// SetIterationDelay sets the delay between agent iterations.
+// delayMinutes is the base delay in minutes, fuzz is the +/- variance in minutes.
+func (c *Config) SetIterationDelay(delayMinutes, fuzz int) {
+	c.IterationDelayMinutes = delayMinutes
+	c.IterationDelayFuzz = fuzz
+}
+
+// GetIterationDelay returns the delay settings (delayMinutes, fuzz).
+// Returns (0, 0) if not configured.
+func (c *Config) GetIterationDelay() (delayMinutes, fuzz int) {
+	return c.IterationDelayMinutes, c.IterationDelayFuzz
+}
+
+// HasIterationDelay returns true if iteration delay is configured.
+func (c *Config) HasIterationDelay() bool {
+	return c.IterationDelayMinutes > 0
+}
+
+// ClearIterationDelay removes the iteration delay configuration.
+func (c *Config) ClearIterationDelay() {
+	c.IterationDelayMinutes = 0
+	c.IterationDelayFuzz = 0
 }
 
 // EnsureProjectInSearchPaths ensures a project directory is in the search paths
@@ -265,4 +292,52 @@ func GetProjectAcceptanceCriteria(projectDir string) ([]string, error) {
 	}
 
 	return config.DefaultAcceptanceCriteria, nil
+}
+
+// UpdateGlobalIterationDelay updates the iteration delay in global config
+func UpdateGlobalIterationDelay(delayMinutes, fuzz int) error {
+	return UpdateGlobalIterationDelayWithOptions(DefaultConfigOptions(), delayMinutes, fuzz)
+}
+
+// UpdateGlobalIterationDelayWithOptions updates the iteration delay with custom options
+func UpdateGlobalIterationDelayWithOptions(opts ConfigOptions, delayMinutes, fuzz int) error {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return err
+	}
+
+	config.SetIterationDelay(delayMinutes, fuzz)
+	return config.SaveWithOptions(opts)
+}
+
+// GetGlobalIterationDelay returns the iteration delay settings from global config
+func GetGlobalIterationDelay() (delayMinutes, fuzz int, err error) {
+	return GetGlobalIterationDelayWithOptions(DefaultConfigOptions())
+}
+
+// GetGlobalIterationDelayWithOptions returns the iteration delay with custom options
+func GetGlobalIterationDelayWithOptions(opts ConfigOptions) (delayMinutes, fuzz int, err error) {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	delay, fuzz := config.GetIterationDelay()
+	return delay, fuzz, nil
+}
+
+// ClearGlobalIterationDelay removes the iteration delay from global config
+func ClearGlobalIterationDelay() error {
+	return ClearGlobalIterationDelayWithOptions(DefaultConfigOptions())
+}
+
+// ClearGlobalIterationDelayWithOptions removes the iteration delay with custom options
+func ClearGlobalIterationDelayWithOptions(opts ConfigOptions) error {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return err
+	}
+
+	config.ClearIterationDelay()
+	return config.SaveWithOptions(opts)
 }

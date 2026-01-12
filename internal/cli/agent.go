@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -477,6 +478,29 @@ func calculateWaitTime(retryAfter time.Duration, retryCount int) time.Duration {
 	return wait
 }
 
+// calculateFuzzyDelay calculates the actual delay to use with random variance.
+// baseMinutes is the base delay in minutes, fuzz is the +/- variance in minutes.
+// The actual delay will be: base + random(-fuzz, fuzz) minutes.
+// The result is guaranteed to be >= 0.
+func calculateFuzzyDelay(baseMinutes, fuzz int) time.Duration {
+	delay := baseMinutes
+	if fuzz > 0 {
+		// Add random variance: -fuzz to +fuzz
+		variance := rand.Intn(2*fuzz+1) - fuzz
+		delay += variance
+	}
+	// Ensure non-negative
+	if delay < 0 {
+		delay = 0
+	}
+	return time.Duration(delay) * time.Minute
+}
+
+// CalculateFuzzyDelayForTest is an exported wrapper for testing
+func CalculateFuzzyDelayForTest(baseMinutes, fuzz int) time.Duration {
+	return calculateFuzzyDelay(baseMinutes, fuzz)
+}
+
 // waitWithCountdown waits for the specified duration, showing periodic countdown updates
 func waitWithCountdown(duration time.Duration) {
 	remaining := duration
@@ -857,6 +881,18 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Timeout per iteration: %v\n", agentTimeout)
 	}
 
+	// Load global iteration delay settings
+	iterDelay := 2 * time.Second // default fallback
+	delayMinutes, fuzz, err := session.GetGlobalIterationDelayWithOptions(GetConfigOptions())
+	if err == nil && delayMinutes > 0 {
+		iterDelay = calculateFuzzyDelay(delayMinutes, fuzz)
+		fmt.Printf("Iteration delay: %v", iterDelay.Round(time.Second))
+		if fuzz > 0 {
+			fmt.Printf(" (base: %dm ± %dm)", delayMinutes, fuzz)
+		}
+		fmt.Println()
+	}
+
 	// Run the agent loop
 	loopConfig := AgentLoopConfig{
 		SessionID:     sessionID,
@@ -864,7 +900,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		MaxIterations: iterations,
 		Trust:         agentTrust,
 		Debug:         false, // Debug mode now just shows prompt info, doesn't affect prompt content
-		IterDelay:     2 * time.Second,
+		IterDelay:     iterDelay,
 		Timeout:       agentTimeout,
 		MaxWait:       agentMaxWait,
 		BallID:        agentBallID,
