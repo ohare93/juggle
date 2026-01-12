@@ -22,6 +22,8 @@ type RunResult struct {
 	Blocked       bool
 	BlockedReason string
 	TimedOut      bool
+	RateLimited   bool          // Claude returned a rate limit error
+	RetryAfter    time.Duration // Suggested wait time from rate limit response (0 if not specified)
 	Error         error
 }
 
@@ -144,7 +146,7 @@ func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration) (*R
 	return result, nil
 }
 
-// parseSignals checks the output for COMPLETE/CONTINUE/BLOCKED signals
+// parseSignals checks the output for COMPLETE/CONTINUE/BLOCKED signals and rate limits
 func (r *ClaudeRunner) parseSignals(result *RunResult) {
 	if strings.Contains(result.Output, "<promise>COMPLETE</promise>") {
 		result.Complete = true
@@ -162,6 +164,91 @@ func (r *ClaudeRunner) parseSignals(result *RunResult) {
 			result.BlockedReason = reason
 		}
 	}
+
+	// Check for rate limit indicators in output
+	r.parseRateLimit(result)
+}
+
+// parseRateLimit detects rate limit errors and extracts retry-after time if available
+func (r *ClaudeRunner) parseRateLimit(result *RunResult) {
+	output := strings.ToLower(result.Output)
+
+	// Common rate limit patterns from Claude API
+	rateLimitPatterns := []string{
+		"rate limit",
+		"rate_limit",
+		"too many requests",
+		"429",
+		"overloaded",
+		"capacity",
+		"try again",
+		"throttl",
+	}
+
+	for _, pattern := range rateLimitPatterns {
+		if strings.Contains(output, pattern) {
+			result.RateLimited = true
+			break
+		}
+	}
+
+	// Also check error message if present
+	if result.Error != nil {
+		errStr := strings.ToLower(result.Error.Error())
+		for _, pattern := range rateLimitPatterns {
+			if strings.Contains(errStr, pattern) {
+				result.RateLimited = true
+				break
+			}
+		}
+	}
+
+	// Extract retry-after time if specified
+	if result.RateLimited {
+		result.RetryAfter = parseRetryAfter(result.Output)
+	}
+}
+
+// parseRetryAfter extracts wait time from rate limit messages
+// Looks for patterns like "try again in 30 seconds", "retry after 1 minute", etc.
+func parseRetryAfter(output string) time.Duration {
+	output = strings.ToLower(output)
+
+	// Pattern: "X seconds" or "X minutes" or "X hours"
+	patterns := []struct {
+		unit       string
+		multiplier time.Duration
+	}{
+		{"second", time.Second},
+		{"minute", time.Minute},
+		{"hour", time.Hour},
+	}
+
+	for _, p := range patterns {
+		// Look for number followed by unit
+		idx := strings.Index(output, p.unit)
+		if idx > 0 {
+			// Search backwards for a number
+			numStr := ""
+			for i := idx - 1; i >= 0 && i >= idx-5; i-- {
+				c := output[i]
+				if c >= '0' && c <= '9' {
+					numStr = string(c) + numStr
+				} else if len(numStr) > 0 {
+					break
+				}
+			}
+			if len(numStr) > 0 {
+				var num int
+				fmt.Sscanf(numStr, "%d", &num)
+				if num > 0 {
+					return time.Duration(num) * p.multiplier
+				}
+			}
+		}
+	}
+
+	return 0
 }
 
 // streamOutput reads from reader and writes to both buffer and writer

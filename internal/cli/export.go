@@ -184,7 +184,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	case "ralph":
 		output, err = exportRalph(cwd, exportSession, balls)
 	case "agent":
-		output, err = exportAgent(cwd, exportSession, balls)
+		output, err = exportAgent(cwd, exportSession, balls, false)
 	}
 
 	if err != nil {
@@ -553,8 +553,9 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 //
 // <instructions>
 // [agent prompt template]
+// [optional debug instructions]
 // </instructions>
-func exportAgent(projectDir, sessionID string, balls []*session.Ball) ([]byte, error) {
+func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool) ([]byte, error) {
 	var buf strings.Builder
 
 	// Load session store to get context and progress
@@ -617,6 +618,13 @@ func exportAgent(projectDir, sessionID string, balls []*session.Ball) ([]byte, e
 	if !strings.HasSuffix(agent.GetPromptTemplate(), "\n") {
 		buf.WriteString("\n")
 	}
+
+	// Inject debug instructions if enabled
+	if debug {
+		buf.WriteString("\n## DEBUG MODE\n\n")
+		buf.WriteString("Before outputting your completion signal, explain WHY you chose that signal.\n")
+	}
+
 	buf.WriteString("</instructions>\n")
 
 	return []byte(buf.String()), nil

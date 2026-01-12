@@ -15,6 +15,8 @@ var (
 	agentIterations int
 	agentTrust      bool
 	agentTimeout    time.Duration
+	agentDebug      bool
+	agentMaxWait    time.Duration
 )
 
 // agentCmd is the parent command for agent operations
@@ -37,6 +39,11 @@ The agent will:
 4. Check for COMPLETE/BLOCKED signals after each iteration
 5. Repeat until done or max iterations reached
 
+Rate Limit Handling:
+When Claude returns a rate limit error (429 or overloaded), the agent
+automatically waits with exponential backoff before retrying. If Claude
+specifies a retry-after time, that time is used instead.
+
 Examples:
   # Run agent for 10 iterations (default)
   juggle agent run my-feature
@@ -48,7 +55,10 @@ Examples:
   juggle agent run my-feature --trust
 
   # Run with 5 minute timeout per iteration
-  juggle agent run my-feature --timeout 5m`,
+  juggle agent run my-feature --timeout 5m
+
+  # Set maximum wait time for rate limits (give up if exceeded)
+  juggle agent run my-feature --max-wait 30m`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAgentRun,
 }
@@ -57,6 +67,8 @@ func init() {
 	agentRunCmd.Flags().IntVarP(&agentIterations, "iterations", "n", 10, "Maximum number of iterations")
 	agentRunCmd.Flags().BoolVar(&agentTrust, "trust", false, "Run with --dangerously-skip-permissions (dangerous!)")
 	agentRunCmd.Flags().DurationVarP(&agentTimeout, "timeout", "T", 0, "Timeout per iteration (e.g., 5m, 1h). 0 = no timeout")
+	agentRunCmd.Flags().BoolVar(&agentDebug, "debug", false, "Add reasoning instructions to agent prompt")
+	agentRunCmd.Flags().DurationVar(&agentMaxWait, "max-wait", 0, "Maximum wait time for rate limits before giving up (e.g., 30m). 0 = wait indefinitely")
 
 	agentCmd.AddCommand(agentRunCmd)
 	rootCmd.AddCommand(agentCmd)
@@ -64,17 +76,19 @@ func init() {
 
 // AgentResult holds the result of an agent run
 type AgentResult struct {
-	Iterations     int       `json:"iterations"`
-	Complete       bool      `json:"complete"`
-	Blocked        bool      `json:"blocked"`
-	BlockedReason  string    `json:"blocked_reason,omitempty"`
-	TimedOut       bool      `json:"timed_out"`
-	TimeoutMessage string    `json:"timeout_message,omitempty"`
-	BallsComplete  int       `json:"balls_complete"`
-	BallsBlocked   int       `json:"balls_blocked"`
-	BallsTotal     int       `json:"balls_total"`
-	StartedAt      time.Time `json:"started_at"`
-	EndedAt        time.Time `json:"ended_at"`
+	Iterations       int           `json:"iterations"`
+	Complete         bool          `json:"complete"`
+	Blocked          bool          `json:"blocked"`
+	BlockedReason    string        `json:"blocked_reason,omitempty"`
+	TimedOut         bool          `json:"timed_out"`
+	TimeoutMessage   string        `json:"timeout_message,omitempty"`
+	RateLimitExceded bool          `json:"rate_limit_exceeded"`
+	TotalWaitTime    time.Duration `json:"total_wait_time,omitempty"`
+	BallsComplete    int           `json:"balls_complete"`
+	BallsBlocked     int           `json:"balls_blocked"`
+	BallsTotal       int           `json:"balls_total"`
+	StartedAt        time.Time     `json:"started_at"`
+	EndedAt          time.Time     `json:"ended_at"`
 }
 
 // AgentLoopConfig configures the agent loop behavior
@@ -83,8 +97,10 @@ type AgentLoopConfig struct {
 	ProjectDir    string
 	MaxIterations int
 	Trust         bool
+	Debug         bool          // Add debug reasoning instructions to prompt
 	IterDelay     time.Duration // Delay between iterations (set to 0 for tests)
 	Timeout       time.Duration // Timeout per iteration (0 = no timeout)
+	MaxWait       time.Duration // Maximum time to wait for rate limits (0 = wait indefinitely)
 }
 
 // RunAgentLoop executes the agent loop with the given configuration.
@@ -113,7 +129,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		result.Iterations = iteration
 
 		// Generate prompt using export command
-		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID)
+		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID, config.Debug)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate prompt: %w", err)
 		}
@@ -223,6 +239,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		ProjectDir:    cwd,
 		MaxIterations: agentIterations,
 		Trust:         agentTrust,
+		Debug:         agentDebug,
 		IterDelay:     2 * time.Second,
 		Timeout:       agentTimeout,
 	}
@@ -258,7 +275,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 }
 
 // generateAgentPrompt generates the agent prompt using export command
-func generateAgentPrompt(projectDir, sessionID string) (string, error) {
+func generateAgentPrompt(projectDir, sessionID string, debug bool) (string, error) {
 	// Use the export functionality directly instead of shelling out
 	// This is more efficient and avoids subprocess overhead
 
@@ -302,7 +319,7 @@ func generateAgentPrompt(projectDir, sessionID string) (string, error) {
 	}
 
 	// Call exportAgent directly
-	output, err := exportAgent(projectDir, sessionID, balls)
+	output, err := exportAgent(projectDir, sessionID, balls, debug)
 	if err != nil {
 		return "", err
 	}
