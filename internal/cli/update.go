@@ -19,13 +19,14 @@ var (
 	updateTags        string
 	updateBlockReason string
 	updateTestsState  string
+	updateOutput      string
 	updateJSONFlag    bool
 )
 
 var updateCmd = &cobra.Command{
 	Use:   "update <ball-id>",
 	Short: "Update a ball's properties",
-	Long: `Update properties of a ball including intent, priority, state, acceptance criteria, and tags.
+	Long: `Update properties of a ball including intent, priority, state, acceptance criteria, tags, and output.
 
 When no flags are provided, enters interactive mode where you can edit all properties.
 
@@ -35,9 +36,11 @@ Examples:
   juggle update my-app-1 --priority urgent
   juggle update my-app-1 --state in_progress
   juggle update my-app-1 --state blocked --reason "Waiting for API"
+  juggle update my-app-1 --state researched --output "Investigation results..."
   juggle update my-app-1 --criteria "User can log in" --criteria "Session persists"
   juggle update my-app-1 --tags bug-fix,security
-  juggle update my-app-1 --tests-state needed`,
+  juggle update my-app-1 --tests-state needed
+  juggle update my-app-1 --output "Research findings: ..."`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: CompleteBallIDs,
 	RunE:              runUpdate,
@@ -46,17 +49,18 @@ Examples:
 func init() {
 	updateCmd.Flags().StringVar(&updateIntent, "intent", "", "Update the ball intent")
 	updateCmd.Flags().StringVar(&updatePriority, "priority", "", "Update the priority (low|medium|high|urgent)")
-	updateCmd.Flags().StringVar(&updateState, "state", "", "Update the state (pending|in_progress|blocked|complete)")
+	updateCmd.Flags().StringVar(&updateState, "state", "", "Update the state (pending|in_progress|blocked|complete|researched)")
 	updateCmd.Flags().StringArrayVar(&updateCriteria, "criteria", nil, "Set acceptance criteria (can be specified multiple times)")
 	updateCmd.Flags().StringVar(&updateTags, "tags", "", "Update tags (comma-separated)")
 	updateCmd.Flags().StringVar(&updateBlockReason, "reason", "", "Blocked reason (required when setting state to blocked)")
 	updateCmd.Flags().StringVar(&updateTestsState, "tests-state", "", "Update tests state (not_needed|needed|done)")
+	updateCmd.Flags().StringVar(&updateOutput, "output", "", "Set research output/results")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Output updated ball as JSON")
 
 	// Add completion for flags
 	updateCmd.RegisterFlagCompletionFunc("priority", CompletePriorities)
 	updateCmd.RegisterFlagCompletionFunc("state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"pending", "in_progress", "blocked", "complete"}, cobra.ShellCompDirectiveNoFileComp
+		return []string{"pending", "in_progress", "blocked", "complete", "researched"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	updateCmd.RegisterFlagCompletionFunc("tests-state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"not_needed", "needed", "done"}, cobra.ShellCompDirectiveNoFileComp
@@ -76,7 +80,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// If no flags provided (except --json), enter interactive mode
-	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateTestsState == "" && !updateJSONFlag {
+	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateTestsState == "" && updateOutput == "" && !updateJSONFlag {
 		return runInteractiveUpdate(foundBall, foundStore)
 	}
 
@@ -113,10 +117,11 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			"in_progress": session.StateInProgress,
 			"blocked":     session.StateBlocked,
 			"complete":    session.StateComplete,
+			"researched":  session.StateResearched,
 		}
 		newState, ok := stateMap[updateState]
 		if !ok {
-			err := fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete)", updateState)
+			err := fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete|researched)", updateState)
 			if updateJSONFlag {
 				return printJSONError(err)
 			}
@@ -135,6 +140,16 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			foundBall.SetBlocked(updateBlockReason)
 			if !updateJSONFlag {
 				fmt.Printf("✓ Updated state: blocked (reason: %s)\n", updateBlockReason)
+			}
+		} else if newState == session.StateResearched {
+			// For researched state, use output if provided, or use existing output
+			output := updateOutput
+			if output == "" {
+				output = foundBall.Output
+			}
+			foundBall.MarkResearched(output)
+			if !updateJSONFlag {
+				fmt.Printf("✓ Updated state: researched\n")
 			}
 		} else {
 			foundBall.SetState(newState)
@@ -178,6 +193,15 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		modified = true
 		if !updateJSONFlag {
 			fmt.Printf("✓ Updated tests state: %s\n", updateTestsState)
+		}
+	}
+
+	// Handle output separately (not tied to researched state)
+	if updateOutput != "" && updateState != "researched" {
+		foundBall.SetOutput(updateOutput)
+		modified = true
+		if !updateJSONFlag {
+			fmt.Printf("✓ Updated output (%d characters)\n", len(updateOutput))
 		}
 	}
 
@@ -238,7 +262,7 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	}
 
 	// Edit state
-	fmt.Printf("State [%s] (pending|in_progress|blocked|complete): ", ball.State)
+	fmt.Printf("State [%s] (pending|in_progress|blocked|complete|researched): ", ball.State)
 	input, _ = reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
@@ -256,6 +280,17 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 				return fmt.Errorf("blocked reason required when setting state to blocked")
 			} else {
 				ball.SetState(newState)
+			}
+		} else if newState == session.StateResearched {
+			fmt.Printf("Research output [%s]: ", truncateForDisplay(ball.Output, 50))
+			output, _ := reader.ReadString('\n')
+			output = strings.TrimSpace(output)
+			if output != "" {
+				ball.MarkResearched(output)
+			} else if ball.Output != "" {
+				ball.MarkResearched(ball.Output)
+			} else {
+				ball.MarkResearched("")
 			}
 		} else {
 			ball.SetState(newState)
@@ -314,6 +349,24 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 		ball.SetTestsState(session.TestsState(input))
 	}
 
+	// Edit output
+	currentOutput := ball.Output
+	if currentOutput == "" {
+		currentOutput = "none"
+	} else if len(currentOutput) > 50 {
+		currentOutput = currentOutput[:50] + "..."
+	}
+	fmt.Printf("Output [%s] (enter new text, '-' to keep, 'clear' to remove): ", currentOutput)
+	input, _ = reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" && input != "-" {
+		if input == "clear" {
+			ball.SetOutput("")
+		} else {
+			ball.SetOutput(input)
+		}
+	}
+
 	// Save changes
 	ball.UpdateActivity()
 	if err := store.UpdateBall(ball); err != nil {
@@ -337,6 +390,20 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	if ball.TestsState != "" {
 		fmt.Printf("  Tests State: %s\n", ball.TestsStateLabel())
 	}
+	if ball.Output != "" {
+		fmt.Printf("  Output: %d characters\n", len(ball.Output))
+	}
 
 	return nil
+}
+
+// truncateForDisplay truncates a string to the given length with ellipsis
+func truncateForDisplay(s string, maxLen int) string {
+	if s == "" {
+		return "none"
+	}
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

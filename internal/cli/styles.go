@@ -10,10 +10,11 @@ var (
 	StyleInAir       = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Green - actively working
 
 	// Active states (top-level states)
-	StyleJuggling = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Green - active
-	StyleReady    = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue - planned/ready
-	StyleDropped  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))  // Red - dropped
-	StyleComplete = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray - archived
+	StyleJuggling   = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Green - active
+	StyleReady      = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue - planned/ready
+	StyleDropped    = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))  // Red - dropped
+	StyleComplete   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray - archived
+	StyleResearched = lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // Cyan - researched
 
 	// Priority levels
 	StyleUrgent = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)  // Red bold - urgent

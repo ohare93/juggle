@@ -98,4 +98,9 @@ func renderBallDetails(ball *session.Ball) {
 	if ball.CompletionNote != "" {
 		fmt.Println(labelStyle.Render("\nCompletion Note:"), valueStyle.Render(ball.CompletionNote))
 	}
+
+	if ball.Output != "" {
+		fmt.Printf("\n%s\n", labelStyle.Render("Output:"))
+		fmt.Println(valueStyle.Render(ball.Output))
+	}
 }

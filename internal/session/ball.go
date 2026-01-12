@@ -36,6 +36,7 @@ const (
 	StateInProgress BallState = "in_progress"
 	StateComplete   BallState = "complete"
 	StateBlocked    BallState = "blocked"
+	StateResearched BallState = "researched" // Completed with no code changes, output contains results
 )
 
 // TestsState represents whether tests are needed/done for a ball
@@ -59,6 +60,7 @@ type Ball struct {
 	State              BallState   `json:"state"`
 	BlockedReason      string      `json:"blocked_reason,omitempty"`
 	TestsState         TestsState  `json:"tests_state,omitempty"`
+	Output             string      `json:"output,omitempty"` // Research results or investigation output
 	StartedAt          time.Time   `json:"started_at"`
 	LastActivity       time.Time   `json:"last_activity"`
 	CompletedAt        *time.Time  `json:"completed_at,omitempty"`
@@ -81,11 +83,13 @@ func (b *Ball) UnmarshalJSON(data []byte) error {
 	b.Priority = bj.Priority
 	b.StartedAt = bj.StartedAt
 	b.LastActivity = bj.LastActivity
+	b.CompletedAt = bj.CompletedAt
 	b.UpdateCount = bj.UpdateCount
 	b.Tags = bj.Tags
 	b.CompletionNote = bj.CompletionNote
 	b.ModelSize = bj.ModelSize
 	b.TestsState = bj.TestsState
+	b.Output = bj.Output
 
 	// Handle acceptance criteria (migrate from legacy description if needed)
 	if len(bj.AcceptanceCriteria) > 0 {
@@ -157,9 +161,10 @@ type ballJSON struct {
 	Description        string          `json:"description,omitempty"`         // Legacy: single description
 	Priority           Priority        `json:"priority"`
 	// Newest format (v3)
-	State              string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked
+	State              string          `json:"state,omitempty"`            // New: pending/in_progress/complete/blocked/researched
 	BlockedReason      string          `json:"blocked_reason,omitempty"`   // Reason when state is blocked
 	TestsState         TestsState      `json:"tests_state,omitempty"`      // Whether tests are needed/done
+	Output             string          `json:"output,omitempty"`           // Research results or investigation output
 	// Previous format (v2)
 	ActiveState        string          `json:"active_state,omitempty"`     // Old: ready/juggling/dropped/complete
 	JuggleState        *string         `json:"juggle_state,omitempty"`     // Old: needs-thrown/in-air/needs-caught
@@ -170,6 +175,7 @@ type ballJSON struct {
 	// Common fields
 	StartedAt          time.Time       `json:"started_at"`
 	LastActivity       time.Time       `json:"last_activity"`
+	CompletedAt        *time.Time      `json:"completed_at,omitempty"`
 	UpdateCount        int             `json:"update_count"`
 	Tags               []string        `json:"tags,omitempty"`
 	CompletionNote     string          `json:"completion_note,omitempty"`
@@ -248,6 +254,27 @@ func (b *Ball) MarkComplete(note string) {
 	now := time.Now()
 	b.CompletedAt = &now
 	b.UpdateActivity()
+}
+
+// MarkResearched marks the ball as researched (completed with no code changes)
+func (b *Ball) MarkResearched(output string) {
+	b.State = StateResearched
+	b.BlockedReason = ""
+	b.Output = output
+	now := time.Now()
+	b.CompletedAt = &now
+	b.UpdateActivity()
+}
+
+// SetOutput sets the output/research results for the ball
+func (b *Ball) SetOutput(output string) {
+	b.Output = output
+	b.UpdateActivity()
+}
+
+// HasOutput returns true if the ball has output/research results
+func (b *Ball) HasOutput() bool {
+	return b.Output != ""
 }
 
 // Start transitions a pending ball to in_progress
@@ -354,7 +381,7 @@ func ValidatePriority(p string) bool {
 // ValidateBallState checks if a ball state string is valid
 func ValidateBallState(s string) bool {
 	switch BallState(s) {
-	case StatePending, StateInProgress, StateComplete, StateBlocked:
+	case StatePending, StateInProgress, StateComplete, StateBlocked, StateResearched:
 		return true
 	default:
 		return false

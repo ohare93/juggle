@@ -20,10 +20,11 @@ var (
 		Bold(true)
 
 	// State colors
-	readyColor    = lipgloss.Color("2") // Green
-	jugglingColor = lipgloss.Color("3") // Yellow
-	droppedColor  = lipgloss.Color("1") // Red
-	completeColor = lipgloss.Color("8") // Gray
+	readyColor      = lipgloss.Color("2")   // Green
+	jugglingColor   = lipgloss.Color("3")   // Yellow
+	droppedColor    = lipgloss.Color("1")   // Red
+	completeColor   = lipgloss.Color("8")   // Gray
+	researchedColor = lipgloss.Color("12")  // Light blue - for research tasks
 
 	// Priority colors
 	urgentColor = lipgloss.Color("9") // Bright red

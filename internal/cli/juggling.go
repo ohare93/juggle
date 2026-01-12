@@ -135,14 +135,20 @@ func listJugglingBalls(cmd *cobra.Command) error {
 				testsIndicator = " " + dimStyle.Render("[tests:n/a]")
 			}
 		}
+		// Add output marker
+		outputMarker := ""
+		if ball.HasOutput() {
+			outputMarker = " " + dimStyle.Render("[has output]")
+		}
 
-		fmt.Printf("  [%s] %s  %s  %s  %s%s\n",
+		fmt.Printf("  [%s] %s  %s  %s  %s%s%s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
 			priorityPadded,
 			intentDisplay,
 			testsIndicator,
+			outputMarker,
 		)
 
 		// Show acceptance criteria if present
@@ -212,12 +218,14 @@ func listAllBalls(cmd *cobra.Command) error {
 	readyStyle := StyleReady
 	droppedStyle := StyleDropped
 	completeStyle := StyleComplete
+	researchedStyle := StyleResearched
 
 	stateStyles := map[session.BallState]lipgloss.Style{
 		session.StateInProgress: jugglingStyle,
 		session.StatePending:    readyStyle,
 		session.StateBlocked:    droppedStyle,
 		session.StateComplete:   completeStyle,
+		session.StateResearched: researchedStyle,
 	}
 
 	// Sort projects for consistent ordering
@@ -257,6 +265,7 @@ func listAllBalls(cmd *cobra.Command) error {
 			session.StatePending,
 			session.StateBlocked,
 			session.StateComplete,
+			session.StateResearched,
 		}
 
 		for _, state := range stateOrder {
@@ -304,13 +313,19 @@ func listAllBalls(cmd *cobra.Command) error {
 						testsIndicator = " " + dimStyle.Render("[tests:n/a]")
 					}
 				}
+				// Add output marker
+				outputMarker := ""
+				if ball.HasOutput() {
+					outputMarker = " " + dimStyle.Render("[has output]")
+				}
 
-				fmt.Printf("  [%s] %s  %s  %s%s\n",
+				fmt.Printf("  [%s] %s  %s  %s%s%s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
 					testsIndicator,
+					outputMarker,
 				)
 
 				// Show acceptance criteria if present

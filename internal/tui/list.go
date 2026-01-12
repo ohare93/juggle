@@ -51,7 +51,12 @@ func renderBallList(balls []*session.Ball, cursor int, width int) string {
 }
 
 func formatState(ball *session.Ball) string {
-	return string(ball.State)
+	stateStr := string(ball.State)
+	// Add output marker if ball has output
+	if ball.HasOutput() {
+		stateStr += " [📋]"
+	}
+	return stateStr
 }
 
 func styleBallByState(ball *session.Ball, line string) string {
@@ -67,6 +72,8 @@ func styleBallByState(ball *session.Ball, line string) string {
 		color = droppedColor
 	case session.StateComplete:
 		color = completeColor
+	case session.StateResearched:
+		color = researchedColor
 	default:
 		color = lipgloss.Color("7") // Default white
 	}

@@ -53,6 +53,12 @@ func renderBallDetail(ball *session.Ball) string {
 		}
 	}
 
+	// Output/Research Results
+	if ball.Output != "" {
+		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Output:") + "\n")
+		b.WriteString(ball.Output + "\n")
+	}
+
 	// Footer
 	b.WriteString("\n" + helpStyle.Render("Press 'b' to go back, 'q' to quit") + "\n")
 
