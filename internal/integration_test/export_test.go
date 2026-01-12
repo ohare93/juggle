@@ -1510,3 +1510,241 @@ func TestExportAgentIncludesInProgressBalls(t *testing.T) {
 		t.Error("Expected export to contain in_progress ball intent")
 	}
 }
+
+// TestExportAgentExcludesCompleteBallsByDefault verifies that complete balls are excluded from agent export by default
+func TestExportAgentExcludesCompleteBallsByDefault(t *testing.T) {
+	project := t.TempDir()
+
+	// Create session store
+	sessionStore, err := session.NewSessionStore(project)
+	if err != nil {
+		t.Fatalf("Failed to create session store: %v", err)
+	}
+
+	_, err = sessionStore.CreateSession("test-session", "Test session for complete balls filtering")
+	if err != nil {
+		t.Fatalf("Failed to create session: %v", err)
+	}
+
+	// Create ball store
+	ballStore, err := session.NewStoreWithConfig(project, session.StoreConfig{JugglerDirName: ".juggler"})
+	if err != nil {
+		t.Fatalf("Failed to create ball store: %v", err)
+	}
+
+	// Create an in_progress ball
+	inProgressBall := &session.Ball{
+		ID:                 "project-inprogress",
+		WorkingDir:         project,
+		Intent:             "In progress work item",
+		Priority:           session.PriorityHigh,
+		State:              session.StateInProgress,
+		Tags:               []string{"test-session"},
+		AcceptanceCriteria: []string{"AC 1", "AC 2"},
+		StartedAt:          time.Now(),
+		LastActivity:       time.Now(),
+	}
+
+	// Create a pending ball
+	pendingBall := &session.Ball{
+		ID:                 "project-pending",
+		WorkingDir:         project,
+		Intent:             "Pending work item",
+		Priority:           session.PriorityMedium,
+		State:              session.StatePending,
+		Tags:               []string{"test-session"},
+		AcceptanceCriteria: []string{"AC 3"},
+		StartedAt:          time.Now(),
+		LastActivity:       time.Now(),
+	}
+
+	// Create a complete ball
+	completedTime := time.Now()
+	completeBall := &session.Ball{
+		ID:                 "project-complete",
+		WorkingDir:         project,
+		Intent:             "Completed work item",
+		Priority:           session.PriorityLow,
+		State:              session.StateComplete,
+		Tags:               []string{"test-session"},
+		AcceptanceCriteria: []string{"AC 4"},
+		StartedAt:          time.Now().Add(-1 * time.Hour),
+		LastActivity:       time.Now().Add(-30 * time.Minute),
+		CompletedAt:        &completedTime,
+		CompletionNote:     "All done",
+	}
+
+	if err := ballStore.Save(inProgressBall); err != nil {
+		t.Fatalf("Failed to save in_progress ball: %v", err)
+	}
+	if err := ballStore.Save(pendingBall); err != nil {
+		t.Fatalf("Failed to save pending ball: %v", err)
+	}
+	if err := ballStore.Save(completeBall); err != nil {
+		t.Fatalf("Failed to save complete ball: %v", err)
+	}
+
+	// Load all balls
+	allBalls, err := session.LoadAllBalls([]string{project})
+	if err != nil {
+		t.Fatalf("Failed to load balls: %v", err)
+	}
+
+	// Filter by session
+	sessionBalls := make([]*session.Ball, 0)
+	for _, ball := range allBalls {
+		for _, tag := range ball.Tags {
+			if tag == "test-session" {
+				sessionBalls = append(sessionBalls, ball)
+				break
+			}
+		}
+	}
+
+	if len(sessionBalls) != 3 {
+		t.Fatalf("Expected 3 balls, got %d", len(sessionBalls))
+	}
+
+	t.Run("ExcludeCompleteBallsByDefault", func(t *testing.T) {
+		// Filter out complete balls (simulating default behavior)
+		filtered := make([]*session.Ball, 0)
+		for _, ball := range sessionBalls {
+			if ball.State != session.StateComplete {
+				filtered = append(filtered, ball)
+			}
+		}
+
+		if len(filtered) != 2 {
+			t.Errorf("Expected 2 non-complete balls, got %d", len(filtered))
+		}
+
+		// Export the filtered balls
+		output, err := exportToRalph(project, "test-session", filtered)
+		if err != nil {
+			t.Fatalf("Failed to export: %v", err)
+		}
+
+		outputStr := string(output)
+
+		// Should contain in_progress and pending balls
+		if !strings.Contains(outputStr, "In progress work item") {
+			t.Error("Expected export to contain in_progress ball")
+		}
+		if !strings.Contains(outputStr, "Pending work item") {
+			t.Error("Expected export to contain pending ball")
+		}
+
+		// Should NOT contain complete ball
+		if strings.Contains(outputStr, "Completed work item") {
+			t.Error("Expected export to NOT contain complete ball by default")
+		}
+	})
+
+	t.Run("IncludeCompleteBallsWithFlag", func(t *testing.T) {
+		// With include-done flag, all balls should be included
+		output, err := exportToRalph(project, "test-session", sessionBalls)
+		if err != nil {
+			t.Fatalf("Failed to export: %v", err)
+		}
+
+		outputStr := string(output)
+
+		// Should contain all balls including complete
+		if !strings.Contains(outputStr, "In progress work item") {
+			t.Error("Expected export to contain in_progress ball")
+		}
+		if !strings.Contains(outputStr, "Pending work item") {
+			t.Error("Expected export to contain pending ball")
+		}
+		if !strings.Contains(outputStr, "Completed work item") {
+			t.Error("Expected export to contain complete ball with include-done flag")
+		}
+	})
+}
+
+// TestExportRalphExcludesCompleteBallsByDefault verifies that complete balls are excluded from ralph export by default
+func TestExportRalphExcludesCompleteBallsByDefault(t *testing.T) {
+	project := t.TempDir()
+
+	// Create ball store
+	ballStore, err := session.NewStoreWithConfig(project, session.StoreConfig{JugglerDirName: ".juggler"})
+	if err != nil {
+		t.Fatalf("Failed to create ball store: %v", err)
+	}
+
+	// Create balls with different states
+	pendingBall := &session.Ball{
+		ID:         "project-pending",
+		WorkingDir: project,
+		Intent:     "Pending task for ralph",
+		Priority:   session.PriorityMedium,
+		State:      session.StatePending,
+		Tags:       []string{"ralph-test"},
+		StartedAt:  time.Now(),
+	}
+
+	completedTime := time.Now()
+	completeBall := &session.Ball{
+		ID:             "project-complete",
+		WorkingDir:     project,
+		Intent:         "Completed task for ralph",
+		Priority:       session.PriorityMedium,
+		State:          session.StateComplete,
+		Tags:           []string{"ralph-test"},
+		StartedAt:      time.Now().Add(-1 * time.Hour),
+		CompletedAt:    &completedTime,
+		CompletionNote: "Done",
+	}
+
+	if err := ballStore.Save(pendingBall); err != nil {
+		t.Fatalf("Failed to save pending ball: %v", err)
+	}
+	if err := ballStore.Save(completeBall); err != nil {
+		t.Fatalf("Failed to save complete ball: %v", err)
+	}
+
+	// Load all balls
+	allBalls, err := session.LoadAllBalls([]string{project})
+	if err != nil {
+		t.Fatalf("Failed to load balls: %v", err)
+	}
+
+	// Filter by session tag
+	sessionBalls := make([]*session.Ball, 0)
+	for _, ball := range allBalls {
+		for _, tag := range ball.Tags {
+			if tag == "ralph-test" {
+				sessionBalls = append(sessionBalls, ball)
+				break
+			}
+		}
+	}
+
+	if len(sessionBalls) != 2 {
+		t.Fatalf("Expected 2 balls, got %d", len(sessionBalls))
+	}
+
+	// Filter out complete balls (default behavior)
+	filtered := make([]*session.Ball, 0)
+	for _, ball := range sessionBalls {
+		if ball.State != session.StateComplete {
+			filtered = append(filtered, ball)
+		}
+	}
+
+	// Export filtered balls
+	output, err := exportToRalph(project, "ralph-test", filtered)
+	if err != nil {
+		t.Fatalf("Failed to export: %v", err)
+	}
+
+	outputStr := string(output)
+
+	// Should contain pending but not complete
+	if !strings.Contains(outputStr, "Pending task for ralph") {
+		t.Error("Expected export to contain pending ball")
+	}
+	if strings.Contains(outputStr, "Completed task for ralph") {
+		t.Error("Expected export to NOT contain complete ball")
+	}
+}

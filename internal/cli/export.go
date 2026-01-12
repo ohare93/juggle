@@ -28,8 +28,9 @@ var exportCmd = &cobra.Command{
 	Short: "Export balls to JSON, CSV, Ralph, or agent format",
 	Long: `Export session data to JSON, CSV, Ralph, or agent format for analysis or agent use.
 
-By default exports active balls (excluding done) from the current project only.
+By default exports active balls (excluding complete) from the current project only.
 Use --all to export from all discovered projects.
+Use --include-done to also include complete balls.
 
 Special session "all":
 Use --session all to export ALL balls in the repo without session filtering.
@@ -83,7 +84,7 @@ Examples:
 func init() {
 	exportCmd.Flags().StringVar(&exportFormat, "format", "json", "Export format: json, csv, ralph, or agent")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output file path (default: stdout)")
-	exportCmd.Flags().BoolVar(&exportIncludeDone, "include-done", false, "Include archived (done) balls in export")
+	exportCmd.Flags().BoolVar(&exportIncludeDone, "include-done", false, "Include complete balls in export (by default excluded from all formats)")
 	exportCmd.Flags().StringVar(&exportBallIDs, "ball-ids", "", "Filter by specific ball IDs (comma-separated, supports full or short IDs)")
 	exportCmd.Flags().StringVar(&exportFilterState, "filter-state", "", "Filter by states (comma-separated: pending, in_progress, blocked, complete)")
 	exportCmd.Flags().StringVar(&exportSession, "session", "", "Export balls from a specific session (for ralph format, includes context and progress)")
@@ -184,8 +185,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Filter 3: --include-done (always applied, except for ralph/agent formats which always include all)
-	if !exportIncludeDone && exportFormat != "ralph" && exportFormat != "agent" {
+	// Filter 3: --include-done (always applied - excludes complete balls unless flag is set)
+	if !exportIncludeDone {
 		filteredBalls := make([]*session.Ball, 0)
 		for _, ball := range balls {
 			if ball.State != session.StateComplete {
