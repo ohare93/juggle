@@ -41,6 +41,7 @@ var (
 	sessionEditFlag             bool
 	sessionSetFlag              string
 	sessionACFlag               []string // Acceptance criteria for session
+	sessionYesFlag              bool     // Skip confirmation for delete
 )
 
 var sessionsCreateCmd = &cobra.Command{
@@ -86,7 +87,9 @@ var sessionsDeleteCmd = &cobra.Command{
 	Long: `Delete a session and its associated files.
 
 This removes the session directory including session.json and progress.txt.
-Balls tagged with this session ID are not affected.`,
+Balls tagged with this session ID are not affected.
+
+Use --yes (-y) to skip the confirmation prompt (for headless/automated use).`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSessionsDelete,
 }
@@ -108,6 +111,7 @@ func init() {
 	sessionsCreateCmd.Flags().StringSliceVar(&sessionACFlag, "ac", []string{}, "Session-level acceptance criteria (can be specified multiple times)")
 	sessionsContextCmd.Flags().BoolVar(&sessionEditFlag, "edit", false, "Open context in $EDITOR")
 	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
+	sessionsDeleteCmd.Flags().BoolVarP(&sessionYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
 
 	// Add subcommands
 	sessionsCmd.AddCommand(sessionsCreateCmd)
@@ -466,14 +470,16 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("session not found: %s", id)
 	}
 
-	// Confirm deletion
-	confirmed, err := ConfirmSingleKey(fmt.Sprintf("Delete session '%s'? This will remove the session directory and all its contents.", id))
-	if err != nil {
-		return err
-	}
-	if !confirmed {
-		fmt.Println("Cancelled.")
-		return nil
+	// Confirm deletion (skip with --yes flag)
+	if !sessionYesFlag {
+		confirmed, err := ConfirmSingleKey(fmt.Sprintf("Delete session '%s'? This will remove the session directory and all its contents.", id))
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Cancelled.")
+			return nil
+		}
 	}
 
 	if err := store.DeleteSession(id); err != nil {

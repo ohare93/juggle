@@ -247,6 +247,64 @@ When the agent receives balls, dependencies are considered for ordering:
 
 If a ball has dependencies that are not yet complete, the agent should complete the dependencies first.
 
+## Headless/Non-Interactive Mode
+
+For automated agents and scripts, juggler commands support non-interactive modes:
+
+### Creating Balls (Non-Interactive)
+
+```bash
+# Use --non-interactive to skip all prompts and use defaults
+juggle plan "Task intent" --non-interactive
+
+# Specify all options via flags for full control
+juggle plan "Task intent" \
+  --priority high \
+  --session my-feature \
+  -c "AC 1" -c "AC 2" \
+  --non-interactive
+```
+
+In non-interactive mode:
+- Intent is required (via args or `--intent`)
+- Priority defaults to `medium`
+- State defaults to `pending`
+- Tags, session, and ACs default to empty
+
+### Session Commands (Non-Interactive)
+
+```bash
+# Delete session without confirmation
+juggle sessions delete my-session --yes
+
+# Or short form
+juggle sessions delete my-session -y
+```
+
+### Config Commands (Non-Interactive)
+
+```bash
+# Clear acceptance criteria without confirmation
+juggle config ac clear --yes
+```
+
+### Agent Run (Non-Interactive)
+
+When running without a terminal (stdin not a TTY), the session selector is skipped:
+
+```bash
+# Specify session explicitly
+juggle agent run my-session
+
+# Or target all balls without a session
+juggle agent run all
+
+# Target a specific ball
+juggle agent run --ball ball-id
+```
+
+The agent run command will error gracefully if no session is provided and stdin is not a terminal.
+
 ## Command Reference
 
 ### Planning Commands
@@ -260,6 +318,7 @@ If a ball has dependencies that are not yet complete, the agent should complete 
 | `juggle plan "intent" -c "criterion"` | Create ball with criteria |
 | `juggle plan "intent" --session <id>` | Create ball in session |
 | `juggle plan "intent" --depends-on <ball-id>` | Create ball with dependency |
+| `juggle plan "intent" --non-interactive` | Create ball without prompts |
 
 ### State Update Commands
 
@@ -273,6 +332,8 @@ If a ball has dependencies that are not yet complete, the agent should complete 
 | `juggle progress append <session> "text"` | Log progress entry |
 | `juggle show <id> [--json]` | View ball details |
 | `juggle sessions show <id>` | View session with balls |
+| `juggle sessions delete <id> --yes` | Delete session without prompt |
+| `juggle delete <id> --force` | Delete ball without prompt |
 
 ## File Locations
 

@@ -78,13 +78,18 @@ Examples:
 var configACClearCmd = &cobra.Command{
 	Use:   "clear",
 	Short: "Clear all repository-level acceptance criteria",
-	RunE:  runConfigACClear,
+	Long: `Clear all repository-level acceptance criteria.
+
+Use --yes (-y) to skip the confirmation prompt (for headless/automated use).`,
+	RunE: runConfigACClear,
 }
 
 var configACEditFlag bool
+var configACYesFlag bool
 
 func init() {
 	configACSetCmd.Flags().BoolVar(&configACEditFlag, "edit", false, "Open criteria in $EDITOR")
+	configACClearCmd.Flags().BoolVarP(&configACYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
 
 	configACCmd.AddCommand(configACListCmd)
 	configACCmd.AddCommand(configACAddCmd)
@@ -262,14 +267,16 @@ func runConfigACClear(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Confirm
-	confirmed, err := ConfirmSingleKey("Clear all repository-level acceptance criteria?")
-	if err != nil {
-		return err
-	}
-	if !confirmed {
-		fmt.Println("Cancelled.")
-		return nil
+	// Confirm (skip with --yes flag)
+	if !configACYesFlag {
+		confirmed, err := ConfirmSingleKey("Clear all repository-level acceptance criteria?")
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Cancelled.")
+			return nil
+		}
 	}
 
 	// Save empty list

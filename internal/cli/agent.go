@@ -12,7 +12,13 @@ import (
 	"github.com/ohare93/juggle/internal/agent"
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
+
+// isTerminal checks if the given file descriptor is a terminal
+func isTerminal(fd uintptr) bool {
+	return term.IsTerminal(int(fd))
+}
 
 var (
 	agentIterations  int
@@ -670,7 +676,12 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		// --ball specified without session - default to "all" meta-session
 		sessionID = "all"
 	} else {
-		// No session provided - show selector
+		// No session provided - check if stdin is a terminal before showing selector
+		// In headless mode (no tty), error gracefully instead of hanging on selector
+		if !isTerminal(os.Stdin.Fd()) {
+			return fmt.Errorf("session-id is required in non-interactive mode (use 'all' to target all balls)")
+		}
+		// Show selector
 		selected, err := selectSessionForAgent(cwd)
 		if err != nil {
 			return err

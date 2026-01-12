@@ -1516,3 +1516,281 @@ func TestSessionsProgressHelp(t *testing.T) {
 		t.Errorf("Expected 'progress log' in help, got: %s", output)
 	}
 }
+
+// TestPlanNonInteractiveFlag tests the --non-interactive flag for juggle plan
+func TestPlanNonInteractiveFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Build juggle binary if needed
+	if _, err := os.Stat(juggleBinary); os.IsNotExist(err) {
+		buildCmd := exec.Command("go", "build", "-o", "juggle", "./cmd/juggle")
+		buildCmd.Dir = jugglerRoot
+		if output, err := buildCmd.CombinedOutput(); err != nil {
+			t.Fatalf("Failed to build juggle: %v\nOutput: %s", err, output)
+		}
+	}
+
+	// Test 1: Non-interactive with intent only - should use defaults
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan", "Non-interactive test ball", "--non-interactive")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Non-interactive plan failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "Planned ball added") {
+		t.Errorf("Expected 'Planned ball added', got: %s", output)
+	}
+
+	// Verify defaults were applied
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Intent == "Non-interactive test ball" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if ball.Priority != session.PriorityMedium {
+		t.Errorf("Expected default priority 'medium', got: %s", ball.Priority)
+	}
+	if ball.State != session.StatePending {
+		t.Errorf("Expected default state 'pending', got: %s", ball.State)
+	}
+}
+
+// TestPlanNonInteractiveWithAllFlags tests --non-interactive with explicit flags
+func TestPlanNonInteractiveWithAllFlags(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Full flags test",
+		"--non-interactive",
+		"--priority", "high",
+		"--session", "my-session",
+		"-c", "AC 1",
+		"-c", "AC 2",
+		"--tags", "tag1,tag2",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Non-interactive plan with flags failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify all flags were applied
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Intent == "Full flags test" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if ball.Priority != session.PriorityHigh {
+		t.Errorf("Expected priority 'high', got: %s", ball.Priority)
+	}
+	if len(ball.AcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 acceptance criteria, got: %d", len(ball.AcceptanceCriteria))
+	}
+	// Session is added as a tag
+	hasSessionTag := false
+	for _, tag := range ball.Tags {
+		if tag == "my-session" {
+			hasSessionTag = true
+			break
+		}
+	}
+	if !hasSessionTag {
+		t.Errorf("Expected session tag 'my-session', got tags: %v", ball.Tags)
+	}
+}
+
+// TestPlanNonInteractiveNoIntent tests that --non-interactive requires intent
+func TestPlanNonInteractiveNoIntent(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan", "--non-interactive")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+
+	// Should fail without intent
+	if err == nil {
+		t.Fatalf("Expected error for non-interactive without intent, got success: %s", output)
+	}
+	if !strings.Contains(string(output), "intent is required") {
+		t.Errorf("Expected 'intent is required' error, got: %s", output)
+	}
+}
+
+// TestSessionDeleteYesFlag tests the --yes flag for session delete
+func TestSessionDeleteYesFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a session
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "delete-yes-test", "-m", "Test for --yes flag")
+	createCmd.Dir = env.ProjectDir
+	if output, err := createCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Delete with --yes flag
+	deleteCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "delete", "delete-yes-test", "--yes")
+	deleteCmd.Dir = env.ProjectDir
+	output, err := deleteCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Delete with --yes failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "Deleted session") {
+		t.Errorf("Expected 'Deleted session', got: %s", output)
+	}
+
+	// Verify session is deleted
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "show", "delete-yes-test")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("Session should be deleted, but show succeeded: %s", showOutput)
+	}
+}
+
+// TestSessionDeleteYesShortFlag tests the -y short flag for session delete
+func TestSessionDeleteYesShortFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a session
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "delete-y-test", "-m", "Test for -y flag")
+	createCmd.Dir = env.ProjectDir
+	if output, err := createCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Delete with -y flag
+	deleteCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "delete", "delete-y-test", "-y")
+	deleteCmd.Dir = env.ProjectDir
+	output, err := deleteCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Delete with -y failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "Deleted session") {
+		t.Errorf("Expected 'Deleted session', got: %s", output)
+	}
+}
+
+// TestConfigACClearYesFlag tests the --yes flag for config ac clear
+func TestConfigACClearYesFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Add some acceptance criteria first
+	addCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "config", "ac", "add", "Test AC")
+	addCmd.Dir = env.ProjectDir
+	if output, err := addCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to add AC: %v\nOutput: %s", err, output)
+	}
+
+	// Clear with --yes flag
+	clearCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "config", "ac", "clear", "--yes")
+	clearCmd.Dir = env.ProjectDir
+	output, err := clearCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Clear with --yes failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "Cleared") {
+		t.Errorf("Expected 'Cleared' message, got: %s", output)
+	}
+
+	// Verify ACs are cleared
+	listCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "config", "ac", "list")
+	listCmd.Dir = env.ProjectDir
+	listOutput, err := listCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("List failed: %v\nOutput: %s", err, listOutput)
+	}
+
+	if !strings.Contains(string(listOutput), "No repository-level") {
+		t.Errorf("Expected no criteria, got: %s", listOutput)
+	}
+}
+
+// TestPlanHelpShowsNonInteractiveFlag tests that --non-interactive appears in help
+func TestPlanHelpShowsNonInteractiveFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "plan", "--help")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Help command failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "--non-interactive") {
+		t.Errorf("Expected '--non-interactive' in help, got: %s", output)
+	}
+	if !strings.Contains(string(output), "headless") {
+		t.Errorf("Expected 'headless' in help description, got: %s", output)
+	}
+}
+
+// TestSessionDeleteHelpShowsYesFlag tests that --yes appears in delete help
+func TestSessionDeleteHelpShowsYesFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "sessions", "delete", "--help")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Help command failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "--yes") {
+		t.Errorf("Expected '--yes' in help, got: %s", output)
+	}
+	if !strings.Contains(string(output), "-y") {
+		t.Errorf("Expected '-y' shorthand in help, got: %s", output)
+	}
+}

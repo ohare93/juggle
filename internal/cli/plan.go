@@ -23,6 +23,16 @@ Examples:
   juggle plan Fix the help text          # Without quotes (words joined)
   juggle plan --intent "Add new feature" # Using flag
 
+Non-interactive mode (for headless agents):
+  juggle plan "Task intent" --non-interactive              # Uses defaults
+  juggle plan "Task" -p high -c "AC1" --non-interactive    # With options
+
+In non-interactive mode:
+  - Intent is required (via args or --intent flag)
+  - Priority defaults to 'medium' if not specified
+  - State defaults to 'pending' if not specified
+  - Tags, session, and acceptance criteria default to empty if not specified
+
 Planned balls can be started later with: juggle <ball-id>`,
 	RunE: runPlan,
 }
@@ -30,6 +40,7 @@ Planned balls can be started later with: juggle <ball-id>`,
 var acceptanceCriteriaFlag []string
 var stateFlag string
 var dependsOnFlag []string
+var nonInteractiveFlag bool
 
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
@@ -41,6 +52,7 @@ func init() {
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
 	planCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
 	planCmd.Flags().StringSliceVar(&dependsOnFlag, "depends-on", []string{}, "Ball IDs this ball depends on (can be specified multiple times)")
+	planCmd.Flags().BoolVar(&nonInteractiveFlag, "non-interactive", false, "Skip interactive prompts, use defaults for unspecified fields (headless mode)")
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
@@ -63,6 +75,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		intent = strings.Join(args, " ")
 	} else if intentFlag != "" {
 		intent = intentFlag
+	} else if nonInteractiveFlag {
+		return fmt.Errorf("intent is required in non-interactive mode (use positional args or --intent)")
 	} else {
 		fmt.Print("What do you plan to work on? ")
 		input, err := reader.ReadString('\n')
@@ -76,29 +90,37 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("intent is required")
 	}
 
-	// Get priority from: 1) --priority flag, 2) interactive selection
+	// Get priority from: 1) --priority flag, 2) interactive selection, 3) default in non-interactive mode
 	priority := priorityFlag
 	if priority == "" {
-		priority = promptSelection(reader, "Priority", []string{"low", "medium", "high", "urgent"}, 1)
+		if nonInteractiveFlag {
+			priority = "medium" // Default priority in non-interactive mode
+		} else {
+			priority = promptSelection(reader, "Priority", []string{"low", "medium", "high", "urgent"}, 1)
+		}
 	}
 	if !session.ValidatePriority(priority) {
 		return fmt.Errorf("invalid priority %q, must be one of: low, medium, high, urgent", priority)
 	}
 
-	// Get state from: 1) --state flag, 2) interactive selection
+	// Get state from: 1) --state flag, 2) interactive selection, 3) default in non-interactive mode
 	state := stateFlag
 	if state == "" {
-		state = promptSelection(reader, "State", []string{"pending", "in_progress"}, 0)
+		if nonInteractiveFlag {
+			state = "pending" // Default state in non-interactive mode
+		} else {
+			state = promptSelection(reader, "State", []string{"pending", "in_progress"}, 0)
+		}
 	}
 	if state != "pending" && state != "in_progress" {
 		return fmt.Errorf("invalid state %q, must be one of: pending, in_progress", state)
 	}
 
-	// Get tags from: 1) --tags flag, 2) interactive prompt
+	// Get tags from: 1) --tags flag, 2) interactive prompt, 3) empty in non-interactive mode
 	var tags []string
 	if len(tagsFlag) > 0 {
 		tags = tagsFlag
-	} else {
+	} else if !nonInteractiveFlag {
 		fmt.Print("Tags (comma-separated, empty for none): ")
 		input, err := reader.ReadString('\n')
 		if err == nil {
@@ -113,25 +135,27 @@ func runPlan(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+	// In non-interactive mode with no --tags flag, tags will be empty (no prompt)
 
-	// Get session from: 1) --session flag, 2) interactive prompt
+	// Get session from: 1) --session flag, 2) interactive prompt, 3) empty in non-interactive mode
 	sessionID := sessionFlag
-	if sessionID == "" {
+	if sessionID == "" && !nonInteractiveFlag {
 		fmt.Print("Session ID (empty for none): ")
 		input, err := reader.ReadString('\n')
 		if err == nil {
 			sessionID = strings.TrimSpace(input)
 		}
 	}
+	// In non-interactive mode with no --session flag, sessionID will be empty (no prompt)
 
-	// Get acceptance criteria from: 1) --ac flags, 2) legacy --description flag, 3) prompt
+	// Get acceptance criteria from: 1) --ac flags, 2) legacy --description flag, 3) prompt, 4) empty in non-interactive mode
 	var acceptanceCriteria []string
 	if len(acceptanceCriteriaFlag) > 0 {
 		acceptanceCriteria = acceptanceCriteriaFlag
 	} else if descriptionFlag != "" {
 		// Legacy: treat description as first acceptance criterion
 		acceptanceCriteria = []string{descriptionFlag}
-	} else {
+	} else if !nonInteractiveFlag {
 		// Prompt for acceptance criteria line by line
 		fmt.Println("Enter acceptance criteria (one per line, empty line to finish):")
 		for {
@@ -147,6 +171,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 			acceptanceCriteria = append(acceptanceCriteria, criterion)
 		}
 	}
+	// In non-interactive mode with no --ac flag, acceptanceCriteria will be empty (no prompt)
 
 	// Create the planned ball
 	ball, err := session.NewBall(cwd, intent, session.Priority(priority))
