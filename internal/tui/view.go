@@ -30,6 +30,8 @@ func (m Model) View() string {
 		return m.renderInputView()
 	case inputBallFormView:
 		return m.renderBallFormView()
+	case unifiedBallFormView:
+		return m.renderUnifiedBallFormView()
 	case inputTagView:
 		return m.renderTagView()
 	case sessionSelectorView:
@@ -1098,6 +1100,172 @@ func (m Model) renderHistoryOutputView() string {
 
 	// Help
 	help := lipgloss.NewStyle().Faint(true).Render("j/k = scroll | ctrl+d/u = page | gg/G = top/bottom | b/Esc = back to history")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+// renderUnifiedBallFormView renders the unified ball creation form with all fields visible
+func (m Model) renderUnifiedBallFormView() string {
+	var b strings.Builder
+
+	titleStyled := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("6")).
+		Render("Create New Ball")
+	b.WriteString(titleStyled + "\n\n")
+
+	// Field constants
+	const (
+		fieldIntent   = 0
+		fieldPriority = 1
+		fieldTags     = 2
+		fieldSession  = 3
+		fieldACStart  = 4 // ACs start at index 4
+	)
+
+	// Priority options
+	priorities := []string{"low", "medium", "high", "urgent"}
+
+	// Build sessions list for display
+	sessionOptions := []string{"(none)"}
+	for _, sess := range m.sessions {
+		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+			sessionOptions = append(sessionOptions, sess.ID)
+		}
+	}
+
+	// Styles
+	activeFieldStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
+	normalStyle := lipgloss.NewStyle()
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	optionSelectedStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("6")).Foreground(lipgloss.Color("0"))
+	optionNormalStyle := lipgloss.NewStyle().Faint(true)
+	acNumberStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	editingACStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("240"))
+
+	// --- Intent field ---
+	labelStyle := normalStyle
+	if m.pendingBallFormField == fieldIntent {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Intent: "))
+	if m.pendingBallFormField == fieldIntent {
+		b.WriteString(m.textInput.View())
+	} else {
+		if m.pendingBallIntent == "" {
+			b.WriteString(optionNormalStyle.Render("(empty)"))
+		} else {
+			b.WriteString(m.pendingBallIntent)
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Priority field ---
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldPriority {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Priority: "))
+	for j, opt := range priorities {
+		if j > 0 {
+			b.WriteString(" | ")
+		}
+		if j == m.pendingBallPriority {
+			if m.pendingBallFormField == fieldPriority {
+				b.WriteString(optionSelectedStyle.Render(opt))
+			} else {
+				b.WriteString(selectedStyle.Render(opt))
+			}
+		} else {
+			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Tags field ---
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldTags {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Tags: "))
+	if m.pendingBallFormField == fieldTags {
+		b.WriteString(m.textInput.View())
+	} else {
+		if m.pendingBallTags == "" {
+			b.WriteString(optionNormalStyle.Render("(empty)"))
+		} else {
+			b.WriteString(m.pendingBallTags)
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Session field ---
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldSession {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Session: "))
+	for j, opt := range sessionOptions {
+		if j > 0 {
+			b.WriteString(" | ")
+		}
+		if j == m.pendingBallSession {
+			if m.pendingBallFormField == fieldSession {
+				b.WriteString(optionSelectedStyle.Render(opt))
+			} else {
+				b.WriteString(selectedStyle.Render(opt))
+			}
+		} else {
+			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n\n")
+
+	// --- Acceptance Criteria section ---
+	acLabel := normalStyle
+	if m.pendingBallFormField >= fieldACStart {
+		acLabel = activeFieldStyle
+	}
+	b.WriteString(acLabel.Render("Acceptance Criteria:") + "\n")
+
+	// Show existing ACs with ability to edit
+	for i, ac := range m.pendingAcceptanceCriteria {
+		acFieldIndex := fieldACStart + i
+		if m.pendingBallFormField == acFieldIndex {
+			// This AC is being edited
+			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
+			b.WriteString(m.textInput.View())
+		} else {
+			b.WriteString(acNumberStyle.Render(fmt.Sprintf("  %d. ", i+1)))
+			b.WriteString(ac)
+		}
+		b.WriteString("\n")
+	}
+
+	// Show new AC input field (always at the end)
+	newACFieldIndex := fieldACStart + len(m.pendingAcceptanceCriteria)
+	if m.pendingBallFormField == newACFieldIndex {
+		// Show input for new AC
+		b.WriteString(editingACStyle.Render("  + "))
+		b.WriteString(m.textInput.View())
+		b.WriteString("\n")
+	} else {
+		// Show placeholder for adding new AC
+		b.WriteString(optionNormalStyle.Render("  + (press Enter to add)") + "\n")
+	}
+
+	b.WriteString("\n")
+
+	// Show message if any
+	if m.message != "" {
+		b.WriteString(messageStyle.Render(m.message) + "\n\n")
+	}
+
+	// Help
+	help := lipgloss.NewStyle().
+		Faint(true).
+		Render("↑/↓ or j/k = navigate | ←/→ = cycle options | Enter = confirm/add AC | Ctrl+Enter = create ball | Esc = cancel")
 	b.WriteString(help)
 
 	return b.String()

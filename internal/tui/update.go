@@ -19,6 +19,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle unified ball form view (all fields in one view)
+		if m.mode == unifiedBallFormView {
+			return m.handleUnifiedBallFormKey(msg)
+		}
+
 		// Handle acceptance criteria input mode (special handling for empty line)
 		if m.mode == inputAcceptanceCriteriaView {
 			return m.handleAcceptanceCriteriaKey(msg)
@@ -1588,10 +1593,32 @@ func (m Model) handleSplitAddItem() (tea.Model, tea.Cmd) {
 		m.mode = inputSessionView
 		m.addActivity("Adding new session...")
 	case BallsPanel:
-		m.textInput.Placeholder = "Ball intent (what you're doing)"
-		m.inputTarget = "intent"
-		m.mode = inputBallView
-		m.addActivity("Adding new ball...")
+		// Use unified ball form - all fields in one view
+		m.pendingBallIntent = ""
+		m.pendingBallPriority = 1 // Default to medium
+		m.pendingBallTags = ""
+		m.pendingAcceptanceCriteria = []string{}
+		m.pendingACEditIndex = -1
+		// Default session to currently selected one (if a real session is selected)
+		m.pendingBallSession = 0 // Start with (none)
+		if m.selectedSession != nil && m.selectedSession.ID != PseudoSessionAll && m.selectedSession.ID != PseudoSessionUntagged {
+			// Find the index of the selected session in real sessions
+			realSessionIdx := 0
+			for _, sess := range m.sessions {
+				if sess.ID == PseudoSessionAll || sess.ID == PseudoSessionUntagged {
+					continue
+				}
+				realSessionIdx++
+				if sess.ID == m.selectedSession.ID {
+					m.pendingBallSession = realSessionIdx
+					break
+				}
+			}
+		}
+		m.pendingBallFormField = 0 // Start at intent field
+		m.textInput.Placeholder = "What is this ball about?"
+		m.mode = unifiedBallFormView
+		m.addActivity("Creating new ball...")
 	}
 
 	return m, nil
@@ -2072,6 +2099,7 @@ func (m *Model) clearPendingBallState() {
 	m.pendingBallTags = ""
 	m.pendingBallSession = 0
 	m.pendingBallFormField = 0
+	m.pendingACEditIndex = -1
 }
 
 // handleSplitConfirmDelete handles yes/no for delete confirmation
@@ -2860,4 +2888,257 @@ func (m Model) handleHistoryOutputViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Reset gg detection for any other key
 	m.lastKey = ""
 	return m, nil
+}
+
+// handleUnifiedBallFormKey handles keyboard input for the unified ball creation form
+func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Field indices
+	const (
+		fieldIntent   = 0
+		fieldPriority = 1
+		fieldTags     = 2
+		fieldSession  = 3
+		fieldACStart  = 4 // ACs start at index 4
+	)
+
+	// Number of options for selection fields
+	numPriorityOptions := 4 // low, medium, high, urgent
+
+	// Count real sessions (excluding pseudo-sessions)
+	numSessionOptions := 1 // Start with "(none)"
+	for _, sess := range m.sessions {
+		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+			numSessionOptions++
+		}
+	}
+
+	// Calculate the maximum field index (4 base fields + existing ACs + 1 for new AC input)
+	maxFieldIndex := fieldACStart + len(m.pendingAcceptanceCriteria) // The "add new AC" field
+
+	// Helper to check if we're on a text input field
+	isTextInputField := func(field int) bool {
+		return field == fieldIntent || field == fieldTags || field >= fieldACStart
+	}
+
+	// Helper to save current field value before moving
+	saveCurrentFieldValue := func() {
+		value := strings.TrimSpace(m.textInput.Value())
+		switch m.pendingBallFormField {
+		case fieldIntent:
+			m.pendingBallIntent = value
+		case fieldTags:
+			m.pendingBallTags = value
+		default:
+			// AC field
+			if m.pendingBallFormField >= fieldACStart {
+				acIndex := m.pendingBallFormField - fieldACStart
+				if acIndex < len(m.pendingAcceptanceCriteria) {
+					// Editing existing AC
+					if value == "" {
+						// Remove empty ACs
+						m.pendingAcceptanceCriteria = append(
+							m.pendingAcceptanceCriteria[:acIndex],
+							m.pendingAcceptanceCriteria[acIndex+1:]...,
+						)
+					} else {
+						m.pendingAcceptanceCriteria[acIndex] = value
+					}
+				}
+				// Don't save if on the "new AC" field - that's handled by Enter
+			}
+		}
+	}
+
+	// Helper to load field value into text input when entering field
+	loadFieldValue := func(field int) {
+		m.textInput.Reset()
+		switch field {
+		case fieldIntent:
+			m.textInput.SetValue(m.pendingBallIntent)
+			m.textInput.Placeholder = "What is this ball about?"
+		case fieldTags:
+			m.textInput.SetValue(m.pendingBallTags)
+			m.textInput.Placeholder = "tag1, tag2, ..."
+		default:
+			if field >= fieldACStart {
+				acIndex := field - fieldACStart
+				if acIndex < len(m.pendingAcceptanceCriteria) {
+					m.textInput.SetValue(m.pendingAcceptanceCriteria[acIndex])
+					m.textInput.Placeholder = "Edit acceptance criterion"
+				} else {
+					m.textInput.SetValue("")
+					m.textInput.Placeholder = "New acceptance criterion"
+				}
+			}
+		}
+		if isTextInputField(field) {
+			m.textInput.Focus()
+		} else {
+			m.textInput.Blur()
+		}
+	}
+
+	switch msg.String() {
+	case "esc":
+		// Cancel input - clear pending state
+		m.clearPendingBallState()
+		m.mode = splitView
+		m.message = "Cancelled"
+		m.textInput.Blur()
+		return m, nil
+
+	case "ctrl+enter":
+		// Create the ball
+		// Save current field value first
+		saveCurrentFieldValue()
+
+		// Validate required fields
+		if m.pendingBallIntent == "" {
+			m.message = "Intent is required"
+			return m, nil
+		}
+
+		return m.finalizeBallCreation()
+
+	case "enter":
+		// Behavior depends on current field
+		if m.pendingBallFormField >= fieldACStart {
+			acIndex := m.pendingBallFormField - fieldACStart
+			value := strings.TrimSpace(m.textInput.Value())
+
+			if acIndex == len(m.pendingAcceptanceCriteria) {
+				// On the "new AC" field
+				if value == "" {
+					// Empty enter on the new AC field - create the ball if intent is set
+					saveCurrentFieldValue()
+					if m.pendingBallIntent == "" {
+						m.message = "Intent is required"
+						return m, nil
+					}
+					return m.finalizeBallCreation()
+				} else {
+					// Add new AC and stay on the new AC field
+					m.pendingAcceptanceCriteria = append(m.pendingAcceptanceCriteria, value)
+					m.textInput.Reset()
+					m.textInput.Placeholder = "New acceptance criterion"
+					m.pendingBallFormField = fieldACStart + len(m.pendingAcceptanceCriteria) // Move to new "add" field
+				}
+			} else {
+				// Editing existing AC - save and move to next field
+				saveCurrentFieldValue()
+				m.pendingBallFormField++
+				// Recalculate max after potential removal
+				maxFieldIndex = fieldACStart + len(m.pendingAcceptanceCriteria)
+				if m.pendingBallFormField > maxFieldIndex {
+					m.pendingBallFormField = maxFieldIndex
+				}
+				loadFieldValue(m.pendingBallFormField)
+			}
+		} else {
+			// On other fields - save and move to next
+			saveCurrentFieldValue()
+			m.pendingBallFormField++
+			if m.pendingBallFormField > maxFieldIndex {
+				m.pendingBallFormField = maxFieldIndex
+			}
+			loadFieldValue(m.pendingBallFormField)
+		}
+		return m, nil
+
+	case "up", "k":
+		// Move to previous field
+		saveCurrentFieldValue()
+		m.pendingBallFormField--
+		// Recalculate max after potential removal
+		maxFieldIndex = fieldACStart + len(m.pendingAcceptanceCriteria)
+		if m.pendingBallFormField < 0 {
+			m.pendingBallFormField = maxFieldIndex
+		}
+		loadFieldValue(m.pendingBallFormField)
+		return m, nil
+
+	case "down", "j":
+		// Move to next field
+		saveCurrentFieldValue()
+		m.pendingBallFormField++
+		// Recalculate max after potential removal
+		maxFieldIndex = fieldACStart + len(m.pendingAcceptanceCriteria)
+		if m.pendingBallFormField > maxFieldIndex {
+			m.pendingBallFormField = 0
+		}
+		loadFieldValue(m.pendingBallFormField)
+		return m, nil
+
+	case "left", "h":
+		// Cycle selection left (for selection fields only)
+		if m.pendingBallFormField == fieldPriority {
+			m.pendingBallPriority--
+			if m.pendingBallPriority < 0 {
+				m.pendingBallPriority = numPriorityOptions - 1
+			}
+		} else if m.pendingBallFormField == fieldSession {
+			m.pendingBallSession--
+			if m.pendingBallSession < 0 {
+				m.pendingBallSession = numSessionOptions - 1
+			}
+		}
+		return m, nil
+
+	case "right", "l":
+		// Cycle selection right (for selection fields only)
+		if m.pendingBallFormField == fieldPriority {
+			m.pendingBallPriority++
+			if m.pendingBallPriority >= numPriorityOptions {
+				m.pendingBallPriority = 0
+			}
+		} else if m.pendingBallFormField == fieldSession {
+			m.pendingBallSession++
+			if m.pendingBallSession >= numSessionOptions {
+				m.pendingBallSession = 0
+			}
+		}
+		return m, nil
+
+	case "tab":
+		// Tab cycles through selection options or moves to next field
+		if m.pendingBallFormField == fieldPriority {
+			m.pendingBallPriority++
+			if m.pendingBallPriority >= numPriorityOptions {
+				m.pendingBallPriority = 0
+			}
+		} else if m.pendingBallFormField == fieldSession {
+			m.pendingBallSession++
+			if m.pendingBallSession >= numSessionOptions {
+				m.pendingBallSession = 0
+			}
+		} else {
+			// For text fields, tab moves to next field
+			saveCurrentFieldValue()
+			m.pendingBallFormField++
+			maxFieldIndex = fieldACStart + len(m.pendingAcceptanceCriteria)
+			if m.pendingBallFormField > maxFieldIndex {
+				m.pendingBallFormField = 0
+			}
+			loadFieldValue(m.pendingBallFormField)
+		}
+		return m, nil
+
+	case "backspace", "delete":
+		// Allow deletion in text fields
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	default:
+		// Pass to textinput only if on text input field
+		if isTextInputField(m.pendingBallFormField) {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+	}
 }

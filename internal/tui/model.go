@@ -30,8 +30,9 @@ const (
 	panelSearchView                // Search/filter within current panel
 	confirmAgentLaunch             // Agent launch confirmation
 	confirmAgentCancel             // Agent cancel confirmation
-	inputAcceptanceCriteriaView    // Multi-line acceptance criteria input
-	inputBallFormView              // Full ball form with all fields
+	inputAcceptanceCriteriaView    // Multi-line acceptance criteria input (legacy)
+	inputBallFormView              // Full ball form with all fields (legacy)
+	unifiedBallFormView            // Unified ball creation form - all fields in one view
 	historyOutputView              // Viewing last_output.txt from history
 )
 
@@ -163,13 +164,14 @@ type Model struct {
 	sessionSelectItems []*session.JuggleSession // Sessions available for selection
 	sessionSelectIndex int                      // Current selection index in session selector
 
-	// Pending ball creation state (for multi-step ball creation)
-	pendingBallIntent          string   // Intent being created (stored during AC input)
+	// Pending ball creation state (for unified ball creation form)
+	pendingBallIntent          string   // Intent being created
 	pendingBallPriority        int      // Index in priority options (0=low, 1=medium, 2=high, 3=urgent)
 	pendingBallTags            string   // Comma-separated tags
 	pendingBallSession         int      // Index in session options (0=none, 1+ = session index)
-	pendingBallFormField       int      // Current field in form (0=priority, 1=tags, 2=session)
+	pendingBallFormField       int      // Current field in form (0=intent, 1=priority, 2=tags, 3=session, 4+=ACs)
 	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
+	pendingACEditIndex         int      // Index of AC being edited (-1 = adding new, >= 0 = editing existing)
 
 	// File watcher
 	fileWatcher *watcher.Watcher
