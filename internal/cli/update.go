@@ -22,12 +22,15 @@ var (
 	updateOutput      string
 	updateModelSize   string
 	updateJSONFlag    bool
+	updateAddDep      []string
+	updateRemoveDep   []string
+	updateSetDeps     []string
 )
 
 var updateCmd = &cobra.Command{
 	Use:   "update <ball-id>",
 	Short: "Update a ball's properties",
-	Long: `Update properties of a ball including intent, priority, state, acceptance criteria, tags, and output.
+	Long: `Update properties of a ball including intent, priority, state, acceptance criteria, tags, dependencies, and output.
 
 When no flags are provided, enters interactive mode where you can edit all properties.
 
@@ -42,7 +45,10 @@ Examples:
   juggle update my-app-1 --tags bug-fix,security
   juggle update my-app-1 --tests-state needed
   juggle update my-app-1 --output "Research findings: ..."
-  juggle update my-app-1 --model-size small`,
+  juggle update my-app-1 --model-size small
+  juggle update my-app-1 --add-dep other-ball-5
+  juggle update my-app-1 --remove-dep other-ball-3
+  juggle update my-app-1 --set-deps ball-1,ball-2`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: CompleteBallIDs,
 	RunE:              runUpdate,
@@ -59,6 +65,9 @@ func init() {
 	updateCmd.Flags().StringVar(&updateOutput, "output", "", "Set research output/results")
 	updateCmd.Flags().StringVar(&updateModelSize, "model-size", "", "Set preferred model size (small|medium|large)")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Output updated ball as JSON")
+	updateCmd.Flags().StringSliceVar(&updateAddDep, "add-dep", nil, "Add dependency (ball ID, can be specified multiple times)")
+	updateCmd.Flags().StringSliceVar(&updateRemoveDep, "remove-dep", nil, "Remove dependency (ball ID, can be specified multiple times)")
+	updateCmd.Flags().StringSliceVar(&updateSetDeps, "set-deps", nil, "Replace all dependencies (comma-separated ball IDs)")
 
 	// Add completion for flags
 	updateCmd.RegisterFlagCompletionFunc("priority", CompletePriorities)
@@ -86,7 +95,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// If no flags provided (except --json), enter interactive mode
-	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateTestsState == "" && updateOutput == "" && updateModelSize == "" && !updateJSONFlag {
+	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateTestsState == "" && updateOutput == "" && updateModelSize == "" && updateAddDep == nil && updateRemoveDep == nil && updateSetDeps == nil && !updateJSONFlag {
 		return runInteractiveUpdate(foundBall, foundStore)
 	}
 
@@ -223,6 +232,88 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		modified = true
 		if !updateJSONFlag {
 			fmt.Printf("✓ Updated output (%d characters)\n", len(updateOutput))
+		}
+	}
+
+	// Handle dependency modifications
+	depsModified := false
+	if updateSetDeps != nil {
+		// Replace all dependencies
+		resolvedDeps, err := resolveDependencyIDsForUpdate(foundStore, updateSetDeps, foundBall.ID)
+		if err != nil {
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return err
+		}
+		foundBall.SetDependencies(resolvedDeps)
+		depsModified = true
+		modified = true
+		if !updateJSONFlag {
+			fmt.Printf("✓ Set dependencies: %s\n", strings.Join(resolvedDeps, ", "))
+		}
+	}
+
+	if updateAddDep != nil {
+		// Add dependencies
+		resolvedDeps, err := resolveDependencyIDsForUpdate(foundStore, updateAddDep, foundBall.ID)
+		if err != nil {
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return err
+		}
+		for _, dep := range resolvedDeps {
+			foundBall.AddDependency(dep)
+		}
+		depsModified = true
+		modified = true
+		if !updateJSONFlag {
+			fmt.Printf("✓ Added dependencies: %s\n", strings.Join(resolvedDeps, ", "))
+		}
+	}
+
+	if updateRemoveDep != nil {
+		// Remove dependencies
+		resolvedDeps, err := resolveDependencyIDsForUpdate(foundStore, updateRemoveDep, foundBall.ID)
+		if err != nil {
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return err
+		}
+		for _, dep := range resolvedDeps {
+			if foundBall.RemoveDependency(dep) {
+				if !updateJSONFlag {
+					fmt.Printf("✓ Removed dependency: %s\n", dep)
+				}
+			}
+		}
+		depsModified = true
+		modified = true
+	}
+
+	// Detect circular dependencies after any dependency modification
+	if depsModified {
+		balls, err := foundStore.LoadBalls()
+		if err != nil {
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return fmt.Errorf("failed to load balls for dependency check: %w", err)
+		}
+		// Replace the ball in the list with the modified version
+		for i, b := range balls {
+			if b.ID == foundBall.ID {
+				balls[i] = foundBall
+				break
+			}
+		}
+		if err := session.DetectCircularDependencies(balls); err != nil {
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return fmt.Errorf("dependency error: %w", err)
 		}
 	}
 
@@ -445,4 +536,33 @@ func truncateForDisplay(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+// resolveDependencyIDsForUpdate resolves ball IDs (full or short) to full ball IDs
+// excludeID is the ID of the ball being updated, to prevent self-dependency
+func resolveDependencyIDsForUpdate(store *session.Store, ids []string, excludeID string) ([]string, error) {
+	balls, err := store.LoadBalls()
+	if err != nil {
+		return nil, err
+	}
+
+	resolved := make([]string, 0, len(ids))
+	for _, id := range ids {
+		found := false
+		for _, ball := range balls {
+			// Match full ID or short ID or prefix
+			if ball.ID == id || ball.ShortID() == id || strings.HasPrefix(ball.ID, id) {
+				if ball.ID == excludeID {
+					return nil, fmt.Errorf("cannot add self as dependency: %s", id)
+				}
+				resolved = append(resolved, ball.ID)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("ball not found: %s", id)
+		}
+	}
+	return resolved, nil
 }

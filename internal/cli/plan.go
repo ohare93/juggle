@@ -29,6 +29,7 @@ Planned balls can be started later with: juggle <ball-id>`,
 
 var acceptanceCriteriaFlag []string
 var stateFlag string
+var dependsOnFlag []string
 
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
@@ -39,6 +40,7 @@ func init() {
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
 	planCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
+	planCmd.Flags().StringSliceVar(&dependsOnFlag, "depends-on", []string{}, "Ball IDs this ball depends on (can be specified multiple times)")
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
@@ -183,6 +185,26 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		ball.ModelSize = modelSize
 	}
 
+	// Set dependencies if provided
+	if len(dependsOnFlag) > 0 {
+		// Resolve dependency IDs (support both full and short IDs)
+		resolvedDeps, err := resolveDependencyIDs(store, dependsOnFlag)
+		if err != nil {
+			return fmt.Errorf("failed to resolve dependencies: %w", err)
+		}
+		ball.SetDependencies(resolvedDeps)
+
+		// Detect circular dependencies with this new ball
+		balls, err := store.LoadBalls()
+		if err != nil {
+			return fmt.Errorf("failed to load balls for dependency check: %w", err)
+		}
+		allBalls := append(balls, ball)
+		if err := session.DetectCircularDependencies(allBalls); err != nil {
+			return fmt.Errorf("dependency error: %w", err)
+		}
+	}
+
 	// Save the ball
 	if err := store.AppendBall(ball); err != nil {
 		return fmt.Errorf("failed to save planned ball: %w", err)
@@ -229,4 +251,29 @@ func promptSelection(reader *bufio.Reader, label string, options []string, defau
 	}
 
 	return options[idx-1]
+}
+
+// resolveDependencyIDs resolves ball IDs (full or short) to full ball IDs
+func resolveDependencyIDs(store *session.Store, ids []string) ([]string, error) {
+	balls, err := store.LoadBalls()
+	if err != nil {
+		return nil, err
+	}
+
+	resolved := make([]string, 0, len(ids))
+	for _, id := range ids {
+		found := false
+		for _, ball := range balls {
+			// Match full ID or short ID
+			if ball.ID == id || ball.ShortID() == id || strings.HasPrefix(ball.ID, id) {
+				resolved = append(resolved, ball.ID)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("ball not found: %s", id)
+		}
+	}
+	return resolved, nil
 }

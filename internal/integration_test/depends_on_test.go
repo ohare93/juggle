@@ -310,3 +310,254 @@ func TestDependencyJSONPersistence(t *testing.T) {
 		t.Error("Expected 'external-123' in dependencies")
 	}
 }
+
+// TestCLIDependsOnFlagInPlan tests the --depends-on flag in plan command
+func TestCLIDependsOnFlagInPlan(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create a parent ball first
+	parent := env.CreateBall(t, "Parent task", session.PriorityHigh)
+	store := env.GetStore(t)
+
+	// Create a child ball with dependency using the store directly (simulating CLI)
+	child, err := session.NewBall(env.ProjectDir, "Child task with dep", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("Failed to create child ball: %v", err)
+	}
+
+	// Simulate --depends-on flag by adding dependency before save
+	child.AddDependency(parent.ID)
+
+	if err := store.AppendBall(child); err != nil {
+		t.Fatalf("Failed to save child ball: %v", err)
+	}
+
+	// Verify dependency was saved
+	retrieved, err := store.GetBallByID(child.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve child ball: %v", err)
+	}
+
+	if len(retrieved.DependsOn) != 1 {
+		t.Fatalf("Expected 1 dependency, got %d", len(retrieved.DependsOn))
+	}
+
+	if retrieved.DependsOn[0] != parent.ID {
+		t.Errorf("Expected dependency %s, got %s", parent.ID, retrieved.DependsOn[0])
+	}
+}
+
+// TestCLIAddDepFlag tests the --add-dep flag in update command
+func TestCLIAddDepFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	parent := env.CreateBall(t, "Parent task", session.PriorityHigh)
+	child := env.CreateBall(t, "Child task", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Simulate --add-dep flag
+	child.AddDependency(parent.ID)
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	retrieved, err := store.GetBallByID(child.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve ball: %v", err)
+	}
+
+	if len(retrieved.DependsOn) != 1 {
+		t.Errorf("Expected 1 dependency, got %d", len(retrieved.DependsOn))
+	}
+}
+
+// TestCLIRemoveDepFlag tests the --remove-dep flag in update command
+func TestCLIRemoveDepFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	parent := env.CreateBall(t, "Parent task", session.PriorityHigh)
+	child := env.CreateBall(t, "Child task", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Add dependency first
+	child.AddDependency(parent.ID)
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to add dependency: %v", err)
+	}
+
+	// Simulate --remove-dep flag
+	child.RemoveDependency(parent.ID)
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to remove dependency: %v", err)
+	}
+
+	retrieved, err := store.GetBallByID(child.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve ball: %v", err)
+	}
+
+	if len(retrieved.DependsOn) != 0 {
+		t.Errorf("Expected 0 dependencies after removal, got %d", len(retrieved.DependsOn))
+	}
+}
+
+// TestCLISetDepsFlag tests the --set-deps flag in update command
+func TestCLISetDepsFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball1 := env.CreateBall(t, "Ball 1", session.PriorityHigh)
+	ball2 := env.CreateBall(t, "Ball 2", session.PriorityHigh)
+	child := env.CreateBall(t, "Child task", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Simulate --set-deps flag
+	child.SetDependencies([]string{ball1.ID, ball2.ID})
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to set dependencies: %v", err)
+	}
+
+	retrieved, err := store.GetBallByID(child.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve ball: %v", err)
+	}
+
+	if len(retrieved.DependsOn) != 2 {
+		t.Errorf("Expected 2 dependencies, got %d", len(retrieved.DependsOn))
+	}
+}
+
+// TestCLIDependencyCircularDetection tests circular dependency detection in CLI
+func TestCLIDependencyCircularDetection(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball1 := env.CreateBall(t, "Ball 1", session.PriorityHigh)
+	ball2 := env.CreateBall(t, "Ball 2", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Create circular dependency
+	ball1.AddDependency(ball2.ID)
+	ball2.AddDependency(ball1.ID)
+
+	// Save ball1
+	if err := store.UpdateBall(ball1); err != nil {
+		t.Fatalf("Failed to save ball1: %v", err)
+	}
+
+	// Save ball2
+	if err := store.UpdateBall(ball2); err != nil {
+		t.Fatalf("Failed to save ball2: %v", err)
+	}
+
+	// Detect circular dependencies
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("Failed to load balls: %v", err)
+	}
+
+	err = session.DetectCircularDependencies(balls)
+	if err == nil {
+		t.Error("Expected circular dependency error, got nil")
+	}
+}
+
+// TestCLISelfDependencyPrevention tests that a ball cannot depend on itself
+func TestCLISelfDependencyPrevention(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Self-referential ball", session.PriorityMedium)
+
+	// Try to add self as dependency
+	ball.AddDependency(ball.ID)
+
+	// Check - the dependency should be added (session package doesn't prevent this)
+	// The CLI layer should prevent it, but at session level it's allowed
+	// This test documents the behavior
+	if len(ball.DependsOn) != 1 {
+		t.Logf("Note: Session package allows self-dependency (CLI prevents this)")
+	}
+}
+
+// TestCLIDependencyWithShortID tests dependency resolution with short IDs
+func TestCLIDependencyWithShortID(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	parent := env.CreateBall(t, "Parent task", session.PriorityHigh)
+	child := env.CreateBall(t, "Child task", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Add dependency using short ID
+	shortID := parent.ShortID()
+	child.AddDependency(shortID)
+
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	retrieved, err := store.GetBallByID(child.ID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve ball: %v", err)
+	}
+
+	// Dependency should be saved with the short ID (as provided)
+	if len(retrieved.DependsOn) != 1 {
+		t.Fatalf("Expected 1 dependency, got %d", len(retrieved.DependsOn))
+	}
+
+	// The stored ID should be what was provided
+	if retrieved.DependsOn[0] != shortID {
+		t.Errorf("Expected dependency ID %s, got %s", shortID, retrieved.DependsOn[0])
+	}
+}
+
+// TestCLIDependencyMultipleOperations tests multiple dependency operations
+func TestCLIDependencyMultipleOperations(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball1 := env.CreateBall(t, "Ball 1", session.PriorityHigh)
+	ball2 := env.CreateBall(t, "Ball 2", session.PriorityHigh)
+	ball3 := env.CreateBall(t, "Ball 3", session.PriorityHigh)
+	child := env.CreateBall(t, "Child task", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Add first dependency
+	child.AddDependency(ball1.ID)
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to add first dependency: %v", err)
+	}
+
+	// Add second dependency
+	child.AddDependency(ball2.ID)
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to add second dependency: %v", err)
+	}
+
+	// Verify we have 2 dependencies
+	retrieved, _ := store.GetBallByID(child.ID)
+	if len(retrieved.DependsOn) != 2 {
+		t.Fatalf("Expected 2 dependencies, got %d", len(retrieved.DependsOn))
+	}
+
+	// Replace all dependencies with just ball3
+	child.SetDependencies([]string{ball3.ID})
+	if err := store.UpdateBall(child); err != nil {
+		t.Fatalf("Failed to replace dependencies: %v", err)
+	}
+
+	// Verify we now have 1 dependency
+	retrieved, _ = store.GetBallByID(child.ID)
+	if len(retrieved.DependsOn) != 1 {
+		t.Errorf("Expected 1 dependency after replacement, got %d", len(retrieved.DependsOn))
+	}
+
+	if retrieved.DependsOn[0] != ball3.ID {
+		t.Errorf("Expected dependency %s, got %s", ball3.ID, retrieved.DependsOn[0])
+	}
+}

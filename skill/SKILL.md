@@ -195,6 +195,58 @@ When the agent receives balls, **in_progress balls appear first** because they r
 
 This ensures work is never lost between agent loop iterations.
 
+## Ball Dependencies
+
+Balls can depend on other balls to express ordering requirements. Dependencies ensure prerequisite work is completed first.
+
+### Specifying Dependencies
+
+When creating a ball:
+```bash
+# Create a ball that depends on another ball
+juggle plan "Add user profile page" --depends-on my-app-5
+
+# Create with multiple dependencies
+juggle plan "Integrate auth with profile" --depends-on auth-ball-1 --depends-on profile-ball-2
+```
+
+When updating an existing ball:
+```bash
+# Add a dependency
+juggle update my-app-10 --add-dep my-app-5
+
+# Remove a dependency
+juggle update my-app-10 --remove-dep my-app-5
+
+# Replace all dependencies
+juggle update my-app-10 --set-deps my-app-5,my-app-6
+```
+
+### ID Resolution
+
+Dependency IDs support:
+- Full ball ID: `my-project-abc12345`
+- Short ID: `abc12345`
+- Prefix match: `abc` (if unique)
+
+### Circular Dependency Detection
+
+Juggler automatically detects and rejects circular dependencies:
+```bash
+# This will fail if ball-A depends on ball-B and ball-B depends on ball-A
+juggle update ball-A --add-dep ball-B
+# Error: dependency error: circular dependency detected: ball-A → ball-B → ball-A
+```
+
+### Agent Priority Ordering
+
+When the agent receives balls, dependencies are considered for ordering:
+1. **In-progress balls first** (unfinished work from previous iterations)
+2. **Balls with satisfied dependencies** (all dependencies complete)
+3. **Balls with pending dependencies** (blocked until dependencies complete)
+
+If a ball has dependencies that are not yet complete, the agent should complete the dependencies first.
+
 ## Command Reference
 
 ### Planning Commands
@@ -207,6 +259,7 @@ This ensures work is never lost between agent loop iterations.
 | `juggle sessions context <id> --edit` | Edit context in $EDITOR |
 | `juggle plan "intent" -c "criterion"` | Create ball with criteria |
 | `juggle plan "intent" --session <id>` | Create ball in session |
+| `juggle plan "intent" --depends-on <ball-id>` | Create ball with dependency |
 
 ### State Update Commands
 
@@ -214,6 +267,9 @@ This ensures work is never lost between agent loop iterations.
 |---------|-------------|
 | `juggle update <id> --state <state>` | Update ball state |
 | `juggle update <id> --state blocked --reason "why"` | Block with reason |
+| `juggle update <id> --add-dep <ball-id>` | Add dependency |
+| `juggle update <id> --remove-dep <ball-id>` | Remove dependency |
+| `juggle update <id> --set-deps <ids>` | Replace all dependencies |
 | `juggle progress append <session> "text"` | Log progress entry |
 | `juggle show <id> [--json]` | View ball details |
 | `juggle sessions show <id>` | View session with balls |
