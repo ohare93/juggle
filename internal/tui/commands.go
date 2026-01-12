@@ -148,6 +148,17 @@ type agentOutputMsg struct {
 	isError bool // true if this is stderr output
 }
 
+// agentCancelledMsg is sent when the agent is cancelled by user
+type agentCancelledMsg struct {
+	sessionID string
+}
+
+// agentProcessStartedMsg is sent when agent process is started, providing reference for cancellation
+type agentProcessStartedMsg struct {
+	process   *AgentProcess
+	sessionID string
+}
+
 // AgentStatus tracks the state of a running agent
 type AgentStatus struct {
 	Running       bool
@@ -158,11 +169,21 @@ type AgentStatus struct {
 
 // AgentProcess holds state for a running agent with output streaming
 type AgentProcess struct {
-	cmd       *exec.Cmd
-	stdout    io.ReadCloser
-	stderr    io.ReadCloser
-	outputCh  chan agentOutputMsg
-	sessionID string
+	cmd        *exec.Cmd
+	stdout     io.ReadCloser
+	stderr     io.ReadCloser
+	outputCh   chan<- agentOutputMsg
+	sessionID  string
+	cancelled  bool
+}
+
+// Kill terminates the running agent process
+func (p *AgentProcess) Kill() error {
+	if p == nil || p.cmd == nil || p.cmd.Process == nil {
+		return nil
+	}
+	p.cancelled = true
+	return p.cmd.Process.Kill()
 }
 
 // launchAgentCmd creates a command that runs the agent for a session
@@ -202,6 +223,7 @@ func launchAgentCmd(sessionID string) tea.Cmd {
 }
 
 // launchAgentWithOutputCmd creates a command that runs the agent and streams output
+// It returns the process reference via agentProcessStartedMsg for cancellation support
 func launchAgentWithOutputCmd(sessionID string, outputCh chan<- agentOutputMsg) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("juggle", "agent", "run", sessionID)
@@ -221,6 +243,15 @@ func launchAgentWithOutputCmd(sessionID string, outputCh chan<- agentOutputMsg) 
 			return agentFinishedMsg{sessionID: sessionID, err: err}
 		}
 
+		// Create process reference for cancellation
+		process := &AgentProcess{
+			cmd:       cmd,
+			stdout:    stdout,
+			stderr:    stderr,
+			outputCh:  outputCh,
+			sessionID: sessionID,
+		}
+
 		// Stream stdout in a goroutine
 		go func() {
 			scanner := bufio.NewScanner(stdout)
@@ -237,14 +268,39 @@ func launchAgentWithOutputCmd(sessionID string, outputCh chan<- agentOutputMsg) 
 			}
 		}()
 
-		// Wait for completion
-		if err := cmd.Wait(); err != nil {
+		// Return process reference immediately so TUI can track it for cancellation
+		// Wait for completion in a separate goroutine
+		go func() {
+			cmd.Wait() // Ignore error - will be handled by exit code or cancelled flag
+		}()
+
+		return agentProcessStartedMsg{process: process, sessionID: sessionID}
+	}
+}
+
+// waitForAgentCmd waits for the agent process to complete
+func waitForAgentCmd(process *AgentProcess) tea.Cmd {
+	return func() tea.Msg {
+		if process == nil || process.cmd == nil {
+			return agentFinishedMsg{sessionID: "", complete: true}
+		}
+
+		// Wait for the command to finish
+		err := process.cmd.Wait()
+
+		// Check if cancelled
+		if process.cancelled {
+			return agentCancelledMsg{sessionID: process.sessionID}
+		}
+
+		// Check for errors
+		if err != nil {
 			if _, ok := err.(*exec.ExitError); !ok {
-				return agentFinishedMsg{sessionID: sessionID, err: err}
+				return agentFinishedMsg{sessionID: process.sessionID, err: err}
 			}
 		}
 
-		return agentFinishedMsg{sessionID: sessionID, complete: true}
+		return agentFinishedMsg{sessionID: process.sessionID, complete: true}
 	}
 }
 

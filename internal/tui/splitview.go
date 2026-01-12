@@ -772,7 +772,7 @@ func (m Model) renderStatusBar() string {
 
 	// Add agent status indicator if running
 	if m.agentStatus.Running {
-		agentIndicator := fmt.Sprintf("[Agent: %s %d/%d]",
+		agentIndicator := fmt.Sprintf("[Agent: %s %d/%d | X:cancel]",
 			m.agentStatus.SessionID,
 			m.agentStatus.Iteration,
 			m.agentStatus.MaxIterations)

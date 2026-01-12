@@ -54,6 +54,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleAgentLaunchConfirm(msg)
 		}
 
+		// Handle agent cancel confirmation
+		if m.mode == confirmAgentCancel {
+			return m.handleAgentCancelConfirm(msg)
+		}
+
 		// Handle split help view
 		if m.mode == splitHelpView {
 			return m.handleSplitHelpKey(msg)
@@ -299,6 +304,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = "Agent running..."
 		return m, nil
 
+	case agentProcessStartedMsg:
+		// Store the process reference for cancellation
+		m.agentProcess = msg.process
+		m.agentStatus = AgentStatus{
+			Running:       true,
+			SessionID:     msg.sessionID,
+			Iteration:     0,
+			MaxIterations: 10, // Default
+		}
+		m.addActivity("Agent process started for session: " + msg.sessionID)
+		m.message = "Agent running... (X to cancel)"
+		// Start waiting for the process completion and continue listening for output
+		return m, tea.Batch(
+			waitForAgentCmd(msg.process),
+			listenForAgentOutput(m.agentOutputCh),
+		)
+
+	case agentCancelledMsg:
+		m.agentStatus.Running = false
+		m.agentProcess = nil
+		m.message = "Agent cancelled"
+		m.addActivity("Agent cancelled for session: " + msg.sessionID)
+		m.addAgentOutput("=== Agent cancelled by user ===", true)
+		// Reload balls to reflect any changes made before cancellation
+		return m, loadBalls(m.store, m.config, m.localOnly)
+
 	case agentIterationMsg:
 		m.agentStatus.Iteration = msg.iteration
 		m.agentStatus.MaxIterations = msg.maxIter
@@ -307,6 +338,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case agentFinishedMsg:
 		m.agentStatus.Running = false
+		m.agentProcess = nil // Clear process reference
 		if msg.err != nil {
 			m.message = "Agent error: " + msg.err.Error()
 			m.addActivity("Agent error: " + msg.err.Error())
@@ -574,6 +606,10 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "O":
 		// Toggle agent output panel visibility
 		return m.handleToggleAgentOutput()
+
+	case "X":
+		// Cancel running agent (with confirmation)
+		return m.handleCancelAgent()
 	}
 
 	return m, nil
@@ -2285,6 +2321,57 @@ func (m Model) handleAgentLaunchConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Cancel
 		m.mode = splitView
 		m.message = "Agent launch cancelled"
+		return m, nil
+	}
+
+	return m, nil
+}
+
+// handleCancelAgent shows confirmation dialog for cancelling a running agent
+func (m Model) handleCancelAgent() (tea.Model, tea.Cmd) {
+	// Check if agent is running
+	if !m.agentStatus.Running {
+		m.message = "No agent is running"
+		return m, nil
+	}
+
+	// Show confirmation dialog
+	m.mode = confirmAgentCancel
+	return m, nil
+}
+
+// handleAgentCancelConfirm handles the agent cancel confirmation
+func (m Model) handleAgentCancelConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		// Confirm cancellation
+		m.mode = splitView
+		m.addActivity("Cancelling agent...")
+		m.message = "Cancelling agent..."
+
+		// Kill the process if we have a reference
+		if m.agentProcess != nil {
+			if err := m.agentProcess.Kill(); err != nil {
+				m.addActivity("Error killing agent: " + err.Error())
+				m.message = "Error killing agent: " + err.Error()
+			} else {
+				m.addActivity("Agent process terminated")
+				m.addAgentOutput("=== Agent cancelled by user ===", true)
+			}
+		}
+
+		// Clear agent status
+		m.agentStatus.Running = false
+		m.agentProcess = nil
+		m.message = "Agent cancelled"
+
+		// Reload balls to reflect any changes made before cancellation
+		return m, loadBalls(m.store, m.config, m.localOnly)
+
+	case "n", "N", "esc", "q":
+		// Don't cancel
+		m.mode = splitView
+		m.message = "Agent still running"
 		return m, nil
 	}
 

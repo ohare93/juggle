@@ -3607,9 +3607,9 @@ func TestStatusBarWithRunningAgent(t *testing.T) {
 
 	statusBar := model.renderStatusBar()
 
-	// Should show agent status
-	if !strings.Contains(statusBar, "[Agent: test-session 3/10]") {
-		t.Errorf("Expected status bar to show agent status, got: %s", statusBar)
+	// Should show agent status with cancel hint
+	if !strings.Contains(statusBar, "[Agent: test-session 3/10 | X:cancel]") {
+		t.Errorf("Expected status bar to show agent status with cancel hint, got: %s", statusBar)
 	}
 }
 
@@ -5514,5 +5514,383 @@ func TestStatusBarShowsOutputKeybind(t *testing.T) {
 	statusBar := model.renderStatusBar()
 	if !strings.Contains(statusBar, "O:output") {
 		t.Error("Expected status bar to show 'O:output' keybind")
+	}
+}
+
+// =========================================
+// Agent Cancel Tests
+// =========================================
+
+// Test X keybind shows confirmation when agent is running
+func TestXKeybindShowsCancelConfirmation(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     2,
+			MaxIterations: 10,
+		},
+	}
+
+	// Press X to cancel agent
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	m := newModel.(Model)
+
+	if m.mode != confirmAgentCancel {
+		t.Errorf("Expected mode to be confirmAgentCancel, got %v", m.mode)
+	}
+}
+
+// Test X keybind does nothing when no agent is running
+func TestXKeybindNoAgentRunning(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		agentStatus: AgentStatus{
+			Running: false,
+		},
+	}
+
+	// Press X when no agent is running
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'X'}})
+	m := newModel.(Model)
+
+	// Should stay in split view and show message
+	if m.mode != splitView {
+		t.Errorf("Expected mode to remain splitView, got %v", m.mode)
+	}
+
+	if !strings.Contains(m.message, "No agent is running") {
+		t.Errorf("Expected message about no agent running, got: %s", m.message)
+	}
+}
+
+// Test confirming agent cancellation with 'y'
+func TestCancelAgentConfirmY(t *testing.T) {
+	model := Model{
+		mode:        confirmAgentCancel,
+		activePanel: SessionsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     2,
+			MaxIterations: 10,
+		},
+		// Note: agentProcess is nil in tests, but the handler should handle this gracefully
+	}
+
+	// Confirm with y
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	m := newModel.(Model)
+
+	// Should return to split view
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after confirmation, got %v", m.mode)
+	}
+
+	// Agent status should be cleared
+	if m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to be false after cancellation")
+	}
+
+	// Should show cancellation message
+	if !strings.Contains(m.message, "cancelled") {
+		t.Errorf("Expected message about agent being cancelled, got: %s", m.message)
+	}
+}
+
+// Test confirming agent cancellation with 'Y' (uppercase)
+func TestCancelAgentConfirmUpperY(t *testing.T) {
+	model := Model{
+		mode:        confirmAgentCancel,
+		activePanel: SessionsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     2,
+			MaxIterations: 10,
+		},
+	}
+
+	// Confirm with Y
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
+	m := newModel.(Model)
+
+	// Should return to split view
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after confirmation, got %v", m.mode)
+	}
+
+	// Agent status should be cleared
+	if m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to be false after cancellation")
+	}
+}
+
+// Test declining agent cancellation with 'n'
+func TestCancelAgentDeclineN(t *testing.T) {
+	model := Model{
+		mode:        confirmAgentCancel,
+		activePanel: SessionsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     2,
+			MaxIterations: 10,
+		},
+	}
+
+	// Decline with n
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m := newModel.(Model)
+
+	// Should return to split view
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after declining, got %v", m.mode)
+	}
+
+	// Agent should still be running (not cancelled)
+	if !m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to remain true after declining")
+	}
+
+	// Should show appropriate message
+	if !strings.Contains(m.message, "still running") {
+		t.Errorf("Expected message about agent still running, got: %s", m.message)
+	}
+}
+
+// Test declining agent cancellation with Escape
+func TestCancelAgentDeclineEscape(t *testing.T) {
+	model := Model{
+		mode:        confirmAgentCancel,
+		activePanel: SessionsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     2,
+			MaxIterations: 10,
+		},
+	}
+
+	// Decline with Escape
+	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m := newModel.(Model)
+
+	// Should return to split view
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after escape, got %v", m.mode)
+	}
+
+	// Agent should still be running
+	if !m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to remain true after escape")
+	}
+}
+
+// Test renderAgentCancelConfirm shows correct information
+func TestRenderAgentCancelConfirm(t *testing.T) {
+	model := Model{
+		mode: confirmAgentCancel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     3,
+			MaxIterations: 10,
+		},
+		width:  80,
+		height: 24,
+	}
+
+	view := model.renderAgentCancelConfirm()
+
+	// Should show title
+	if !strings.Contains(view, "Cancel Agent") {
+		t.Error("Expected cancel dialog to show title 'Cancel Agent'")
+	}
+
+	// Should show session ID
+	if !strings.Contains(view, "test-session") {
+		t.Error("Expected cancel dialog to show session ID")
+	}
+
+	// Should show progress
+	if !strings.Contains(view, "3/10") {
+		t.Error("Expected cancel dialog to show progress '3/10'")
+	}
+
+	// Should show warning
+	if !strings.Contains(view, "terminated immediately") {
+		t.Error("Expected cancel dialog to show termination warning")
+	}
+
+	// Should show confirmation prompt
+	if !strings.Contains(view, "[y/N]") {
+		t.Error("Expected cancel dialog to show confirmation prompt [y/N]")
+	}
+}
+
+// Test help view contains agent cancel keybind
+func TestHelpViewContainsAgentCancelKeybind(t *testing.T) {
+	model := Model{
+		mode:   splitHelpView,
+		width:  120,
+		height: 100, // Large enough to show all content
+	}
+
+	helpView := model.renderSplitHelpView()
+
+	// Should show Agent Control section
+	if !strings.Contains(helpView, "Agent Control") {
+		t.Error("Expected help view to contain 'Agent Control' section")
+	}
+
+	// Should show X keybind for cancel
+	if !strings.Contains(helpView, "Cancel running agent") {
+		t.Error("Expected help view to contain 'Cancel running agent' description")
+	}
+}
+
+// Test status bar shows X:cancel when agent is running
+func TestStatusBarShowsCancelKeybindWhenAgentRunning(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: SessionsPanel,
+		localOnly:   true,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test",
+			Iteration:     1,
+			MaxIterations: 5,
+		},
+		width:  120,
+		height: 40,
+	}
+
+	statusBar := model.renderStatusBar()
+
+	if !strings.Contains(statusBar, "X:cancel") {
+		t.Error("Expected status bar to show 'X:cancel' when agent is running")
+	}
+}
+
+// Test View() function returns correct view for confirmAgentCancel mode
+func TestViewReturnsAgentCancelView(t *testing.T) {
+	model := Model{
+		mode: confirmAgentCancel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "my-session",
+			Iteration:     5,
+			MaxIterations: 10,
+		},
+		width:  80,
+		height: 24,
+	}
+
+	view := model.View()
+
+	// Should render the cancel confirmation dialog
+	if !strings.Contains(view, "Cancel Agent") {
+		t.Error("Expected View() to return cancel confirmation dialog")
+	}
+}
+
+// Test AgentProcess.Kill method
+func TestAgentProcessKill(t *testing.T) {
+	// Test nil process
+	var nilProcess *AgentProcess
+	err := nilProcess.Kill()
+	if err != nil {
+		t.Errorf("Expected nil error for nil process, got: %v", err)
+	}
+
+	// Test empty process
+	emptyProcess := &AgentProcess{}
+	err = emptyProcess.Kill()
+	if err != nil {
+		t.Errorf("Expected nil error for empty process, got: %v", err)
+	}
+}
+
+// Test agentCancelledMsg handler
+func TestAgentCancelledMsgHandler(t *testing.T) {
+	model := Model{
+		mode:        splitView,
+		activePanel: BallsPanel,
+		agentStatus: AgentStatus{
+			Running:       true,
+			SessionID:     "test-session",
+			Iteration:     3,
+			MaxIterations: 10,
+		},
+		agentProcess: &AgentProcess{
+			sessionID: "test-session",
+		},
+	}
+
+	// Send agentCancelledMsg
+	newModel, _ := model.Update(agentCancelledMsg{sessionID: "test-session"})
+	m := newModel.(Model)
+
+	// Agent status should be cleared
+	if m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to be false after receiving agentCancelledMsg")
+	}
+
+	// Agent process should be nil
+	if m.agentProcess != nil {
+		t.Error("Expected agentProcess to be nil after receiving agentCancelledMsg")
+	}
+
+	// Should show appropriate message
+	if !strings.Contains(m.message, "cancelled") {
+		t.Errorf("Expected message about agent being cancelled, got: %s", m.message)
+	}
+}
+
+// Test agentProcessStartedMsg handler
+func TestAgentProcessStartedMsgHandler(t *testing.T) {
+	model := Model{
+		mode:          splitView,
+		activePanel:   SessionsPanel,
+		agentOutputCh: make(chan agentOutputMsg, 10),
+	}
+
+	mockProcess := &AgentProcess{
+		sessionID: "test-session",
+	}
+
+	// Send agentProcessStartedMsg
+	newModel, cmd := model.Update(agentProcessStartedMsg{
+		process:   mockProcess,
+		sessionID: "test-session",
+	})
+	m := newModel.(Model)
+
+	// Agent process should be stored
+	if m.agentProcess != mockProcess {
+		t.Error("Expected agentProcess to be set from message")
+	}
+
+	// Agent status should be set
+	if !m.agentStatus.Running {
+		t.Error("Expected agentStatus.Running to be true")
+	}
+
+	if m.agentStatus.SessionID != "test-session" {
+		t.Errorf("Expected session ID to be 'test-session', got: %s", m.agentStatus.SessionID)
+	}
+
+	// Should return a batch command
+	if cmd == nil {
+		t.Error("Expected a batch command to be returned")
+	}
+
+	// Message should indicate agent is running
+	if !strings.Contains(m.message, "running") {
+		t.Errorf("Expected message to indicate agent is running, got: %s", m.message)
 	}
 }

@@ -28,6 +28,7 @@ const (
 	confirmSplitDelete             // Delete confirmation in split view
 	panelSearchView                // Search/filter within current panel
 	confirmAgentLaunch             // Agent launch confirmation
+	confirmAgentCancel             // Agent cancel confirmation
 	inputAcceptanceCriteriaView    // Multi-line acceptance criteria input
 	inputBallFormView              // Full ball form with all fields
 )
@@ -174,6 +175,9 @@ type Model struct {
 	agentOutput        []AgentOutputEntry // Buffer of agent output lines
 	agentOutputOffset  int                // Scroll offset for agent output panel
 	agentOutputCh      chan agentOutputMsg // Channel for receiving agent output
+
+	// Agent process tracking for cancellation
+	agentProcess *AgentProcess // Reference to running agent process for cancellation
 }
 
 // InitialModel creates a model for the legacy list view

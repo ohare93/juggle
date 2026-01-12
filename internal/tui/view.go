@@ -37,6 +37,8 @@ func (m Model) View() string {
 		return m.renderSplitConfirmDelete()
 	case confirmAgentLaunch:
 		return m.renderAgentLaunchConfirm()
+	case confirmAgentCancel:
+		return m.renderAgentCancelConfirm()
 	case panelSearchView:
 		return m.renderPanelSearchView()
 	default:
@@ -340,6 +342,49 @@ func (m Model) renderAgentLaunchConfirm() string {
 	return b.String()
 }
 
+// renderAgentCancelConfirm renders the agent cancel confirmation dialog
+func (m Model) renderAgentCancelConfirm() string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("1")). // Red
+		Render("Cancel Agent")
+	b.WriteString(title + "\n\n")
+
+	// Show running agent details
+	if m.agentStatus.Running {
+		b.WriteString(fmt.Sprintf("Session: %s\n", m.agentStatus.SessionID))
+		b.WriteString(fmt.Sprintf("Progress: %d/%d iterations\n",
+			m.agentStatus.Iteration,
+			m.agentStatus.MaxIterations))
+	}
+
+	b.WriteString("\n")
+
+	warning := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("3")). // Yellow
+		Render("The agent will be terminated immediately.")
+	b.WriteString(warning + "\n")
+
+	info := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")). // Gray
+		Render("Any completed work will be preserved, but the current task may be interrupted.")
+	b.WriteString(info + "\n\n")
+
+	prompt := lipgloss.NewStyle().
+		Bold(true).
+		Render("Cancel agent? [y/N]")
+	b.WriteString(prompt + "\n\n")
+
+	help := lipgloss.NewStyle().
+		Faint(true).
+		Render("y = terminate agent | n/Esc = continue running")
+	b.WriteString(help)
+
+	return b.String()
+}
+
 // renderPanelSearchView renders the search/filter input dialog
 func (m Model) renderPanelSearchView() string {
 	var b strings.Builder
@@ -610,6 +655,14 @@ func (m Model) renderSplitHelpView() string {
 				{"P", "Toggle project scope (local ↔ all projects)"},
 				{"R", "Refresh / Reload data"},
 				{"?", "Toggle this help"},
+			},
+		},
+		{
+			title: "Agent Control",
+			items: []helpItem{
+				{"A", "Launch agent for selected session"},
+				{"X", "Cancel running agent (with confirmation)"},
+				{"O", "Toggle agent output visibility"},
 			},
 		},
 		{
