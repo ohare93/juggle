@@ -963,17 +963,18 @@ func generateAgentPrompt(projectDir, sessionID string, debug bool, ballID string
 	// Filter to specific ball if ballID is specified
 	singleBall := false
 	if ballID != "" {
-		var targetBall *session.Ball
-		for _, ball := range balls {
-			if ball.ID == ballID || ball.ShortID() == ballID {
-				targetBall = ball
-				break
-			}
-		}
-		if targetBall == nil {
+		matches := session.ResolveBallByPrefix(balls, ballID)
+		if len(matches) == 0 {
 			return "", fmt.Errorf("ball %s not found in session %s", ballID, sessionID)
 		}
-		balls = []*session.Ball{targetBall}
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
+			}
+			return "", fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", ballID, len(matches), strings.Join(matchingIDs, ", "))
+		}
+		balls = []*session.Ball{matches[0]}
 		singleBall = true
 	}
 
@@ -1578,17 +1579,18 @@ func loadBallsForModelSelection(projectDir, sessionID, ballID string) ([]*sessio
 
 	// Filter to specific ball if ballID is specified
 	if ballID != "" {
-		var targetBall *session.Ball
-		for _, ball := range balls {
-			if ball.ID == ballID || ball.ShortID() == ballID {
-				targetBall = ball
-				break
-			}
-		}
-		if targetBall == nil {
+		matches := session.ResolveBallByPrefix(balls, ballID)
+		if len(matches) == 0 {
 			return nil, fmt.Errorf("ball %s not found in session %s", ballID, sessionID)
 		}
-		return []*session.Ball{targetBall}, nil
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
+			}
+			return nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", ballID, len(matches), strings.Join(matchingIDs, ", "))
+		}
+		return []*session.Ball{matches[0]}, nil
 	}
 
 	return balls, nil

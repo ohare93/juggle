@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ohare93/juggle/internal/session"
 	"github.com/spf13/cobra"
@@ -99,17 +100,23 @@ func findArchivedBallByID(ballID string) (*session.Ball, *session.Store, error) 
 		return nil, nil, fmt.Errorf("failed to load archived balls: %w", err)
 	}
 
-	// Search for ball by full ID or short ID
-	for _, ball := range archivedBalls {
-		if ball.ID == ballID || ball.ShortID() == ballID {
-			// Create store for this ball's working directory
-			store, err := NewStoreForCommand(ball.WorkingDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create store for ball: %w", err)
-			}
-			return ball, store, nil
+	// Use prefix matching
+	matches := session.ResolveBallByPrefix(archivedBalls, ballID)
+	if len(matches) == 0 {
+		return nil, nil, fmt.Errorf("ball not found in archives: %s", ballID)
+	}
+	if len(matches) > 1 {
+		matchingIDs := make([]string, len(matches))
+		for i, m := range matches {
+			matchingIDs[i] = m.ID
 		}
+		return nil, nil, fmt.Errorf("ambiguous ID '%s' matches %d archived balls: %s", ballID, len(matches), strings.Join(matchingIDs, ", "))
 	}
 
-	return nil, nil, fmt.Errorf("ball not found in archives: %s", ballID)
+	ball := matches[0]
+	ballStore, err := NewStoreForCommand(ball.WorkingDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create store for ball: %w", err)
+	}
+	return ball, ballStore, nil
 }

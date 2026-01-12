@@ -156,17 +156,18 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	// Filter 0.5: --ball (if specified, filter to single ball by ID)
 	if exportBallID != "" {
-		var targetBall *session.Ball
-		for _, ball := range balls {
-			if ball.ID == exportBallID || ball.ShortID() == exportBallID {
-				targetBall = ball
-				break
-			}
-		}
-		if targetBall == nil {
+		matches := session.ResolveBallByPrefix(balls, exportBallID)
+		if len(matches) == 0 {
 			return fmt.Errorf("ball not found: %s", exportBallID)
 		}
-		balls = []*session.Ball{targetBall}
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
+			}
+			return fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", exportBallID, len(matches), strings.Join(matchingIDs, ", "))
+		}
+		balls = []*session.Ball{matches[0]}
 	}
 
 	// Filter 1: --ball-ids (if specified)
@@ -247,56 +248,27 @@ func filterByBallIDs(balls []*session.Ball, ballIDsStr string, projects []string
 		return balls, nil
 	}
 
-	// Build a map of all balls for quick lookup
-	ballsByID := make(map[string]*session.Ball)
-	ballsByShortID := make(map[string][]*session.Ball)
-
-	for _, ball := range balls {
-		ballsByID[ball.ID] = ball
-
-		// Extract short ID (number after last dash)
-		parts := strings.Split(ball.ID, "-")
-		if len(parts) > 0 {
-			shortID := parts[len(parts)-1]
-			ballsByShortID[shortID] = append(ballsByShortID[shortID], ball)
-		}
-	}
-
-	// Resolve each requested ID
+	// Resolve each requested ID using prefix matching
 	filteredBalls := make([]*session.Ball, 0)
 	seenBalls := make(map[string]bool)
 
 	for _, requestedID := range requestedIDs {
-		// Try full ID first
-		if ball, exists := ballsByID[requestedID]; exists {
-			if !seenBalls[ball.ID] {
-				filteredBalls = append(filteredBalls, ball)
-				seenBalls[ball.ID] = true
-			}
-			continue
+		matches := session.ResolveBallByPrefix(balls, requestedID)
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("ball ID not found: %s", requestedID)
 		}
-
-		// Try short ID
-		if matches, exists := ballsByShortID[requestedID]; exists {
-			if len(matches) == 1 {
-				ball := matches[0]
-				if !seenBalls[ball.ID] {
-					filteredBalls = append(filteredBalls, ball)
-					seenBalls[ball.ID] = true
-				}
-			} else if len(matches) > 1 {
-				// Ambiguous short ID
-				matchingIDs := make([]string, len(matches))
-				for i, m := range matches {
-					matchingIDs[i] = m.ID
-				}
-				return nil, fmt.Errorf("ambiguous short ID '%s' matches multiple balls: %s", requestedID, strings.Join(matchingIDs, ", "))
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
 			}
-			continue
+			return nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", requestedID, len(matches), strings.Join(matchingIDs, ", "))
 		}
-
-		// ID not found
-		return nil, fmt.Errorf("ball ID not found: %s", requestedID)
+		ball := matches[0]
+		if !seenBalls[ball.ID] {
+			filteredBalls = append(filteredBalls, ball)
+			seenBalls[ball.ID] = true
+		}
 	}
 
 	return filteredBalls, nil

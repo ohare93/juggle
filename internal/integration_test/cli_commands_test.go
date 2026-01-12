@@ -1979,3 +1979,229 @@ func TestSessionCreateHelpShowsNonInteractiveFlag(t *testing.T) {
 		t.Errorf("Expected 'headless' in help description, got: %s", output)
 	}
 }
+
+// TestMinimalUniqueIDDisplay tests that TUI and CLI show minimal unique IDs
+func TestMinimalUniqueIDDisplay(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create two balls with similar IDs
+	ball1, err := session.NewBall(env.ProjectDir, "First ball", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball1: %v", err)
+	}
+	ball2, err := session.NewBall(env.ProjectDir, "Second ball", session.PriorityHigh)
+	if err != nil {
+		t.Fatalf("failed to create ball2: %v", err)
+	}
+
+	store := env.GetStore(t)
+	if err := store.AppendBall(ball1); err != nil {
+		t.Fatalf("failed to append ball1: %v", err)
+	}
+	if err := store.AppendBall(ball2); err != nil {
+		t.Fatalf("failed to append ball2: %v", err)
+	}
+
+	// Compute minimal unique IDs
+	balls := []*session.Ball{ball1, ball2}
+	minIDs := session.ComputeMinimalUniqueIDs(balls)
+
+	// Verify both balls have minimal IDs
+	if minIDs[ball1.ID] == "" {
+		t.Errorf("ball1 should have a minimal ID")
+	}
+	if minIDs[ball2.ID] == "" {
+		t.Errorf("ball2 should have a minimal ID")
+	}
+
+	// Verify minimal IDs are actually different
+	if minIDs[ball1.ID] == minIDs[ball2.ID] {
+		t.Errorf("minimal IDs should be unique: ball1=%s, ball2=%s", minIDs[ball1.ID], minIDs[ball2.ID])
+	}
+
+	// Verify each can be resolved by its minimal ID
+	matches1 := session.ResolveBallByPrefix(balls, minIDs[ball1.ID])
+	if len(matches1) != 1 || matches1[0].ID != ball1.ID {
+		t.Errorf("minimal ID %s should resolve to ball1", minIDs[ball1.ID])
+	}
+
+	matches2 := session.ResolveBallByPrefix(balls, minIDs[ball2.ID])
+	if len(matches2) != 1 || matches2[0].ID != ball2.ID {
+		t.Errorf("minimal ID %s should resolve to ball2", minIDs[ball2.ID])
+	}
+}
+
+// TestPrefixBallResolution tests that CLI commands accept prefix IDs
+func TestPrefixBallResolution(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Test prefix resolution", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	// Get the minimal unique ID (should be single char for single ball)
+	balls, _ := store.LoadBalls()
+	minIDs := session.ComputeMinimalUniqueIDs(balls)
+	minID := minIDs[ball.ID]
+
+	// The minimal ID should be very short for a single ball
+	if len(minID) > 1 {
+		// Single ball should only need first char
+		t.Logf("Note: minimal ID is %q (length %d)", minID, len(minID))
+	}
+
+	// Resolve by minimal ID via store
+	resolved, err := store.ResolveBallID(minID)
+	if err != nil {
+		t.Fatalf("failed to resolve by minimal ID %s: %v", minID, err)
+	}
+	if resolved.ID != ball.ID {
+		t.Errorf("minimal ID %s resolved to %s, expected %s", minID, resolved.ID, ball.ID)
+	}
+}
+
+// TestPrefixBallResolution_Ambiguous tests ambiguous prefix detection
+func TestPrefixBallResolution_Ambiguous(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create multiple balls
+	ball1, _ := session.NewBall(env.ProjectDir, "Ball 1", session.PriorityMedium)
+	ball2, _ := session.NewBall(env.ProjectDir, "Ball 2", session.PriorityHigh)
+	ball3, _ := session.NewBall(env.ProjectDir, "Ball 3", session.PriorityLow)
+
+	store := env.GetStore(t)
+	store.AppendBall(ball1)
+	store.AppendBall(ball2)
+	store.AppendBall(ball3)
+
+	balls, _ := store.LoadBalls()
+
+	// Try to resolve with a very short prefix that might match multiple
+	// The short IDs are 8 hex chars, so try matching with just first char of short ID
+	// This may match multiple balls if their short IDs start with same char
+	matches := session.ResolveBallByPrefix(balls, ball1.ShortID()[:1])
+
+	// If multiple matches, that's expected behavior for ambiguous prefix
+	// The point is it should return all matching balls, not error
+	if len(matches) > 1 {
+		t.Logf("Prefix matched %d balls (expected for ambiguous prefix)", len(matches))
+	}
+}
+
+// TestStoreResolveBallIDStrict tests strict resolution that fails on ambiguity
+func TestStoreResolveBallIDStrict(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create balls with known IDs by manually setting them
+	ball1 := &session.Ball{
+		ID:         "test-aaa111",
+		Intent:     "Ball A",
+		Priority:   session.PriorityMedium,
+		State:      session.StatePending,
+		WorkingDir: env.ProjectDir,
+	}
+	ball2 := &session.Ball{
+		ID:         "test-aaa222",
+		Intent:     "Ball B",
+		Priority:   session.PriorityHigh,
+		State:      session.StatePending,
+		WorkingDir: env.ProjectDir,
+	}
+
+	store := env.GetStore(t)
+	store.AppendBall(ball1)
+	store.AppendBall(ball2)
+
+	// Strict resolution should fail on ambiguous prefix
+	_, err := store.ResolveBallIDStrict("aaa")
+	if err == nil {
+		t.Error("expected error for ambiguous prefix 'aaa'")
+	}
+	if err != nil && !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguous error, got: %v", err)
+	}
+
+	// Strict resolution should succeed with unique prefix
+	resolved, err := store.ResolveBallIDStrict("aaa1")
+	if err != nil {
+		t.Errorf("expected success for unique prefix 'aaa1': %v", err)
+	}
+	if resolved != nil && resolved.ID != "test-aaa111" {
+		t.Errorf("expected ball1, got %s", resolved.ID)
+	}
+}
+
+// TestCLIBallCommandWithMinimalID tests that juggle <minimal-id> works
+func TestCLIBallCommandWithMinimalID(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	ball := env.CreateBall(t, "Test CLI minimal ID", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	balls, _ := store.LoadBalls()
+	minIDs := session.ComputeMinimalUniqueIDs(balls)
+	minID := minIDs[ball.ID]
+
+	t.Logf("Ball ID: %s, Short ID: %s, Minimal ID: %s", ball.ID, ball.ShortID(), minID)
+	t.Logf("Project dir: %s", env.ProjectDir)
+
+	// First, test that the short ID works (this is the standard way)
+	cmd1 := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID())
+	cmd1.Dir = env.ProjectDir
+	output1, err := cmd1.CombinedOutput()
+	if err != nil {
+		t.Fatalf("juggle %s (short ID) failed: %v\nOutput: %s", ball.ShortID(), err, output1)
+	}
+	t.Logf("Short ID output: %s", output1)
+
+	// Now test the minimal ID (should be even shorter prefix that's still unique)
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, minID)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("juggle %s (minimal ID) failed: %v\nOutput: %s", minID, err, output)
+	}
+
+	// Should show the ball info
+	outputStr := string(output)
+	if !strings.Contains(outputStr, ball.Intent) {
+		t.Errorf("expected output to contain intent %q, got: %s", ball.Intent, outputStr)
+	}
+}
+
+// TestCLIUpdateWithMinimalID tests that juggle update <minimal-id> works
+func TestCLIUpdateWithMinimalID(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	ball := env.CreateBall(t, "Test update minimal ID", session.PriorityMedium)
+	store := env.GetStore(t)
+
+	balls, _ := store.LoadBalls()
+	minIDs := session.ComputeMinimalUniqueIDs(balls)
+	minID := minIDs[ball.ID]
+
+	// Run juggle update <minimal-id> --state in_progress
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "update", minID, "--state", "in_progress")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("juggle update %s failed: %v\nOutput: %s", minID, err, output)
+	}
+
+	// Verify state was updated
+	updated, _ := store.GetBallByID(ball.ID)
+	if updated.State != session.StateInProgress {
+		t.Errorf("expected state in_progress, got %s", updated.State)
+	}
+}

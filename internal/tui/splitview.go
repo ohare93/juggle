@@ -290,6 +290,9 @@ func (m Model) renderBallsPanel(width, height int) string {
 	// Determine if all balls are from the same project (to shorten IDs)
 	sameProject := allBallsSameProject(balls)
 
+	// Compute minimal unique IDs for display
+	minimalIDs := session.ComputeMinimalUniqueIDs(balls)
+
 	// Calculate visible range using scroll offset
 	startIdx := m.ballsScrollOffset
 	endIdx := startIdx + ballsHeight
@@ -314,10 +317,15 @@ func (m Model) renderBallsPanel(width, height int) string {
 		stateIcon := getStateIcon(ball.State)
 		var line string
 
-		// Build ID display - show short ID if all balls from same project
+		// Build ID display - show minimal unique ID if all balls from same project
 		idDisplay := ball.ID
 		if sameProject {
-			idDisplay = ball.ShortID()
+			// Use minimal unique ID computed for this view
+			if minID, ok := minimalIDs[ball.ID]; ok {
+				idDisplay = minID
+			} else {
+				idDisplay = ball.ShortID()
+			}
 		}
 
 		// Build tests state suffix if set

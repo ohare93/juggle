@@ -372,6 +372,135 @@ func (b *Ball) ShortID() string {
 	return b.ID
 }
 
+// ComputeMinimalUniqueIDs computes the shortest unique ID prefix for each ball in the slice.
+// Returns a map from full ball ID to the minimal display ID needed to uniquely identify it.
+// For example, if balls have short IDs "01234abc" and "56789def", the map would contain
+// "project-01234abc" -> "0" and "project-56789def" -> "5" (single char is enough).
+// If two balls have short IDs "1111222244" and "1122334455", the map would contain
+// minimal prefixes like "111" and "112" to disambiguate.
+func ComputeMinimalUniqueIDs(balls []*Ball) map[string]string {
+	result := make(map[string]string)
+	if len(balls) == 0 {
+		return result
+	}
+
+	// Extract short IDs for each ball
+	shortIDs := make([]string, len(balls))
+	for i, ball := range balls {
+		shortIDs[i] = ball.ShortID()
+	}
+
+	// For each ball, find the minimal prefix that uniquely identifies it
+	for i, ball := range balls {
+		myShortID := shortIDs[i]
+		minLen := 1
+
+		// Compare against all other balls' short IDs
+		for j, otherShortID := range shortIDs {
+			if i == j {
+				continue
+			}
+
+			// Find the minimum length needed to distinguish from this other ID
+			commonLen := 0
+			maxCheck := len(myShortID)
+			if len(otherShortID) < maxCheck {
+				maxCheck = len(otherShortID)
+			}
+			for k := 0; k < maxCheck; k++ {
+				if myShortID[k] == otherShortID[k] {
+					commonLen++
+				} else {
+					break
+				}
+			}
+
+			// Need at least commonLen+1 characters to distinguish
+			needed := commonLen + 1
+			if needed > len(myShortID) {
+				// If other is a prefix of ours, use full length
+				needed = len(myShortID)
+			}
+			if needed > minLen {
+				minLen = needed
+			}
+		}
+
+		// Cap at actual length
+		if minLen > len(myShortID) {
+			minLen = len(myShortID)
+		}
+
+		result[ball.ID] = myShortID[:minLen]
+	}
+
+	return result
+}
+
+// ResolveBallByPrefix finds balls that match the given prefix.
+// It tries to match against the short ID (part after last hyphen) first,
+// then falls back to full ID prefix matching.
+// Returns all matching balls - callers should handle ambiguity.
+func ResolveBallByPrefix(balls []*Ball, prefix string) []*Ball {
+	if prefix == "" {
+		return nil
+	}
+
+	// Convert prefix to lowercase for case-insensitive matching
+	prefixLower := lowerString(prefix)
+
+	var matches []*Ball
+
+	// First, try exact short ID match (case-insensitive)
+	for _, ball := range balls {
+		if lowerString(ball.ShortID()) == prefixLower {
+			return []*Ball{ball}
+		}
+	}
+
+	// Try exact full ID match (case-insensitive)
+	for _, ball := range balls {
+		if lowerString(ball.ID) == prefixLower {
+			return []*Ball{ball}
+		}
+	}
+
+	// Try prefix matching on short ID
+	for _, ball := range balls {
+		shortID := ball.ShortID()
+		if len(shortID) >= len(prefix) && lowerString(shortID[:len(prefix)]) == prefixLower {
+			matches = append(matches, ball)
+		}
+	}
+
+	if len(matches) > 0 {
+		return matches
+	}
+
+	// Fall back to full ID prefix matching
+	for _, ball := range balls {
+		if len(ball.ID) >= len(prefix) && lowerString(ball.ID[:len(prefix)]) == prefixLower {
+			matches = append(matches, ball)
+		}
+	}
+
+	return matches
+}
+
+// lowerString returns lowercase version of a string
+func lowerString(s string) string {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			result[i] = c + 32
+		} else {
+			result[i] = c
+		}
+	}
+	return string(result)
+}
+
 // ValidatePriority checks if a priority string is valid
 func ValidatePriority(p string) bool {
 	switch Priority(p) {

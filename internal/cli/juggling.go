@@ -80,11 +80,14 @@ func listJugglingBalls(cmd *cobra.Command) error {
 	projectStyle := StyleProject
 	dimStyle := StyleDim
 
-	// Calculate column widths
+	// Compute minimal unique IDs for display
+	minimalIDs := session.ComputeMinimalUniqueIDs(juggling)
+
+	// Calculate column widths based on minimal IDs
 	maxIDLen := 0
 	maxProjectLen := 0
 	for _, ball := range juggling {
-		idLen := len(ball.ShortID())
+		idLen := len(minimalIDs[ball.ID])
 		if idLen > maxIDLen {
 			maxIDLen = idLen
 		}
@@ -100,7 +103,7 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		stateStyle := inProgressStyle
 
 		// Format columns without styling first (for padding)
-		idStr := ball.ShortID()
+		idStr := minimalIDs[ball.ID]
 		projectName := filepath.Base(ball.WorkingDir)
 		priorityStr := string(ball.Priority)
 
@@ -234,10 +237,17 @@ func listAllBalls(cmd *cobra.Command) error {
 		projectPaths = append(projectPaths, path)
 	}
 
+	// Compute minimal unique IDs per project
+	minimalIDsByProject := make(map[string]map[string]string)
+	for projectPath, balls := range byProject {
+		minimalIDsByProject[projectPath] = session.ComputeMinimalUniqueIDs(balls)
+	}
+
 	// Calculate max ID length across all balls for consistent alignment
 	maxIDLen := 0
 	for _, ball := range allBalls {
-		idLen := len(ball.ShortID())
+		projectMinimalIDs := minimalIDsByProject[ball.WorkingDir]
+		idLen := len(projectMinimalIDs[ball.ID])
 		if idLen > maxIDLen {
 			maxIDLen = idLen
 		}
@@ -280,7 +290,9 @@ func listAllBalls(cmd *cobra.Command) error {
 				stateStyle := stateStyles[state]
 
 				// Format columns without styling first (for padding)
-				idStr := ball.ShortID()
+				// Use minimal unique ID for this project
+				projectMinimalIDs := minimalIDsByProject[projectPath]
+				idStr := projectMinimalIDs[ball.ID]
 				priorityStr := string(ball.Priority)
 
 				// Apply padding to plain text
@@ -378,23 +390,30 @@ func findBallByID(ballID string) (*session.Ball, *session.Store, error) {
 		return nil, nil, fmt.Errorf("failed to load balls: %w", err)
 	}
 
-	// Search for ball by full ID or short ID
-	for _, ball := range allBalls {
-		if ball.ID == ballID || ball.ShortID() == ballID {
-			// Create store for this ball's working directory
-			ballStore, err := NewStoreForCommand(ball.WorkingDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create store for ball: %w", err)
-			}
-			return ball, ballStore, nil
+	// Use prefix matching
+	matches := session.ResolveBallByPrefix(allBalls, ballID)
+	if len(matches) == 0 {
+		// If not found and we're in local mode, suggest using --all
+		if !GlobalOpts.AllProjects {
+			return nil, nil, fmt.Errorf("ball not found in current project: %s (use --all to search all projects)", ballID)
 		}
+		return nil, nil, fmt.Errorf("ball not found: %s", ballID)
+	}
+	if len(matches) > 1 {
+		matchingIDs := make([]string, len(matches))
+		for i, m := range matches {
+			matchingIDs[i] = m.ID
+		}
+		return nil, nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", ballID, len(matches), strings.Join(matchingIDs, ", "))
 	}
 
-	// If not found and we're in local mode, suggest using --all
-	if !GlobalOpts.AllProjects {
-		return nil, nil, fmt.Errorf("ball not found in current project: %s (use --all to search all projects)", ballID)
+	ball := matches[0]
+	// Create store for this ball's working directory
+	ballStore, err := NewStoreForCommand(ball.WorkingDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create store for ball: %w", err)
 	}
-	return nil, nil, fmt.Errorf("ball not found: %s", ballID)
+	return ball, ballStore, nil
 }
 
 func handleBallCommand(cmd *cobra.Command, args []string) error {

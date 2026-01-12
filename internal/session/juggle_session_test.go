@@ -905,3 +905,308 @@ func TestSessionStore_AllMetaSession_NoSessionFile(t *testing.T) {
 		}
 	}
 }
+
+// TestComputeMinimalUniqueIDs tests the minimal unique ID computation
+func TestComputeMinimalUniqueIDs(t *testing.T) {
+	tests := []struct {
+		name     string
+		balls    []*Ball
+		expected map[string]string
+	}{
+		{
+			name:     "empty slice",
+			balls:    []*Ball{},
+			expected: map[string]string{},
+		},
+		{
+			name: "single ball",
+			balls: []*Ball{
+				{ID: "project-01234abc"},
+			},
+			expected: map[string]string{
+				"project-01234abc": "0",
+			},
+		},
+		{
+			name: "two balls with distinct first char",
+			balls: []*Ball{
+				{ID: "project-01234abc"},
+				{ID: "project-56789def"},
+			},
+			expected: map[string]string{
+				"project-01234abc": "0",
+				"project-56789def": "5",
+			},
+		},
+		{
+			name: "two balls with same prefix - example from AC",
+			balls: []*Ball{
+				{ID: "project-1111222244"},
+				{ID: "project-1122334455"},
+			},
+			expected: map[string]string{
+				"project-1111222244": "111",
+				"project-1122334455": "112",
+			},
+		},
+		{
+			name: "three balls with varying prefixes",
+			balls: []*Ball{
+				{ID: "project-abcd1111"},
+				{ID: "project-abcd2222"},
+				{ID: "project-bcde3333"},
+			},
+			expected: map[string]string{
+				"project-abcd1111": "abcd1",
+				"project-abcd2222": "abcd2",
+				"project-bcde3333": "b",
+			},
+		},
+		{
+			name: "legacy numeric IDs",
+			balls: []*Ball{
+				{ID: "project-42"},
+				{ID: "project-55"},
+				{ID: "project-56"},
+			},
+			expected: map[string]string{
+				"project-42": "4",
+				"project-55": "55",
+				"project-56": "56",
+			},
+		},
+		{
+			name: "one ID is prefix of another",
+			balls: []*Ball{
+				{ID: "project-abc"},
+				{ID: "project-abcdef"},
+			},
+			expected: map[string]string{
+				"project-abc":    "abc",
+				"project-abcdef": "abcd",
+			},
+		},
+		{
+			name: "multiple similar prefixes",
+			balls: []*Ball{
+				{ID: "project-aaa111"},
+				{ID: "project-aaa222"},
+				{ID: "project-aab111"},
+				{ID: "project-abb111"},
+			},
+			expected: map[string]string{
+				"project-aaa111": "aaa1",
+				"project-aaa222": "aaa2",
+				"project-aab111": "aab",
+				"project-abb111": "ab",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ComputeMinimalUniqueIDs(tt.balls)
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d results, got %d", len(tt.expected), len(result))
+			}
+			for id, expectedMin := range tt.expected {
+				if got := result[id]; got != expectedMin {
+					t.Errorf("for ball %s: expected minimal ID '%s', got '%s'", id, expectedMin, got)
+				}
+			}
+		})
+	}
+}
+
+// TestResolveBallByPrefix tests prefix-based ball resolution
+func TestResolveBallByPrefix(t *testing.T) {
+	balls := []*Ball{
+		{ID: "project-01234abc"},
+		{ID: "project-1111222244"},
+		{ID: "project-1122334455"},
+		{ID: "project-56789def"},
+	}
+
+	tests := []struct {
+		name        string
+		prefix      string
+		expectCount int
+		expectID    string // Expected single match, empty if multiple or none
+	}{
+		{
+			name:        "empty prefix returns nil",
+			prefix:      "",
+			expectCount: 0,
+		},
+		{
+			name:        "exact short ID match",
+			prefix:      "01234abc",
+			expectCount: 1,
+			expectID:    "project-01234abc",
+		},
+		{
+			name:        "single char prefix - unique",
+			prefix:      "0",
+			expectCount: 1,
+			expectID:    "project-01234abc",
+		},
+		{
+			name:        "single char prefix - unique 5",
+			prefix:      "5",
+			expectCount: 1,
+			expectID:    "project-56789def",
+		},
+		{
+			name:        "prefix matches two balls",
+			prefix:      "1",
+			expectCount: 2,
+		},
+		{
+			name:        "longer prefix distinguishes - 111",
+			prefix:      "111",
+			expectCount: 1,
+			expectID:    "project-1111222244",
+		},
+		{
+			name:        "longer prefix distinguishes - 112",
+			prefix:      "112",
+			expectCount: 1,
+			expectID:    "project-1122334455",
+		},
+		{
+			name:        "full short ID",
+			prefix:      "56789def",
+			expectCount: 1,
+			expectID:    "project-56789def",
+		},
+		{
+			name:        "full ball ID",
+			prefix:      "project-56789def",
+			expectCount: 1,
+			expectID:    "project-56789def",
+		},
+		{
+			name:        "non-matching prefix",
+			prefix:      "xyz",
+			expectCount: 0,
+		},
+		{
+			name:        "case insensitive match - hex chars",
+			prefix:      "0123",
+			expectCount: 1,
+			expectID:    "project-01234abc",
+		},
+		{
+			name:        "case insensitive match - uppercase hex starting with 5",
+			prefix:      "567",
+			expectCount: 1,
+			expectID:    "project-56789def",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matches := ResolveBallByPrefix(balls, tt.prefix)
+			if len(matches) != tt.expectCount {
+				t.Errorf("expected %d matches for prefix '%s', got %d", tt.expectCount, tt.prefix, len(matches))
+			}
+			if tt.expectID != "" && len(matches) == 1 {
+				if matches[0].ID != tt.expectID {
+					t.Errorf("expected ID '%s', got '%s'", tt.expectID, matches[0].ID)
+				}
+			}
+		})
+	}
+}
+
+// TestResolveBallByPrefix_EdgeCases tests edge cases for prefix resolution
+func TestResolveBallByPrefix_EdgeCases(t *testing.T) {
+	t.Run("nil balls slice", func(t *testing.T) {
+		matches := ResolveBallByPrefix(nil, "abc")
+		if len(matches) != 0 {
+			t.Errorf("expected 0 matches for nil slice, got %d", len(matches))
+		}
+	})
+
+	t.Run("exact match takes priority", func(t *testing.T) {
+		balls := []*Ball{
+			{ID: "project-abc"},
+			{ID: "project-abcdef"},
+		}
+		// When searching for "abc", should get exact match first
+		matches := ResolveBallByPrefix(balls, "abc")
+		if len(matches) != 1 {
+			t.Errorf("expected 1 match for exact short ID, got %d", len(matches))
+		}
+		if matches[0].ID != "project-abc" {
+			t.Errorf("expected exact match 'project-abc', got '%s'", matches[0].ID)
+		}
+	})
+
+	t.Run("full ID match", func(t *testing.T) {
+		balls := []*Ball{
+			{ID: "project-abc"},
+			{ID: "project-abcdef"},
+		}
+		matches := ResolveBallByPrefix(balls, "project-abc")
+		if len(matches) != 1 || matches[0].ID != "project-abc" {
+			t.Errorf("expected exact full ID match, got %v", matches)
+		}
+	})
+}
+
+// TestMinimalUniqueIDsConsistency ensures IDs are actually unique
+func TestMinimalUniqueIDsConsistency(t *testing.T) {
+	balls := []*Ball{
+		{ID: "proj-a1b2c3d4"},
+		{ID: "proj-a1b2e5f6"},
+		{ID: "proj-b3c4d5e6"},
+		{ID: "proj-b3c4f7g8"},
+	}
+
+	minIDs := ComputeMinimalUniqueIDs(balls)
+
+	// Verify all minimal IDs are unique
+	seen := make(map[string]string)
+	for id, minID := range minIDs {
+		if existing, ok := seen[minID]; ok {
+			t.Errorf("duplicate minimal ID '%s' for balls '%s' and '%s'", minID, existing, id)
+		}
+		seen[minID] = id
+	}
+
+	// Verify each ball can be resolved by its minimal ID
+	for _, ball := range balls {
+		minID := minIDs[ball.ID]
+		matches := ResolveBallByPrefix(balls, minID)
+		if len(matches) != 1 {
+			t.Errorf("minimal ID '%s' for ball '%s' matched %d balls, expected 1", minID, ball.ID, len(matches))
+		} else if matches[0].ID != ball.ID {
+			t.Errorf("minimal ID '%s' resolved to '%s', expected '%s'", minID, matches[0].ID, ball.ID)
+		}
+	}
+}
+
+// TestLowerString tests the internal lowerString function
+func TestLowerString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"ABC", "abc"},
+		{"abc", "abc"},
+		{"AbCdEf", "abcdef"},
+		{"123ABC", "123abc"},
+		{"", ""},
+		{"HELLO-WORLD", "hello-world"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := lowerString(tt.input)
+			if got != tt.expected {
+				t.Errorf("lowerString(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}

@@ -343,7 +343,9 @@ func (s *Store) GetBallByShortID(shortID string) (*Ball, error) {
 	return matches[0], nil
 }
 
-// ResolveBallID resolves a ball ID from either full ID or short ID
+// ResolveBallID resolves a ball ID from either full ID, short ID, or prefix match.
+// For prefix matching, input "0" will match a ball with short ID "01234abc" if
+// no other ball's short ID starts with "0".
 func (s *Store) ResolveBallID(id string) (*Ball, error) {
 	// Try as full ID first
 	ball, err := s.GetBallByID(id)
@@ -351,8 +353,62 @@ func (s *Store) ResolveBallID(id string) (*Ball, error) {
 		return ball, nil
 	}
 
-	// Try as short ID
-	return s.GetBallByShortID(id)
+	// Load all balls for prefix matching
+	balls, err := s.LoadBalls()
+	if err != nil {
+		return nil, err
+	}
+
+	// Use prefix matching to find candidates
+	matches := ResolveBallByPrefix(balls, id)
+
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("ball %s not found", id)
+	}
+
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+
+	// Multiple matches - return most recently active (for backward compatibility)
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].LastActivity.After(matches[j].LastActivity)
+	})
+	return matches[0], nil
+}
+
+// ResolveBallIDStrict resolves a ball ID with strict uniqueness requirement.
+// Returns an error if the prefix matches multiple balls.
+func (s *Store) ResolveBallIDStrict(id string) (*Ball, error) {
+	// Try as full ID first
+	ball, err := s.GetBallByID(id)
+	if err == nil {
+		return ball, nil
+	}
+
+	// Load all balls for prefix matching
+	balls, err := s.LoadBalls()
+	if err != nil {
+		return nil, err
+	}
+
+	// Use prefix matching to find candidates
+	matches := ResolveBallByPrefix(balls, id)
+
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("ball %s not found", id)
+	}
+
+	if len(matches) > 1 {
+		// Build list of matching IDs for error message
+		matchingIDs := make([]string, len(matches))
+		for i, m := range matches {
+			matchingIDs[i] = m.ID
+		}
+		return nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", id, len(matches), strings.Join(matchingIDs, ", "))
+	}
+
+	return matches[0], nil
 }
 
 // writeBalls rewrites the entire balls.jsonl file

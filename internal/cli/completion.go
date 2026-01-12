@@ -39,17 +39,15 @@ func CompleteBallIDs(cmd *cobra.Command, args []string, toComplete string) ([]st
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	// Filter balls by prefix and create completions
+	// Use prefix matching and show minimal unique IDs as completions
+	minimalIDs := session.ComputeMinimalUniqueIDs(balls)
+	matches := session.ResolveBallByPrefix(balls, toComplete)
+
 	var completions []string
-	for _, ball := range balls {
-		// Check both full ID and short ID
-		if strings.HasPrefix(ball.ID, toComplete) {
-			// Show full ID with intent as description
-			completions = append(completions, ball.ID+"\t"+ball.Intent)
-		} else if strings.HasPrefix(ball.ShortID(), toComplete) {
-			// Also match short IDs
-			completions = append(completions, ball.ShortID()+"\t"+ball.Intent)
-		}
+	for _, ball := range matches {
+		// Show minimal unique ID with intent as description
+		minID := minimalIDs[ball.ID]
+		completions = append(completions, minID+"\t"+ball.Intent)
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
@@ -84,14 +82,15 @@ func CompleteArchivedBallIDs(cmd *cobra.Command, args []string, toComplete strin
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	// Filter by prefix
+	// Use prefix matching and show minimal unique IDs as completions
+	minimalIDs := session.ComputeMinimalUniqueIDs(archived)
+	matches := session.ResolveBallByPrefix(archived, toComplete)
+
 	var completions []string
-	for _, ball := range archived {
-		if strings.HasPrefix(ball.ID, toComplete) {
-			completions = append(completions, ball.ID+"\t"+ball.Intent)
-		} else if strings.HasPrefix(ball.ShortID(), toComplete) {
-			completions = append(completions, ball.ShortID()+"\t"+ball.Intent)
-		}
+	for _, ball := range matches {
+		// Show minimal unique ID with intent as description
+		minID := minimalIDs[ball.ID]
+		completions = append(completions, minID+"\t"+ball.Intent)
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp

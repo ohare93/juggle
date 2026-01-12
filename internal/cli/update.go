@@ -548,21 +548,23 @@ func resolveDependencyIDsForUpdate(store *session.Store, ids []string, excludeID
 
 	resolved := make([]string, 0, len(ids))
 	for _, id := range ids {
-		found := false
-		for _, ball := range balls {
-			// Match full ID or short ID or prefix
-			if ball.ID == id || ball.ShortID() == id || strings.HasPrefix(ball.ID, id) {
-				if ball.ID == excludeID {
-					return nil, fmt.Errorf("cannot add self as dependency: %s", id)
-				}
-				resolved = append(resolved, ball.ID)
-				found = true
-				break
-			}
-		}
-		if !found {
+		// Use prefix matching
+		matches := session.ResolveBallByPrefix(balls, id)
+		if len(matches) == 0 {
 			return nil, fmt.Errorf("ball not found: %s", id)
 		}
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
+			}
+			return nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", id, len(matches), strings.Join(matchingIDs, ", "))
+		}
+		ball := matches[0]
+		if ball.ID == excludeID {
+			return nil, fmt.Errorf("cannot add self as dependency: %s", id)
+		}
+		resolved = append(resolved, ball.ID)
 	}
 	return resolved, nil
 }

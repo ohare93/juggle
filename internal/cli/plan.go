@@ -268,18 +268,19 @@ func resolveDependencyIDs(store *session.Store, ids []string) ([]string, error) 
 
 	resolved := make([]string, 0, len(ids))
 	for _, id := range ids {
-		found := false
-		for _, ball := range balls {
-			// Match full ID or short ID
-			if ball.ID == id || ball.ShortID() == id || strings.HasPrefix(ball.ID, id) {
-				resolved = append(resolved, ball.ID)
-				found = true
-				break
-			}
-		}
-		if !found {
+		// Use prefix matching
+		matches := session.ResolveBallByPrefix(balls, id)
+		if len(matches) == 0 {
 			return nil, fmt.Errorf("ball not found: %s", id)
 		}
+		if len(matches) > 1 {
+			matchingIDs := make([]string, len(matches))
+			for i, m := range matches {
+				matchingIDs[i] = m.ID
+			}
+			return nil, fmt.Errorf("ambiguous ID '%s' matches %d balls: %s", id, len(matches), strings.Join(matchingIDs, ", "))
+		}
+		resolved = append(resolved, matches[0].ID)
 	}
 	return resolved, nil
 }
