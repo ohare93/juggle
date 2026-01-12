@@ -19,6 +19,7 @@ var (
 	exportBallIDs     string
 	exportFilterState string
 	exportSession     string
+	exportBallID      string // Single ball filter for focused agent prompts
 )
 
 var exportCmd = &cobra.Command{
@@ -78,6 +79,7 @@ func init() {
 	exportCmd.Flags().StringVar(&exportBallIDs, "ball-ids", "", "Filter by specific ball IDs (comma-separated, supports full or short IDs)")
 	exportCmd.Flags().StringVar(&exportFilterState, "filter-state", "", "Filter by states (comma-separated: pending, in_progress, blocked, complete)")
 	exportCmd.Flags().StringVar(&exportSession, "session", "", "Export balls from a specific session (for ralph format, includes context and progress)")
+	exportCmd.Flags().StringVar(&exportBallID, "ball", "", "Export a single ball by ID (for focused agent prompts)")
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
@@ -142,6 +144,21 @@ func runExport(cmd *cobra.Command, args []string) error {
 		balls = filteredBalls
 	}
 
+	// Filter 0.5: --ball (if specified, filter to single ball by ID)
+	if exportBallID != "" {
+		var targetBall *session.Ball
+		for _, ball := range balls {
+			if ball.ID == exportBallID || ball.ShortID() == exportBallID {
+				targetBall = ball
+				break
+			}
+		}
+		if targetBall == nil {
+			return fmt.Errorf("ball not found: %s", exportBallID)
+		}
+		balls = []*session.Ball{targetBall}
+	}
+
 	// Filter 1: --ball-ids (if specified)
 	if exportBallIDs != "" {
 		balls, err = filterByBallIDs(balls, exportBallIDs, projects)
@@ -184,7 +201,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	case "ralph":
 		output, err = exportRalph(cwd, exportSession, balls)
 	case "agent":
-		output, err = exportAgent(cwd, exportSession, balls, false) // debug only via agent run --debug
+		output, err = exportAgent(cwd, exportSession, balls, false, exportBallID != "") // debug only via agent run --debug
 	}
 
 	if err != nil {
@@ -547,15 +564,15 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 // [last 50 lines of progress.txt]
 // </progress>
 //
-// <balls>
+// <balls> or <task> (if singleBall)
 // [balls with state and acceptance criteria]
-// </balls>
+// </balls> or </task>
 //
 // <instructions>
 // [agent prompt template]
 // [optional debug instructions]
 // </instructions>
-func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool) ([]byte, error) {
+func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool, singleBall bool) ([]byte, error) {
 	var buf strings.Builder
 
 	// Load session store to get context and progress
@@ -602,21 +619,40 @@ func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool
 	}
 	buf.WriteString("</progress>\n\n")
 
-	// Write <balls> section
-	buf.WriteString("<balls>\n")
-	for i, ball := range balls {
-		if i > 0 {
-			buf.WriteString("\n")
+	// Write <balls> or <task> section
+	if singleBall && len(balls) == 1 {
+		// Single ball mode: focused task format
+		buf.WriteString("<task>\n")
+		buf.WriteString("This is your task:\n\n")
+		writeBallForAgent(&buf, balls[0])
+		buf.WriteString("</task>\n\n")
+	} else {
+		// Multi-ball session mode
+		buf.WriteString("<balls>\n")
+		for i, ball := range balls {
+			if i > 0 {
+				buf.WriteString("\n")
+			}
+			writeBallForAgent(&buf, ball)
 		}
-		writeBallForAgent(&buf, ball)
+		buf.WriteString("</balls>\n\n")
 	}
-	buf.WriteString("</balls>\n\n")
 
 	// Write <instructions> section with agent prompt template
 	buf.WriteString("<instructions>\n")
-	buf.WriteString(agent.GetPromptTemplate())
-	if !strings.HasSuffix(agent.GetPromptTemplate(), "\n") {
-		buf.WriteString("\n")
+
+	if singleBall && len(balls) == 1 {
+		// Single ball mode: task-focused instructions
+		buf.WriteString("You are working on a single task. Complete the acceptance criteria above.\n\n")
+		buf.WriteString("When done, output one of these signals:\n")
+		buf.WriteString("- `<promise>COMPLETE</promise>` - Task is finished\n")
+		buf.WriteString("- `<promise>BLOCKED: reason</promise>` - Task cannot proceed\n")
+	} else {
+		// Multi-ball session mode: full agent prompt
+		buf.WriteString(agent.GetPromptTemplate())
+		if !strings.HasSuffix(agent.GetPromptTemplate(), "\n") {
+			buf.WriteString("\n")
+		}
 	}
 
 	// Inject debug instructions if enabled

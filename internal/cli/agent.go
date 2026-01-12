@@ -17,6 +17,7 @@ var (
 	agentTimeout    time.Duration
 	agentDebug      bool
 	agentMaxWait    time.Duration
+	agentBallID     string
 )
 
 // agentCmd is the parent command for agent operations
@@ -51,6 +52,12 @@ Examples:
   # Run for specific number of iterations
   juggle agent run my-feature --iterations 5
 
+  # Work on a specific ball only (defaults to 1 iteration)
+  juggle agent run my-feature --ball juggler-5
+
+  # Work on specific ball with multiple iterations
+  juggle agent run my-feature --ball juggler-5 -n 3
+
   # Run with full permissions (dangerous)
   juggle agent run my-feature --trust
 
@@ -69,6 +76,7 @@ func init() {
 	agentRunCmd.Flags().DurationVarP(&agentTimeout, "timeout", "T", 0, "Timeout per iteration (e.g., 5m, 1h). 0 = no timeout")
 	agentRunCmd.Flags().BoolVar(&agentDebug, "debug", false, "Add reasoning instructions to agent prompt")
 	agentRunCmd.Flags().DurationVar(&agentMaxWait, "max-wait", 0, "Maximum wait time for rate limits before giving up (e.g., 30m). 0 = wait indefinitely")
+	agentRunCmd.Flags().StringVarP(&agentBallID, "ball", "b", "", "Work on a specific ball only (defaults to 1 iteration)")
 
 	agentCmd.AddCommand(agentRunCmd)
 	rootCmd.AddCommand(agentCmd)
@@ -101,6 +109,7 @@ type AgentLoopConfig struct {
 	IterDelay     time.Duration // Delay between iterations (set to 0 for tests)
 	Timeout       time.Duration // Timeout per iteration (0 = no timeout)
 	MaxWait       time.Duration // Maximum time to wait for rate limits (0 = wait indefinitely)
+	BallID        string        // Specific ball to work on (empty = all session balls)
 }
 
 // RunAgentLoop executes the agent loop with the given configuration.
@@ -147,7 +156,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		rateLimitRetrying = false // Reset for next iteration
 
 		// Generate prompt using export command
-		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID, config.Debug)
+		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID, config.Debug, config.BallID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate prompt: %w", err)
 		}
@@ -207,7 +216,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		// Check for completion signals (already parsed by Runner)
 		if runResult.Complete {
 			// VALIDATE: Check if all balls are actually in terminal state (complete or blocked)
-			terminal, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID)
+			terminal, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID, config.BallID)
 			if total > 0 && terminal == total {
 				result.Complete = true
 				result.BallsComplete = complete
@@ -227,7 +236,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 			fmt.Printf("✓ Agent completed a ball, continuing to next iteration...\n")
 
 			// Update ball counts for progress tracking
-			_, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID)
+			_, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID, config.BallID)
 			result.BallsComplete = complete
 			result.BallsBlocked = blocked
 			result.BallsTotal = total
@@ -242,7 +251,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		}
 
 		// Check if all balls are in terminal state (complete or blocked)
-		terminal, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID)
+		terminal, complete, blocked, total := checkBallsTerminal(config.ProjectDir, config.SessionID, config.BallID)
 		result.BallsComplete = complete
 		result.BallsBlocked = blocked
 		result.BallsTotal = total
@@ -322,6 +331,12 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
+	// Determine iterations (default to 1 when --ball is specified, unless -n was explicitly set)
+	iterations := agentIterations
+	if agentBallID != "" && !cmd.Flags().Changed("iterations") {
+		iterations = 1
+	}
+
 	// Print warning if --trust is used
 	if agentTrust {
 		fmt.Println("⚠️  WARNING: Running with --trust flag. Agent has full system permissions.")
@@ -329,8 +344,12 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	fmt.Printf("Starting agent for session: %s\n", sessionID)
-	fmt.Printf("Max iterations: %d\n", agentIterations)
+	if agentBallID != "" {
+		fmt.Printf("Starting agent for ball: %s (session: %s)\n", agentBallID, sessionID)
+	} else {
+		fmt.Printf("Starting agent for session: %s\n", sessionID)
+	}
+	fmt.Printf("Max iterations: %d\n", iterations)
 	fmt.Println()
 
 	// Print timeout if specified
@@ -342,12 +361,13 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 	loopConfig := AgentLoopConfig{
 		SessionID:     sessionID,
 		ProjectDir:    cwd,
-		MaxIterations: agentIterations,
+		MaxIterations: iterations,
 		Trust:         agentTrust,
 		Debug:         agentDebug,
 		IterDelay:     2 * time.Second,
 		Timeout:       agentTimeout,
 		MaxWait:       agentMaxWait,
+		BallID:        agentBallID,
 	}
 
 	result, err := RunAgentLoop(loopConfig)
@@ -387,7 +407,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 }
 
 // generateAgentPrompt generates the agent prompt using export command
-func generateAgentPrompt(projectDir, sessionID string, debug bool) (string, error) {
+func generateAgentPrompt(projectDir, sessionID string, debug bool, ballID string) (string, error) {
 	// Use the export functionality directly instead of shelling out
 	// This is more efficient and avoids subprocess overhead
 
@@ -430,8 +450,25 @@ func generateAgentPrompt(projectDir, sessionID string, debug bool) (string, erro
 		}
 	}
 
+	// Filter to specific ball if ballID is specified
+	singleBall := false
+	if ballID != "" {
+		var targetBall *session.Ball
+		for _, ball := range balls {
+			if ball.ID == ballID || ball.ShortID() == ballID {
+				targetBall = ball
+				break
+			}
+		}
+		if targetBall == nil {
+			return "", fmt.Errorf("ball %s not found in session %s", ballID, sessionID)
+		}
+		balls = []*session.Ball{targetBall}
+		singleBall = true
+	}
+
 	// Call exportAgent directly
-	output, err := exportAgent(projectDir, sessionID, balls, debug)
+	output, err := exportAgent(projectDir, sessionID, balls, debug, singleBall)
 	if err != nil {
 		return "", err
 	}
@@ -440,7 +477,8 @@ func generateAgentPrompt(projectDir, sessionID string, debug bool) (string, erro
 }
 
 // checkBallsTerminal returns counts of balls in terminal states (complete or blocked) and total balls for session
-func checkBallsTerminal(projectDir, sessionID string) (terminal, complete, blocked, total int) {
+// If ballID is specified, only counts that specific ball
+func checkBallsTerminal(projectDir, sessionID, ballID string) (terminal, complete, blocked, total int) {
 	// Load config
 	config, err := LoadConfigForCommand()
 	if err != nil {
@@ -469,6 +507,10 @@ func checkBallsTerminal(projectDir, sessionID string) (terminal, complete, block
 	for _, ball := range allBalls {
 		for _, tag := range ball.Tags {
 			if tag == sessionID {
+				// If filtering by specific ball, skip others
+				if ballID != "" && ball.ID != ballID && ball.ShortID() != ballID {
+					break
+				}
 				total++
 				if ball.State == session.StateComplete {
 					complete++
