@@ -41,6 +41,7 @@ type GlobalOptions struct {
 	JugglerDir   string // Override for .juggler directory name
 	AllProjects  bool   // Enable cross-project discovery (default is local only)
 	LocalOnly    bool   // DEPRECATED: use AllProjects instead (kept for backward compat)
+	JSONOutput   bool   // Output as JSON
 }
 
 // GlobalOpts holds the parsed global flags (exported for testing)
@@ -175,6 +176,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&GlobalOpts.AllProjects, "all", "a", false, "Search across all discovered projects")
 	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.LocalOnly, "local", false, "DEPRECATED: Local is now the default (this flag is a no-op)")
 	rootCmd.PersistentFlags().MarkHidden("local") // Hide deprecated flag
+	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.JSONOutput, "json", false, "Output as JSON")
 
 	// Set custom help function
 	defaultHelpFunc = rootCmd.HelpFunc()

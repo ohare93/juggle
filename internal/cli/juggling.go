@@ -466,6 +466,9 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 func activateBall(ball *session.Ball, store *session.Store) error {
 	// If ball is already in progress (or any non-pending state), show its details
 	if ball.State != session.StatePending {
+		if GlobalOpts.JSONOutput {
+			return printBallJSON(ball)
+		}
 		renderBallDetails(ball)
 		return nil
 	}
@@ -474,6 +477,10 @@ func activateBall(ball *session.Ball, store *session.Store) error {
 
 	if err := store.Save(ball); err != nil {
 		return fmt.Errorf("failed to save ball: %w", err)
+	}
+
+	if GlobalOpts.JSONOutput {
+		return printBallJSON(ball)
 	}
 
 	fmt.Printf("✓ Started ball: %s\n", ball.ID)

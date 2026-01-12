@@ -1114,3 +1114,267 @@ func TestSessionsCommandStillWorks(t *testing.T) {
 		t.Errorf("Expected session in list output, got: %s", listOutput)
 	}
 }
+
+// TestBallOutputJSONFlag tests that 'juggle <id> --json' outputs JSON
+func TestBallOutputJSONFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create and start a ball
+	ball := env.CreateBall(t, "JSON output test ball", session.PriorityHigh)
+	store := env.GetStore(t)
+	ball.Start()
+	store.UpdateBall(ball)
+
+	// Test 'juggle <id> --json' outputs valid JSON
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID(), "--json")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'juggle %s --json' failed: %v\nOutput: %s", ball.ShortID(), err, output)
+	}
+
+	// Verify it's valid JSON
+	var result map[string]interface{}
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Errorf("Output is not valid JSON: %v\nOutput: %s", err, output)
+	}
+
+	// Verify key fields are present
+	if result["id"] != ball.ID {
+		t.Errorf("Expected id '%s', got '%v'", ball.ID, result["id"])
+	}
+	if result["intent"] != "JSON output test ball" {
+		t.Errorf("Expected intent 'JSON output test ball', got '%v'", result["intent"])
+	}
+	if result["state"] != "in_progress" {
+		t.Errorf("Expected state 'in_progress', got '%v'", result["state"])
+	}
+}
+
+// TestBallOutputConsistency tests that 'juggle <id>' and 'juggle show <id>' show same info
+func TestBallOutputConsistency(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a ball with various properties
+	ball := env.CreateBall(t, "Consistency test ball", session.PriorityMedium)
+	store := env.GetStore(t)
+	ball.Start()
+	ball.SetAcceptanceCriteria([]string{"AC 1", "AC 2", "AC 3"})
+	ball.AddTag("test-tag")
+	store.UpdateBall(ball)
+
+	// Get output from 'juggle <id>'
+	directCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID())
+	directCmd.Dir = env.ProjectDir
+	directOutput, err := directCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'juggle %s' failed: %v\nOutput: %s", ball.ShortID(), err, directOutput)
+	}
+
+	// Get output from 'juggle show <id>'
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "show", ball.ShortID())
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'juggle show %s' failed: %v\nOutput: %s", ball.ShortID(), err, showOutput)
+	}
+
+	// Both should show all the same key information
+	expectedFields := []string{
+		"Ball ID:",
+		"Intent:",
+		"Priority:",
+		"State:",
+		"Acceptance Criteria:",
+		"AC 1",
+		"AC 2",
+		"AC 3",
+		"test-tag",
+	}
+
+	for _, field := range expectedFields {
+		if !strings.Contains(string(directOutput), field) {
+			t.Errorf("'juggle %s' missing field: %s", ball.ShortID(), field)
+		}
+		if !strings.Contains(string(showOutput), field) {
+			t.Errorf("'juggle show %s' missing field: %s", ball.ShortID(), field)
+		}
+	}
+}
+
+// TestBallOutputJSONConsistency tests that JSON output from both commands is consistent
+func TestBallOutputJSONConsistency(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a ball
+	ball := env.CreateBall(t, "JSON consistency test", session.PriorityHigh)
+	store := env.GetStore(t)
+	ball.Start()
+	ball.SetAcceptanceCriteria([]string{"Criterion A", "Criterion B"})
+	store.UpdateBall(ball)
+
+	// Get JSON from 'juggle <id> --json'
+	directCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID(), "--json")
+	directCmd.Dir = env.ProjectDir
+	directOutput, err := directCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'juggle %s --json' failed: %v\nOutput: %s", ball.ShortID(), err, directOutput)
+	}
+
+	// Get JSON from 'juggle show <id> --json'
+	showCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "show", ball.ShortID(), "--json")
+	showCmd.Dir = env.ProjectDir
+	showOutput, err := showCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'juggle show %s --json' failed: %v\nOutput: %s", ball.ShortID(), err, showOutput)
+	}
+
+	// Parse both JSON outputs
+	var directJSON, showJSON map[string]interface{}
+	if err := json.Unmarshal(directOutput, &directJSON); err != nil {
+		t.Fatalf("Failed to parse direct JSON: %v", err)
+	}
+	if err := json.Unmarshal(showOutput, &showJSON); err != nil {
+		t.Fatalf("Failed to parse show JSON: %v", err)
+	}
+
+	// Compare key fields
+	fieldsToCompare := []string{"id", "intent", "priority", "state"}
+	for _, field := range fieldsToCompare {
+		if directJSON[field] != showJSON[field] {
+			t.Errorf("Field '%s' mismatch: direct=%v, show=%v", field, directJSON[field], showJSON[field])
+		}
+	}
+
+	// Compare acceptance_criteria arrays
+	directAC, _ := directJSON["acceptance_criteria"].([]interface{})
+	showAC, _ := showJSON["acceptance_criteria"].([]interface{})
+	if len(directAC) != len(showAC) {
+		t.Errorf("Acceptance criteria count mismatch: direct=%d, show=%d", len(directAC), len(showAC))
+	}
+}
+
+// TestBallOutputWithAllFields tests that output shows all ball fields
+func TestBallOutputWithAllFields(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a ball with all possible fields populated
+	ball := env.CreateBall(t, "Full fields test", session.PriorityUrgent)
+	store := env.GetStore(t)
+	ball.Start()
+	ball.SetAcceptanceCriteria([]string{"AC 1", "AC 2"})
+	ball.AddTag("tag1")
+	ball.AddTag("tag2")
+	ball.SetTestsState(session.TestsStateNeeded)
+	ball.AddDependency("fake-dep-1")
+	store.UpdateBall(ball)
+
+	// Test text output
+	textCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID())
+	textCmd.Dir = env.ProjectDir
+	textOutput, err := textCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Command failed: %v\nOutput: %s", err, textOutput)
+	}
+
+	// Verify all fields appear in text output
+	textChecks := []string{
+		"Ball ID:",
+		"Intent:",
+		"Priority:",
+		"State:",
+		"Tests:",
+		"Tags:",
+		"Depends On:",
+		"Acceptance Criteria:",
+	}
+	for _, check := range textChecks {
+		if !strings.Contains(string(textOutput), check) {
+			t.Errorf("Text output missing: %s\nOutput: %s", check, textOutput)
+		}
+	}
+
+	// Test JSON output
+	jsonCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, ball.ShortID(), "--json")
+	jsonCmd.Dir = env.ProjectDir
+	jsonOutput, err := jsonCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("JSON command failed: %v\nOutput: %s", err, jsonOutput)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(jsonOutput, &result); err != nil {
+		t.Fatalf("Invalid JSON: %v\nOutput: %s", err, jsonOutput)
+	}
+
+	// Verify JSON has key fields
+	jsonFields := []string{"id", "intent", "priority", "state", "tests_state", "tags", "depends_on", "acceptance_criteria"}
+	for _, field := range jsonFields {
+		if _, ok := result[field]; !ok {
+			t.Errorf("JSON missing field: %s", field)
+		}
+	}
+}
+
+// TestBallOutputPendingVsStarted tests output for both pending and started balls
+func TestBallOutputPendingVsStarted(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create a pending ball
+	pendingBall := env.CreateBall(t, "Pending ball test", session.PriorityMedium)
+
+	// Create a started ball
+	startedBall := env.CreateBall(t, "Started ball test", session.PriorityHigh)
+	store := env.GetStore(t)
+	startedBall.Start()
+	store.UpdateBall(startedBall)
+
+	// Get output for started ball (should show details, not "started" message)
+	startedCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, startedBall.ShortID())
+	startedCmd.Dir = env.ProjectDir
+	startedOutput, err := startedCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed for started ball: %v\nOutput: %s", err, startedOutput)
+	}
+
+	// Should show ball details (not start message)
+	if !strings.Contains(string(startedOutput), "Ball ID:") {
+		t.Errorf("Started ball should show details, got: %s", startedOutput)
+	}
+	if !strings.Contains(string(startedOutput), "in_progress") {
+		t.Errorf("Started ball should show state, got: %s", startedOutput)
+	}
+
+	// Get output for pending ball (should activate it and show start message)
+	pendingCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, pendingBall.ShortID())
+	pendingCmd.Dir = env.ProjectDir
+	pendingOutput, err := pendingCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed for pending ball: %v\nOutput: %s", err, pendingOutput)
+	}
+
+	// Should show start confirmation
+	if !strings.Contains(string(pendingOutput), "Started ball:") {
+		t.Errorf("Pending ball should be started, got: %s", pendingOutput)
+	}
+}
