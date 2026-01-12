@@ -1378,3 +1378,141 @@ func TestBallOutputPendingVsStarted(t *testing.T) {
 		t.Errorf("Pending ball should be started, got: %s", pendingOutput)
 	}
 }
+
+// TestSessionsProgressCommand tests the 'juggle sessions progress <id>' command
+func TestSessionsProgressCommand(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create session
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "create", "progress-test", "-m", "Test session")
+	createCmd.Dir = env.ProjectDir
+	output, err := createCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Check progress when empty
+	emptyCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "progress", "progress-test")
+	emptyCmd.Dir = env.ProjectDir
+	emptyOutput, err := emptyCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions progress' failed for empty session: %v\nOutput: %s", err, emptyOutput)
+	}
+	if !strings.Contains(string(emptyOutput), "No progress logged") {
+		t.Errorf("Expected 'No progress logged' message, got: %s", emptyOutput)
+	}
+
+	// Append some progress
+	appendCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "progress", "append", "progress-test", "First entry")
+	appendCmd.Dir = env.ProjectDir
+	_, err = appendCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to append progress: %v", err)
+	}
+
+	appendCmd2 := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "progress", "append", "progress-test", "Second entry")
+	appendCmd2.Dir = env.ProjectDir
+	_, err = appendCmd2.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to append second progress: %v", err)
+	}
+
+	// View progress
+	viewCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "progress", "progress-test")
+	viewCmd.Dir = env.ProjectDir
+	viewOutput, err := viewCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions progress' failed: %v\nOutput: %s", err, viewOutput)
+	}
+
+	// Check output contains both entries
+	if !strings.Contains(string(viewOutput), "First entry") {
+		t.Errorf("Expected 'First entry' in output, got: %s", viewOutput)
+	}
+	if !strings.Contains(string(viewOutput), "Second entry") {
+		t.Errorf("Expected 'Second entry' in output, got: %s", viewOutput)
+	}
+}
+
+// TestSessionsProgressWithAlias tests 'juggle session progress' (singular alias)
+func TestSessionsProgressWithAlias(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Create session using alias
+	createCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "create", "alias-progress-test", "-m", "Test with alias")
+	createCmd.Dir = env.ProjectDir
+	output, err := createCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to create session: %v\nOutput: %s", err, output)
+	}
+
+	// Append progress
+	appendCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "progress", "append", "alias-progress-test", "Alias test entry")
+	appendCmd.Dir = env.ProjectDir
+	_, err = appendCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to append progress: %v", err)
+	}
+
+	// View using alias
+	viewCmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "session", "progress", "alias-progress-test")
+	viewCmd.Dir = env.ProjectDir
+	viewOutput, err := viewCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'session progress' (alias) failed: %v\nOutput: %s", err, viewOutput)
+	}
+
+	if !strings.Contains(string(viewOutput), "Alias test entry") {
+		t.Errorf("Expected 'Alias test entry' in output, got: %s", viewOutput)
+	}
+}
+
+// TestSessionsProgressNonexistent tests error handling for nonexistent session
+func TestSessionsProgressNonexistent(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	// Try to view progress for nonexistent session
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "progress", "nonexistent-session")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+
+	// Should fail with error
+	if err == nil {
+		t.Fatalf("Expected error for nonexistent session, got success. Output: %s", output)
+	}
+	if !strings.Contains(string(output), "session not found") {
+		t.Errorf("Expected 'session not found' error, got: %s", output)
+	}
+}
+
+// TestSessionsProgressHelp tests help text for progress subcommand
+func TestSessionsProgressHelp(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	jugglerRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(jugglerRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "sessions", "progress", "--help")
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("'sessions progress --help' failed: %v\nOutput: %s", err, output)
+	}
+
+	if !strings.Contains(string(output), "progress log") {
+		t.Errorf("Expected 'progress log' in help, got: %s", output)
+	}
+}

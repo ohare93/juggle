@@ -26,6 +26,7 @@ Commands:
   sessions list                          List all sessions
   sessions show <id>                     Show session details
   sessions context <id> [--edit]         View or edit session context
+  sessions progress <id>                 View session progress log
   sessions delete <id>                   Delete a session
 
 Alias: 'session' can be used instead of 'sessions'`,
@@ -89,6 +90,16 @@ Balls tagged with this session ID are not affected.`,
 	RunE: runSessionsDelete,
 }
 
+var sessionsProgressCmd = &cobra.Command{
+	Use:   "progress <id>",
+	Short: "View session progress log",
+	Long: `View the progress log (progress.txt) for a session.
+
+Shows timestamped entries that track the session's history and agent activity.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsProgress,
+}
+
 func init() {
 	// Add flags
 	sessionsCreateCmd.Flags().StringVarP(&sessionDescriptionFlag, "message", "m", "", "Session description")
@@ -102,6 +113,7 @@ func init() {
 	sessionsCmd.AddCommand(sessionsShowCmd)
 	sessionsCmd.AddCommand(sessionsContextCmd)
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
+	sessionsCmd.AddCommand(sessionsProgressCmd)
 }
 
 func runSessionsCreate(cmd *cobra.Command, args []string) error {
@@ -437,5 +449,39 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Deleted session: %s\n", id)
+	return nil
+}
+
+func runSessionsProgress(cmd *cobra.Command, args []string) error {
+	id := args[0]
+
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	store, err := session.NewSessionStoreWithConfig(cwd, GetStoreConfig())
+	if err != nil {
+		return fmt.Errorf("failed to initialize session store: %w", err)
+	}
+
+	// Verify session exists
+	if _, err := store.LoadSession(id); err != nil {
+		return fmt.Errorf("session not found: %s", id)
+	}
+
+	// Load progress
+	progress, err := store.LoadProgress(id)
+	if err != nil {
+		return fmt.Errorf("failed to load progress: %w", err)
+	}
+
+	if progress == "" {
+		fmt.Println("No progress logged for session:", id)
+		fmt.Println("\nAppend progress with: juggle progress append", id, "\"text\"")
+		return nil
+	}
+
+	fmt.Print(progress)
 	return nil
 }
