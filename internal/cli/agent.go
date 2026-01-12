@@ -128,9 +128,23 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 	// Track rate limit state
 	var totalWaitTime time.Duration
 	rateLimitRetries := 0
+	rateLimitRetrying := false // Skip header when retrying after rate limit
 
 	for iteration := 1; iteration <= config.MaxIterations; iteration++ {
 		result.Iterations = iteration
+
+		// Print iteration separator and header (skip when retrying after rate limit)
+		if !rateLimitRetrying {
+			if iteration > 1 {
+				fmt.Println()
+				fmt.Println()
+				fmt.Println("════════════════════════════════════════════════════════════════════════════════")
+				fmt.Println()
+				fmt.Println()
+			}
+			fmt.Printf("════════════════════════════════ Iteration %d/%d ════════════════════════════════\n\n", iteration, config.MaxIterations)
+		}
+		rateLimitRetrying = false // Reset for next iteration
 
 		// Generate prompt using export command
 		prompt, err := generateAgentPrompt(config.ProjectDir, config.SessionID, config.Debug)
@@ -168,6 +182,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 
 			totalWaitTime += waitTime
 			rateLimitRetries++
+			rateLimitRetrying = true // Skip header on retry
 
 			// Retry this iteration (don't increment)
 			iteration--
@@ -201,12 +216,14 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 				break
 			}
 			// Signal was premature - log warning and continue
+			fmt.Println()
 			fmt.Printf("⚠️  Agent signaled COMPLETE but only %d/%d balls are in terminal state (%d complete, %d blocked). Continuing...\n",
 				terminal, total, complete, blocked)
 		}
 
 		if runResult.Continue {
 			// Agent completed one ball, more remain - continue to next iteration
+			fmt.Println()
 			fmt.Printf("✓ Agent completed a ball, continuing to next iteration...\n")
 
 			// Update ball counts for progress tracking
