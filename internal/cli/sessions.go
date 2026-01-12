@@ -36,10 +36,11 @@ Alias: 'session' can be used instead of 'sessions'`,
 }
 
 var (
-	sessionDescriptionFlag string
-	sessionContextFlag     string
-	sessionEditFlag        bool
-	sessionSetFlag         string
+	sessionDescriptionFlag      string
+	sessionContextFlag          string
+	sessionEditFlag             bool
+	sessionSetFlag              string
+	sessionACFlag               []string // Acceptance criteria for session
 )
 
 var sessionsCreateCmd = &cobra.Command{
@@ -104,6 +105,7 @@ func init() {
 	// Add flags
 	sessionsCreateCmd.Flags().StringVarP(&sessionDescriptionFlag, "message", "m", "", "Session description")
 	sessionsCreateCmd.Flags().StringVar(&sessionContextFlag, "context", "", "Initial session context (agent-friendly)")
+	sessionsCreateCmd.Flags().StringSliceVar(&sessionACFlag, "ac", []string{}, "Session-level acceptance criteria (can be specified multiple times)")
 	sessionsContextCmd.Flags().BoolVar(&sessionEditFlag, "edit", false, "Open context in $EDITOR")
 	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
 
@@ -142,12 +144,31 @@ func runSessionsCreate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Set acceptance criteria if provided via flag
+	if len(sessionACFlag) > 0 {
+		if err := store.UpdateSessionAcceptanceCriteria(id, sessionACFlag); err != nil {
+			return fmt.Errorf("failed to set acceptance criteria: %w", err)
+		}
+	} else {
+		// If no ACs provided, inherit from repo-level defaults
+		repoACs, err := session.GetProjectAcceptanceCriteria(cwd)
+		if err == nil && len(repoACs) > 0 {
+			if err := store.UpdateSessionAcceptanceCriteria(id, repoACs); err != nil {
+				return fmt.Errorf("failed to set default acceptance criteria: %w", err)
+			}
+			fmt.Printf("  Acceptance criteria: (inherited %d from repo defaults)\n", len(repoACs))
+		}
+	}
+
 	fmt.Printf("Created session: %s\n", sess.ID)
 	if description != "" {
 		fmt.Printf("  Description: %s\n", description)
 	}
 	if sessionContextFlag != "" {
 		fmt.Printf("  Context: (set)\n")
+	}
+	if len(sessionACFlag) > 0 {
+		fmt.Printf("  Acceptance criteria: %d item(s)\n", len(sessionACFlag))
 	}
 	fmt.Printf("  Path: .juggler/sessions/%s/\n", id)
 
@@ -270,6 +291,17 @@ func runSessionsShow(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println(labelStyle.Render("Created:"), valueStyle.Render(sess.CreatedAt.Format(time.RFC3339)))
 	fmt.Println(labelStyle.Render("Updated:"), valueStyle.Render(sess.UpdatedAt.Format(time.RFC3339)))
+
+	// Acceptance criteria section
+	fmt.Println()
+	fmt.Printf("%s (%d)\n", labelStyle.Render("Acceptance Criteria:"), len(sess.AcceptanceCriteria))
+	if len(sess.AcceptanceCriteria) > 0 {
+		for i, ac := range sess.AcceptanceCriteria {
+			fmt.Printf("  %d. %s\n", i+1, ac)
+		}
+	} else {
+		fmt.Println("  (no session-level acceptance criteria)")
+	}
 
 	// Context section
 	fmt.Println()

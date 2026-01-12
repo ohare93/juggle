@@ -17,12 +17,13 @@ const (
 // JuggleSession represents a grouping of balls by tag
 // Session ID equals the tag, providing a simple mapping
 type JuggleSession struct {
-	ID           string    `json:"id"`                      // Session ID (same as tag)
-	Description  string    `json:"description"`             // Human-readable description
-	Context      string    `json:"context"`                 // Rich context for agent memory
-	DefaultModel ModelSize `json:"default_model,omitempty"` // Default model size for balls in this session
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`                         // Session ID (same as tag)
+	Description        string    `json:"description"`                // Human-readable description
+	Context            string    `json:"context"`                    // Rich context for agent memory
+	DefaultModel       ModelSize `json:"default_model,omitempty"`    // Default model size for balls in this session
+	AcceptanceCriteria []string  `json:"acceptance_criteria,omitempty"` // Session-level ACs applied to all balls
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // NewJuggleSession creates a new session with the given ID and description
@@ -53,6 +54,23 @@ func (s *JuggleSession) SetDescription(description string) {
 func (s *JuggleSession) SetDefaultModel(model ModelSize) {
 	s.DefaultModel = model
 	s.UpdatedAt = time.Now()
+}
+
+// SetAcceptanceCriteria sets the session-level acceptance criteria
+func (s *JuggleSession) SetAcceptanceCriteria(criteria []string) {
+	s.AcceptanceCriteria = criteria
+	s.UpdatedAt = time.Now()
+}
+
+// AddAcceptanceCriterion adds a single acceptance criterion to the session
+func (s *JuggleSession) AddAcceptanceCriterion(criterion string) {
+	s.AcceptanceCriteria = append(s.AcceptanceCriteria, criterion)
+	s.UpdatedAt = time.Now()
+}
+
+// HasAcceptanceCriteria returns true if the session has any acceptance criteria
+func (s *JuggleSession) HasAcceptanceCriteria() bool {
+	return len(s.AcceptanceCriteria) > 0
 }
 
 // SessionStore handles persistence of JuggleSessions
@@ -202,6 +220,17 @@ func (s *SessionStore) UpdateSessionDescription(id, description string) error {
 	}
 
 	session.SetDescription(description)
+	return s.saveSession(session)
+}
+
+// UpdateSessionAcceptanceCriteria updates the acceptance criteria for a session
+func (s *SessionStore) UpdateSessionAcceptanceCriteria(id string, criteria []string) error {
+	session, err := s.LoadSession(id)
+	if err != nil {
+		return err
+	}
+
+	session.SetAcceptanceCriteria(criteria)
 	return s.saveSession(session)
 }
 

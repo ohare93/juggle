@@ -705,6 +705,162 @@ func TestSessionStore_LoadProgress_AllMetaSession_Empty(t *testing.T) {
 	}
 }
 
+// TestJuggleSession_SetAcceptanceCriteria tests setting session acceptance criteria
+func TestJuggleSession_SetAcceptanceCriteria(t *testing.T) {
+	session := NewJuggleSession("test", "desc")
+	originalUpdatedAt := session.UpdatedAt
+
+	// Sleep briefly to ensure time difference
+	time.Sleep(10 * time.Millisecond)
+
+	criteria := []string{"Tests pass", "Build succeeds"}
+	session.SetAcceptanceCriteria(criteria)
+
+	if len(session.AcceptanceCriteria) != 2 {
+		t.Errorf("expected 2 acceptance criteria, got %d", len(session.AcceptanceCriteria))
+	}
+	if session.AcceptanceCriteria[0] != "Tests pass" {
+		t.Errorf("expected first criterion 'Tests pass', got '%s'", session.AcceptanceCriteria[0])
+	}
+	if !session.UpdatedAt.After(originalUpdatedAt) {
+		t.Error("expected UpdatedAt to be updated")
+	}
+}
+
+// TestJuggleSession_AddAcceptanceCriterion tests adding individual criteria
+func TestJuggleSession_AddAcceptanceCriterion(t *testing.T) {
+	session := NewJuggleSession("test", "desc")
+
+	session.AddAcceptanceCriterion("Tests pass")
+	session.AddAcceptanceCriterion("Build succeeds")
+
+	if len(session.AcceptanceCriteria) != 2 {
+		t.Errorf("expected 2 acceptance criteria, got %d", len(session.AcceptanceCriteria))
+	}
+	if session.AcceptanceCriteria[1] != "Build succeeds" {
+		t.Errorf("expected second criterion 'Build succeeds', got '%s'", session.AcceptanceCriteria[1])
+	}
+}
+
+// TestJuggleSession_HasAcceptanceCriteria tests the HasAcceptanceCriteria method
+func TestJuggleSession_HasAcceptanceCriteria(t *testing.T) {
+	session := NewJuggleSession("test", "desc")
+
+	if session.HasAcceptanceCriteria() {
+		t.Error("expected HasAcceptanceCriteria to return false for empty criteria")
+	}
+
+	session.AddAcceptanceCriterion("Test criterion")
+
+	if !session.HasAcceptanceCriteria() {
+		t.Error("expected HasAcceptanceCriteria to return true after adding criterion")
+	}
+}
+
+// TestSessionStore_UpdateSessionAcceptanceCriteria tests updating session ACs
+func TestSessionStore_UpdateSessionAcceptanceCriteria(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create session
+	_, err = store.CreateSession("my-session", "desc")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Update acceptance criteria
+	criteria := []string{"Tests pass", "Build succeeds", "Documentation updated"}
+	err = store.UpdateSessionAcceptanceCriteria("my-session", criteria)
+	if err != nil {
+		t.Fatalf("failed to update acceptance criteria: %v", err)
+	}
+
+	// Load and verify
+	session, err := store.LoadSession("my-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if len(session.AcceptanceCriteria) != 3 {
+		t.Errorf("expected 3 acceptance criteria, got %d", len(session.AcceptanceCriteria))
+	}
+	if session.AcceptanceCriteria[0] != "Tests pass" {
+		t.Errorf("expected first criterion 'Tests pass', got '%s'", session.AcceptanceCriteria[0])
+	}
+}
+
+// TestSessionStore_UpdateSessionAcceptanceCriteria_NotFound tests error handling
+func TestSessionStore_UpdateSessionAcceptanceCriteria_NotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Try to update non-existent session
+	err = store.UpdateSessionAcceptanceCriteria("nonexistent", []string{"criterion"})
+	if err == nil {
+		t.Error("expected error updating non-existent session")
+	}
+}
+
+// TestJuggleSession_AcceptanceCriteria_Persistence tests ACs survive JSON round-trip
+func TestJuggleSession_AcceptanceCriteria_Persistence(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create session with acceptance criteria
+	_, err = store.CreateSession("my-session", "desc")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	criteria := []string{"Run tests", "Check build", "Update docs"}
+	if err := store.UpdateSessionAcceptanceCriteria("my-session", criteria); err != nil {
+		t.Fatalf("failed to update ACs: %v", err)
+	}
+
+	// Create new store instance (simulates restart)
+	store2, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create second store: %v", err)
+	}
+
+	// Load session with new store
+	session, err := store2.LoadSession("my-session")
+	if err != nil {
+		t.Fatalf("failed to load session: %v", err)
+	}
+
+	if len(session.AcceptanceCriteria) != 3 {
+		t.Errorf("expected 3 ACs after reload, got %d", len(session.AcceptanceCriteria))
+	}
+	if session.AcceptanceCriteria[2] != "Update docs" {
+		t.Errorf("expected third criterion 'Update docs', got '%s'", session.AcceptanceCriteria[2])
+	}
+}
+
 // TestSessionStore_AllMetaSession_NoSessionFile tests that _all doesn't create
 // or require a session.json file (it's a virtual session for storage only)
 func TestSessionStore_AllMetaSession_NoSessionFile(t *testing.T) {

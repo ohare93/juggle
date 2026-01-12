@@ -157,7 +157,8 @@ func EnsureProjectInSearchPaths(projectDir string) error {
 // ProjectConfig holds per-project configuration stored in .juggler/config.json
 // Note: NextBallCount is deprecated but kept for backward compatibility with existing config files
 type ProjectConfig struct {
-	NextBallCount int `json:"next_ball_count,omitempty"` // Deprecated: balls now use UUID-based IDs
+	NextBallCount              int      `json:"next_ball_count,omitempty"`               // Deprecated: balls now use UUID-based IDs
+	DefaultAcceptanceCriteria  []string `json:"default_acceptance_criteria,omitempty"`   // Repo-level ACs applied to all sessions
 }
 
 // DefaultProjectConfig returns a new project config with initial values
@@ -233,4 +234,35 @@ func GetAndIncrementBallCount(projectDir string) (int, error) {
 	}
 
 	return currentCount, nil
+}
+
+// SetDefaultAcceptanceCriteria sets repo-level acceptance criteria
+func (c *ProjectConfig) SetDefaultAcceptanceCriteria(criteria []string) {
+	c.DefaultAcceptanceCriteria = criteria
+}
+
+// HasDefaultAcceptanceCriteria returns true if the project has default ACs
+func (c *ProjectConfig) HasDefaultAcceptanceCriteria() bool {
+	return len(c.DefaultAcceptanceCriteria) > 0
+}
+
+// UpdateProjectAcceptanceCriteria updates the repo-level acceptance criteria
+func UpdateProjectAcceptanceCriteria(projectDir string, criteria []string) error {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return err
+	}
+
+	config.SetDefaultAcceptanceCriteria(criteria)
+	return SaveProjectConfig(projectDir, config)
+}
+
+// GetProjectAcceptanceCriteria returns the repo-level acceptance criteria
+func GetProjectAcceptanceCriteria(projectDir string) ([]string, error) {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return config.DefaultAcceptanceCriteria, nil
 }

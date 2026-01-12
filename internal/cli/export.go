@@ -469,6 +469,10 @@ func exportCSV(balls []*session.Ball) ([]byte, error) {
 // [progress.txt content]
 // </progress>
 //
+// <global-acceptance-criteria>
+// [repo and session level ACs]
+// </global-acceptance-criteria>
+//
 // <tasks>
 // [balls with acceptance criteria]
 // </tasks>
@@ -496,6 +500,9 @@ func exportRalph(projectDir, sessionID string, balls []*session.Ball) ([]byte, e
 	// Load progress
 	progress, _ := sessionStore.LoadProgress(sessionID) // Ignore error, empty progress is fine
 
+	// Load repo-level acceptance criteria
+	repoACs, _ := session.GetProjectAcceptanceCriteria(projectDir) // Ignore error
+
 	// Write <context> section
 	buf.WriteString("<context>\n")
 	if juggleSession.Description != "" {
@@ -518,6 +525,33 @@ func exportRalph(projectDir, sessionID string, balls []*session.Ball) ([]byte, e
 		}
 	}
 	buf.WriteString("</progress>\n\n")
+
+	// Write <global-acceptance-criteria> section if any exist
+	if len(repoACs) > 0 || len(juggleSession.AcceptanceCriteria) > 0 {
+		buf.WriteString("<global-acceptance-criteria>\n")
+		buf.WriteString("These criteria apply to ALL tasks in this session:\n\n")
+
+		acIndex := 1
+		if len(repoACs) > 0 {
+			buf.WriteString("## Repository-Level Requirements\n")
+			for _, ac := range repoACs {
+				buf.WriteString(fmt.Sprintf("  %d. %s\n", acIndex, ac))
+				acIndex++
+			}
+		}
+		if len(juggleSession.AcceptanceCriteria) > 0 {
+			if len(repoACs) > 0 {
+				buf.WriteString("\n## Session-Level Requirements\n")
+			} else {
+				buf.WriteString("## Session-Level Requirements\n")
+			}
+			for _, ac := range juggleSession.AcceptanceCriteria {
+				buf.WriteString(fmt.Sprintf("  %d. %s\n", acIndex, ac))
+				acIndex++
+			}
+		}
+		buf.WriteString("</global-acceptance-criteria>\n\n")
+	}
 
 	// Sort balls: in_progress first (implies unfinished work), then by priority
 	sortBallsForAgent(balls)
@@ -581,6 +615,10 @@ func writeBallForRalph(buf *strings.Builder, ball *session.Ball) {
 // [last 50 lines of progress.txt]
 // </progress>
 //
+// <global-acceptance-criteria>
+// [repo and session level ACs]
+// </global-acceptance-criteria>
+//
 // <balls> or <task> (if singleBall)
 // [balls with state and acceptance criteria]
 // </balls> or </task>
@@ -613,6 +651,9 @@ func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool
 	progress, _ := sessionStore.LoadProgress(sessionID) // Ignore error, empty progress is fine
 	progress = limitToLastLines(progress, 50)
 
+	// Load repo-level acceptance criteria
+	repoACs, _ := session.GetProjectAcceptanceCriteria(projectDir) // Ignore error
+
 	// Write <context> section
 	buf.WriteString("<context>\n")
 	if juggleSession.Description != "" {
@@ -635,6 +676,33 @@ func exportAgent(projectDir, sessionID string, balls []*session.Ball, debug bool
 		}
 	}
 	buf.WriteString("</progress>\n\n")
+
+	// Write <global-acceptance-criteria> section if any exist
+	if len(repoACs) > 0 || len(juggleSession.AcceptanceCriteria) > 0 {
+		buf.WriteString("<global-acceptance-criteria>\n")
+		buf.WriteString("These criteria apply to ALL tasks in this session:\n\n")
+
+		acIndex := 1
+		if len(repoACs) > 0 {
+			buf.WriteString("## Repository-Level Requirements\n")
+			for _, ac := range repoACs {
+				buf.WriteString(fmt.Sprintf("  %d. %s\n", acIndex, ac))
+				acIndex++
+			}
+		}
+		if len(juggleSession.AcceptanceCriteria) > 0 {
+			if len(repoACs) > 0 {
+				buf.WriteString("\n## Session-Level Requirements\n")
+			} else {
+				buf.WriteString("## Session-Level Requirements\n")
+			}
+			for _, ac := range juggleSession.AcceptanceCriteria {
+				buf.WriteString(fmt.Sprintf("  %d. %s\n", acIndex, ac))
+				acIndex++
+			}
+		}
+		buf.WriteString("</global-acceptance-criteria>\n\n")
+	}
 
 	// Sort balls: in_progress first (implies unfinished work), then by priority
 	sortBallsForAgent(balls)
