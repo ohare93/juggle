@@ -22,6 +22,29 @@ func DiscoverProjects(config *Config) ([]string, error) {
 	return projects, nil
 }
 
+// LoadAllSessions loads sessions from all discovered projects
+func LoadAllSessions(projectPaths []string) ([]*JuggleSession, error) {
+	allSessions := make([]*JuggleSession, 0)
+
+	for _, projectPath := range projectPaths {
+		store, err := NewSessionStore(projectPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to create session store for %s: %v\n", projectPath, err)
+			continue
+		}
+
+		sessions, err := store.ListSessions()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to load sessions from %s: %v\n", projectPath, err)
+			continue
+		}
+
+		allSessions = append(allSessions, sessions...)
+	}
+
+	return allSessions, nil
+}
+
 // LoadAllBalls loads balls from all discovered projects
 func LoadAllBalls(projectPaths []string) ([]*Ball, error) {
 	allBalls := make([]*Ball, 0)

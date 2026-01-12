@@ -1266,3 +1266,129 @@ func TestLowerString(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadAllSessions tests loading sessions from multiple projects
+func TestLoadAllSessions(t *testing.T) {
+	// Create two temp project directories
+	project1, err := os.MkdirTemp("", "juggler-project1-*")
+	if err != nil {
+		t.Fatalf("failed to create project1 dir: %v", err)
+	}
+	defer os.RemoveAll(project1)
+
+	project2, err := os.MkdirTemp("", "juggler-project2-*")
+	if err != nil {
+		t.Fatalf("failed to create project2 dir: %v", err)
+	}
+	defer os.RemoveAll(project2)
+
+	// Create sessions in project1
+	store1, err := NewSessionStore(project1)
+	if err != nil {
+		t.Fatalf("failed to create store1: %v", err)
+	}
+	_, err = store1.CreateSession("session-a", "Session A in project1")
+	if err != nil {
+		t.Fatalf("failed to create session-a: %v", err)
+	}
+	_, err = store1.CreateSession("session-b", "Session B in project1")
+	if err != nil {
+		t.Fatalf("failed to create session-b: %v", err)
+	}
+
+	// Create sessions in project2
+	store2, err := NewSessionStore(project2)
+	if err != nil {
+		t.Fatalf("failed to create store2: %v", err)
+	}
+	_, err = store2.CreateSession("session-c", "Session C in project2")
+	if err != nil {
+		t.Fatalf("failed to create session-c: %v", err)
+	}
+
+	// Load all sessions from both projects
+	sessions, err := LoadAllSessions([]string{project1, project2})
+	if err != nil {
+		t.Fatalf("failed to load all sessions: %v", err)
+	}
+
+	// Verify we got all 3 sessions
+	if len(sessions) != 3 {
+		t.Errorf("expected 3 sessions, got %d", len(sessions))
+	}
+
+	// Verify specific sessions exist
+	sessionIDs := make(map[string]bool)
+	for _, sess := range sessions {
+		sessionIDs[sess.ID] = true
+	}
+
+	if !sessionIDs["session-a"] {
+		t.Error("expected session-a to be in results")
+	}
+	if !sessionIDs["session-b"] {
+		t.Error("expected session-b to be in results")
+	}
+	if !sessionIDs["session-c"] {
+		t.Error("expected session-c to be in results")
+	}
+}
+
+// TestLoadAllSessions_EmptyProject tests loading sessions when a project has no sessions
+func TestLoadAllSessions_EmptyProject(t *testing.T) {
+	// Create two temp project directories
+	project1, err := os.MkdirTemp("", "juggler-project1-*")
+	if err != nil {
+		t.Fatalf("failed to create project1 dir: %v", err)
+	}
+	defer os.RemoveAll(project1)
+
+	project2, err := os.MkdirTemp("", "juggler-project2-*")
+	if err != nil {
+		t.Fatalf("failed to create project2 dir: %v", err)
+	}
+	defer os.RemoveAll(project2)
+
+	// Create session only in project1
+	store1, err := NewSessionStore(project1)
+	if err != nil {
+		t.Fatalf("failed to create store1: %v", err)
+	}
+	_, err = store1.CreateSession("session-only", "Only session")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Initialize project2 store but don't create sessions
+	_, err = NewSessionStore(project2)
+	if err != nil {
+		t.Fatalf("failed to create store2: %v", err)
+	}
+
+	// Load all sessions
+	sessions, err := LoadAllSessions([]string{project1, project2})
+	if err != nil {
+		t.Fatalf("failed to load all sessions: %v", err)
+	}
+
+	// Should only have 1 session
+	if len(sessions) != 1 {
+		t.Errorf("expected 1 session, got %d", len(sessions))
+	}
+
+	if len(sessions) > 0 && sessions[0].ID != "session-only" {
+		t.Errorf("expected session ID 'session-only', got '%s'", sessions[0].ID)
+	}
+}
+
+// TestLoadAllSessions_NoProjects tests loading sessions with no projects
+func TestLoadAllSessions_NoProjects(t *testing.T) {
+	sessions, err := LoadAllSessions([]string{})
+	if err != nil {
+		t.Fatalf("expected no error with empty project list, got: %v", err)
+	}
+
+	if len(sessions) != 0 {
+		t.Errorf("expected 0 sessions with no projects, got %d", len(sessions))
+	}
+}

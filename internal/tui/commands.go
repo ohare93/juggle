@@ -99,15 +99,31 @@ type sessionsLoadedMsg struct {
 	err      error
 }
 
-func loadSessions(sessionStore *session.SessionStore) tea.Cmd {
+func loadSessions(sessionStore *session.SessionStore, config *session.Config, localOnly bool) tea.Cmd {
 	return func() tea.Msg {
-		if sessionStore == nil {
-			return sessionsLoadedMsg{sessions: []*session.JuggleSession{}}
-		}
+		var sessions []*session.JuggleSession
 
-		sessions, err := sessionStore.ListSessions()
-		if err != nil {
-			return sessionsLoadedMsg{err: err}
+		if localOnly {
+			// Load only from current project
+			if sessionStore == nil {
+				return sessionsLoadedMsg{sessions: []*session.JuggleSession{}}
+			}
+			localSessions, err := sessionStore.ListSessions()
+			if err != nil {
+				return sessionsLoadedMsg{err: err}
+			}
+			sessions = localSessions
+		} else {
+			// Load from all discovered projects
+			projects, err := session.DiscoverProjects(config)
+			if err != nil {
+				return sessionsLoadedMsg{err: err}
+			}
+
+			sessions, err = session.LoadAllSessions(projects)
+			if err != nil {
+				return sessionsLoadedMsg{err: err}
+			}
 		}
 
 		return sessionsLoadedMsg{sessions: sessions}

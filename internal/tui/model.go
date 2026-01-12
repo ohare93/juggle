@@ -142,12 +142,13 @@ type Model struct {
 	showTestsColumn    bool // Show tests state column in balls list
 
 	// Filter state
-	filterStates      map[string]bool // State visibility toggles
-	filterPriority    string
-	searchQuery       string
-	initialSessionID  string // Pre-select session by ID (from --session flag)
-	panelSearchQuery  string // Current search/filter query within a panel
-	panelSearchActive bool   // Whether search/filter is active
+	filterStates         map[string]bool // State visibility toggles
+	filterPriority       string
+	searchQuery          string
+	initialSessionID     string // Pre-select session by ID (from --session flag)
+	panelSearchQuery     string // Current search/filter query within a panel
+	panelSearchActive    bool   // Whether search/filter is active
+	pendingSessionSelect string // Session ID to restore after mode switch
 
 	// UI state
 	width         int
@@ -268,7 +269,7 @@ func (m Model) Init() tea.Cmd {
 	if m.mode == splitView {
 		cmds := []tea.Cmd{
 			loadBalls(m.store, m.config, m.localOnly),
-			loadSessions(m.sessionStore),
+			loadSessions(m.sessionStore, m.config, m.localOnly),
 		}
 		// Start file watcher if available
 		if m.fileWatcher != nil {

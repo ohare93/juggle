@@ -247,8 +247,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.sessionCursor >= len(m.sessions) {
 			m.sessionCursor = 0
 		}
-		// Pre-select session if initialSessionID was provided
-		if m.initialSessionID != "" && m.selectedSession == nil {
+
+		// Handle pending session select (from mode toggle)
+		if m.pendingSessionSelect != "" {
+			found := false
+			for i, sess := range m.sessions {
+				if sess.ID == m.pendingSessionSelect {
+					m.selectedSession = sess
+					m.sessionCursor = i
+					found = true
+					break
+				}
+			}
+			if !found && len(m.sessions) > 0 {
+				// Selected session not in new list, select nearest (first session)
+				m.sessionCursor = 0
+				m.selectedSession = m.sessions[0]
+				m.addActivity("Previous session not available, selected: " + m.sessions[0].ID)
+			} else if !found {
+				m.selectedSession = nil
+				m.sessionCursor = 0
+			}
+			m.pendingSessionSelect = ""
+		} else if m.initialSessionID != "" && m.selectedSession == nil {
+			// Pre-select session if initialSessionID was provided (initial load)
 			for i, sess := range m.sessions {
 				if sess.ID == m.initialSessionID {
 					m.selectedSession = sess
@@ -635,7 +657,7 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addActivity("Refreshing data...")
 		return m, tea.Batch(
 			loadBalls(m.store, m.config, m.localOnly),
-			loadSessions(m.sessionStore),
+			loadSessions(m.sessionStore, m.config, m.localOnly),
 		)
 
 	case "?":
@@ -1064,6 +1086,12 @@ func (m Model) handleToggleBottomPane() (tea.Model, tea.Cmd) {
 
 // handleToggleLocalOnly toggles between local project only and all projects
 func (m Model) handleToggleLocalOnly() (tea.Model, tea.Cmd) {
+	// Remember the currently selected session ID before reloading
+	selectedSessionID := ""
+	if m.selectedSession != nil {
+		selectedSessionID = m.selectedSession.ID
+	}
+
 	m.localOnly = !m.localOnly
 	if m.localOnly {
 		m.addActivity("Showing local project only")
@@ -1072,8 +1100,15 @@ func (m Model) handleToggleLocalOnly() (tea.Model, tea.Cmd) {
 		m.addActivity("Showing all projects")
 		m.message = "Showing all projects"
 	}
-	// Reload balls with new scope
-	return m, loadBalls(m.store, m.config, m.localOnly)
+
+	// Store the selected session ID for cursor adjustment after reload
+	m.pendingSessionSelect = selectedSessionID
+
+	// Reload both balls and sessions with new scope
+	return m, tea.Batch(
+		loadBalls(m.store, m.config, m.localOnly),
+		loadSessions(m.sessionStore, m.config, m.localOnly),
+	)
 }
 
 // handleToggleSortOrder cycles through sort orders for balls
@@ -1793,7 +1828,7 @@ func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
 	}
 
 	m.mode = splitView
-	return m, loadSessions(m.sessionStore)
+	return m, loadSessions(m.sessionStore, m.config, m.localOnly)
 }
 
 // submitBallInput handles ball add/edit submission
@@ -2165,7 +2200,7 @@ func (m Model) executeSplitDelete() (tea.Model, tea.Cmd) {
 		if m.selectedSession != nil && m.selectedSession.ID == sess.ID {
 			m.selectedSession = nil
 		}
-		return m, loadSessions(m.sessionStore)
+		return m, loadSessions(m.sessionStore, m.config, m.localOnly)
 
 	case "delete_ball":
 		balls := m.filterBallsForSession()
@@ -2392,7 +2427,7 @@ func (m Model) handleWatcherEvent(event watcher.Event) (tea.Model, tea.Cmd) {
 			msg += ": " + event.SessionID
 		}
 		m.addActivity(msg + " - reloading...")
-		cmds = append(cmds, loadSessions(m.sessionStore))
+		cmds = append(cmds, loadSessions(m.sessionStore, m.config, m.localOnly))
 
 	case watcher.ProgressChanged:
 		msg := "Progress updated"
