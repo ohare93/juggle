@@ -17,6 +17,7 @@ var (
 	agentTrust       bool
 	agentTimeout     time.Duration
 	agentDebug       bool
+	agentDryRun      bool
 	agentMaxWait     time.Duration
 	agentBallID      string
 	agentInteractive bool
@@ -70,7 +71,13 @@ Examples:
   juggle agent run my-feature --timeout 5m
 
   # Set maximum wait time for rate limits (give up if exceeded)
-  juggle agent run my-feature --max-wait 30m`,
+  juggle agent run my-feature --max-wait 30m
+
+  # Show prompt info without running (dry run)
+  juggle agent run my-feature --dry-run
+
+  # Show prompt info before running (debug mode)
+  juggle agent run my-feature --debug`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAgentRun,
 }
@@ -110,7 +117,8 @@ func init() {
 	agentRunCmd.Flags().IntVarP(&agentIterations, "iterations", "n", 10, "Maximum number of iterations")
 	agentRunCmd.Flags().BoolVar(&agentTrust, "trust", false, "Run with --dangerously-skip-permissions (dangerous!)")
 	agentRunCmd.Flags().DurationVarP(&agentTimeout, "timeout", "T", 0, "Timeout per iteration (e.g., 5m, 1h). 0 = no timeout")
-	agentRunCmd.Flags().BoolVar(&agentDebug, "debug", false, "Add reasoning instructions to agent prompt")
+	agentRunCmd.Flags().BoolVarP(&agentDebug, "debug", "d", false, "Show prompt info before running the agent")
+	agentRunCmd.Flags().BoolVar(&agentDryRun, "dry-run", false, "Show prompt info without running the agent")
 	agentRunCmd.Flags().DurationVar(&agentMaxWait, "max-wait", 0, "Maximum wait time for rate limits before giving up (e.g., 30m). 0 = wait indefinitely")
 	agentRunCmd.Flags().StringVarP(&agentBallID, "ball", "b", "", "Work on a specific ball only (defaults to 1 iteration, interactive)")
 	agentRunCmd.Flags().BoolVarP(&agentInteractive, "interactive", "i", false, "Run in interactive mode (full Claude TUI, defaults to 1 iteration)")
@@ -434,6 +442,48 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		interactive = true
 	}
 
+	// Handle --dry-run and --debug: show prompt info
+	if agentDryRun || agentDebug {
+		prompt, err := generateAgentPrompt(cwd, sessionID, true, agentBallID) // debug=true for reasoning instructions
+		if err != nil {
+			return fmt.Errorf("failed to generate prompt: %w", err)
+		}
+
+		fmt.Println("=== Agent Prompt Info ===")
+		fmt.Println()
+		fmt.Printf("Session: %s\n", sessionID)
+		if agentBallID != "" {
+			fmt.Printf("Ball: %s\n", agentBallID)
+		}
+		fmt.Printf("Max iterations: %d\n", iterations)
+		fmt.Printf("Trust mode: %v\n", agentTrust)
+		fmt.Printf("Interactive mode: %v\n", interactive)
+		if agentTimeout > 0 {
+			fmt.Printf("Timeout per iteration: %v\n", agentTimeout)
+		}
+		if agentMaxWait > 0 {
+			fmt.Printf("Max rate limit wait: %v\n", agentMaxWait)
+		}
+		fmt.Println()
+		fmt.Println("=== Generated Prompt ===")
+		fmt.Println()
+		fmt.Println(prompt)
+		fmt.Println()
+		fmt.Printf("=== Prompt Length: %d characters ===\n", len(prompt))
+
+		// If dry-run, exit without running
+		if agentDryRun {
+			fmt.Println()
+			fmt.Println("(Dry run - agent not started)")
+			return nil
+		}
+
+		// If debug, continue to run the agent
+		fmt.Println()
+		fmt.Println("=== Starting Agent ===")
+		fmt.Println()
+	}
+
 	// Print warning if --trust is used
 	if agentTrust {
 		fmt.Println("⚠️  WARNING: Running with --trust flag. Agent has full system permissions.")
@@ -460,7 +510,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		ProjectDir:    cwd,
 		MaxIterations: iterations,
 		Trust:         agentTrust,
-		Debug:         agentDebug,
+		Debug:         false, // Debug mode now just shows prompt info, doesn't affect prompt content
 		IterDelay:     2 * time.Second,
 		Timeout:       agentTimeout,
 		MaxWait:       agentMaxWait,
@@ -860,6 +910,11 @@ func RunAgentRefineForTest(projectDir, sessionID string) error {
 
 	_, err = agent.DefaultRunner.Run(opts)
 	return err
+}
+
+// GenerateAgentPromptForTest is an exported wrapper for testing prompt generation
+func GenerateAgentPromptForTest(projectDir, sessionID string, debug bool, ballID string) (string, error) {
+	return generateAgentPrompt(projectDir, sessionID, debug, ballID)
 }
 
 // writeBallForRefine writes a single ball with all details for refinement
