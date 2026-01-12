@@ -453,6 +453,149 @@ func TestPlanCommand(t *testing.T) {
 			t.Errorf("Expected intent %q, got %q", intent, ball.Intent)
 		}
 	})
+
+	t.Run("BallWithAllPriorities", func(t *testing.T) {
+		// Test that all priority values are valid
+		priorities := []session.Priority{
+			session.PriorityLow,
+			session.PriorityMedium,
+			session.PriorityHigh,
+			session.PriorityUrgent,
+		}
+
+		for _, priority := range priorities {
+			ball, err := session.NewBall(env.ProjectDir, "Test priority "+string(priority), priority)
+			if err != nil {
+				t.Fatalf("Failed to create ball with priority %s: %v", priority, err)
+			}
+
+			if ball.Priority != priority {
+				t.Errorf("Expected priority %s, got %s", priority, ball.Priority)
+			}
+
+			if err := store.AppendBall(ball); err != nil {
+				t.Fatalf("Failed to save ball: %v", err)
+			}
+		}
+	})
+
+	t.Run("BallWithInProgressState", func(t *testing.T) {
+		// Test creating a ball directly in in_progress state
+		ball, err := session.NewBall(env.ProjectDir, "Already started task", session.PriorityMedium)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.State = session.StateInProgress
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		// Verify state was set correctly
+		reloaded, err := store.GetBallByID(ball.ID)
+		if err != nil {
+			t.Fatalf("Failed to reload ball: %v", err)
+		}
+
+		if reloaded.State != session.StateInProgress {
+			t.Errorf("Expected state in_progress, got %s", reloaded.State)
+		}
+	})
+
+	t.Run("BallWithMultipleTags", func(t *testing.T) {
+		// Test creating a ball with multiple tags
+		ball, err := session.NewBall(env.ProjectDir, "Task with tags", session.PriorityMedium)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.State = session.StatePending
+		ball.AddTag("feature")
+		ball.AddTag("backend")
+		ball.AddTag("priority-1")
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		// Verify tags were set correctly
+		reloaded, err := store.GetBallByID(ball.ID)
+		if err != nil {
+			t.Fatalf("Failed to reload ball: %v", err)
+		}
+
+		if len(reloaded.Tags) != 3 {
+			t.Errorf("Expected 3 tags, got %d", len(reloaded.Tags))
+		}
+	})
+
+	t.Run("BallWithSessionTag", func(t *testing.T) {
+		// Test creating a ball with a session tag
+		ball, err := session.NewBall(env.ProjectDir, "Task for session", session.PriorityHigh)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.State = session.StatePending
+		ball.AddTag("my-session-id")
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		// Verify session tag is present
+		reloaded, err := store.GetBallByID(ball.ID)
+		if err != nil {
+			t.Fatalf("Failed to reload ball: %v", err)
+		}
+
+		hasSessionTag := false
+		for _, tag := range reloaded.Tags {
+			if tag == "my-session-id" {
+				hasSessionTag = true
+				break
+			}
+		}
+		if !hasSessionTag {
+			t.Error("Expected ball to have session tag")
+		}
+	})
+
+	t.Run("BallWithAllFields", func(t *testing.T) {
+		// Test creating a ball with all fields populated
+		ball, err := session.NewBall(env.ProjectDir, "Complete task", session.PriorityUrgent)
+		if err != nil {
+			t.Fatalf("Failed to create ball: %v", err)
+		}
+		ball.State = session.StateInProgress
+		ball.AddTag("feature")
+		ball.AddTag("test-session")
+		ball.SetAcceptanceCriteria([]string{"Criterion 1", "Criterion 2", "Criterion 3"})
+
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("Failed to save ball: %v", err)
+		}
+
+		// Verify all fields
+		reloaded, err := store.GetBallByID(ball.ID)
+		if err != nil {
+			t.Fatalf("Failed to reload ball: %v", err)
+		}
+
+		if reloaded.Intent != "Complete task" {
+			t.Errorf("Expected intent 'Complete task', got %s", reloaded.Intent)
+		}
+		if reloaded.Priority != session.PriorityUrgent {
+			t.Errorf("Expected priority urgent, got %s", reloaded.Priority)
+		}
+		if reloaded.State != session.StateInProgress {
+			t.Errorf("Expected state in_progress, got %s", reloaded.State)
+		}
+		if len(reloaded.Tags) != 2 {
+			t.Errorf("Expected 2 tags, got %d", len(reloaded.Tags))
+		}
+		if len(reloaded.AcceptanceCriteria) != 3 {
+			t.Errorf("Expected 3 acceptance criteria, got %d", len(reloaded.AcceptanceCriteria))
+		}
+	})
 }
 
 // Helper functions

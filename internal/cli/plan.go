@@ -28,12 +28,14 @@ Planned balls can be started later with: juggle <ball-id>`,
 }
 
 var acceptanceCriteriaFlag []string
+var stateFlag string
 
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
 	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
 	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -c/--ac instead. Sets first acceptance criterion.")
-	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "medium", "Priority: low, medium, high, urgent")
+	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "", "Priority: low, medium, high, urgent (default: medium)")
+	planCmd.Flags().StringVarP(&stateFlag, "state", "", "", "State: pending, in_progress (default: pending)")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
 	planCmd.Flags().StringVarP(&sessionFlag, "session", "s", "", "Session ID to link this ball to (adds session ID as tag)")
 	planCmd.Flags().StringVarP(&modelSizeFlag, "model-size", "m", "", "Preferred LLM model size: small, medium, large (blank for default)")
@@ -50,6 +52,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize store: %w", err)
 	}
 
+	reader := bufio.NewReader(os.Stdin)
+
 	// Get intent from: 1) positional args (joined), 2) --intent flag, 3) prompt
 	intent := ""
 	if len(args) > 0 {
@@ -58,7 +62,6 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	} else if intentFlag != "" {
 		intent = intentFlag
 	} else {
-		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("What do you plan to work on? ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -71,10 +74,52 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("intent is required")
 	}
 
-	// Validate and get priority
+	// Get priority from: 1) --priority flag, 2) interactive selection
 	priority := priorityFlag
+	if priority == "" {
+		priority = promptSelection(reader, "Priority", []string{"low", "medium", "high", "urgent"}, 1)
+	}
 	if !session.ValidatePriority(priority) {
 		return fmt.Errorf("invalid priority %q, must be one of: low, medium, high, urgent", priority)
+	}
+
+	// Get state from: 1) --state flag, 2) interactive selection
+	state := stateFlag
+	if state == "" {
+		state = promptSelection(reader, "State", []string{"pending", "in_progress"}, 0)
+	}
+	if state != "pending" && state != "in_progress" {
+		return fmt.Errorf("invalid state %q, must be one of: pending, in_progress", state)
+	}
+
+	// Get tags from: 1) --tags flag, 2) interactive prompt
+	var tags []string
+	if len(tagsFlag) > 0 {
+		tags = tagsFlag
+	} else {
+		fmt.Print("Tags (comma-separated, empty for none): ")
+		input, err := reader.ReadString('\n')
+		if err == nil {
+			input = strings.TrimSpace(input)
+			if input != "" {
+				for _, tag := range strings.Split(input, ",") {
+					tag = strings.TrimSpace(tag)
+					if tag != "" {
+						tags = append(tags, tag)
+					}
+				}
+			}
+		}
+	}
+
+	// Get session from: 1) --session flag, 2) interactive prompt
+	sessionID := sessionFlag
+	if sessionID == "" {
+		fmt.Print("Session ID (empty for none): ")
+		input, err := reader.ReadString('\n')
+		if err == nil {
+			sessionID = strings.TrimSpace(input)
+		}
 	}
 
 	// Get acceptance criteria from: 1) --ac flags, 2) legacy --description flag, 3) prompt
@@ -86,7 +131,6 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		acceptanceCriteria = []string{descriptionFlag}
 	} else {
 		// Prompt for acceptance criteria line by line
-		reader := bufio.NewReader(os.Stdin)
 		fmt.Println("Enter acceptance criteria (one per line, empty line to finish):")
 		for {
 			fmt.Print("  > ")
@@ -102,12 +146,18 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create the planned session
+	// Create the planned ball
 	ball, err := session.NewBall(cwd, intent, session.Priority(priority))
 	if err != nil {
-		return fmt.Errorf("failed to create planned session: %w", err)
+		return fmt.Errorf("failed to create planned ball: %w", err)
 	}
-	ball.State = session.StatePending
+
+	// Set state based on selection
+	if state == "in_progress" {
+		ball.State = session.StateInProgress
+	} else {
+		ball.State = session.StatePending
+	}
 
 	// Set acceptance criteria if provided
 	if len(acceptanceCriteria) > 0 {
@@ -115,13 +165,13 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Add tags if provided
-	for _, tag := range tagsFlag {
+	for _, tag := range tags {
 		ball.AddTag(tag)
 	}
 
-	// Add session ID as tag if --session flag provided
-	if sessionFlag != "" {
-		ball.AddTag(sessionFlag)
+	// Add session ID as tag if provided
+	if sessionID != "" {
+		ball.AddTag(sessionID)
 	}
 
 	// Set model size if provided
@@ -144,10 +194,39 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Planned ball added: %s\n", ball.ID)
 	fmt.Printf("  Intent: %s\n", ball.Intent)
 	fmt.Printf("  Priority: %s\n", ball.Priority)
+	fmt.Printf("  State: %s\n", ball.State)
 	if len(ball.Tags) > 0 {
 		fmt.Printf("  Tags: %s\n", strings.Join(ball.Tags, ", "))
 	}
-	fmt.Printf("\nStart working on this ball with: juggle %s in-progress\n", ball.ID)
+	if ball.State == session.StatePending {
+		fmt.Printf("\nStart working on this ball with: juggle %s in-progress\n", ball.ID)
+	}
 
 	return nil
+}
+
+// promptSelection prompts user to select from options using numbers
+func promptSelection(reader *bufio.Reader, label string, options []string, defaultIdx int) string {
+	fmt.Printf("%s:\n", label)
+	for i, opt := range options {
+		marker := " "
+		if i == defaultIdx {
+			marker = "*"
+		}
+		fmt.Printf("  %s %d. %s\n", marker, i+1, opt)
+	}
+	fmt.Printf("Enter number (default %d): ", defaultIdx+1)
+
+	input, err := reader.ReadString('\n')
+	if err != nil || strings.TrimSpace(input) == "" {
+		return options[defaultIdx]
+	}
+
+	var idx int
+	_, err = fmt.Sscanf(strings.TrimSpace(input), "%d", &idx)
+	if err != nil || idx < 1 || idx > len(options) {
+		return options[defaultIdx]
+	}
+
+	return options[idx-1]
 }

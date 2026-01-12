@@ -1405,8 +1405,8 @@ func TestAcceptanceCriteriaViewRendering(t *testing.T) {
 	}
 }
 
-// Test submitBallInput transitions to AC input for new balls
-func TestSubmitBallInputTransitionsToACInput(t *testing.T) {
+// Test submitBallInput transitions to ball form view for new balls
+func TestSubmitBallInputTransitionsToBallForm(t *testing.T) {
 	ti := textinput.New()
 	ti.CharLimit = 256
 	ti.Width = 40
@@ -1421,16 +1421,255 @@ func TestSubmitBallInputTransitionsToACInput(t *testing.T) {
 	newModel, _ := model.submitBallInput("New ball intent")
 	m := newModel.(Model)
 
-	if m.mode != inputAcceptanceCriteriaView {
-		t.Errorf("Expected mode to be inputAcceptanceCriteriaView, got %v", m.mode)
+	if m.mode != inputBallFormView {
+		t.Errorf("Expected mode to be inputBallFormView, got %v", m.mode)
 	}
 
 	if m.pendingBallIntent != "New ball intent" {
 		t.Errorf("Expected pendingBallIntent to be 'New ball intent', got %s", m.pendingBallIntent)
 	}
 
+	if m.pendingBallPriority != 1 {
+		t.Errorf("Expected pendingBallPriority to be 1 (medium), got %d", m.pendingBallPriority)
+	}
+
+	if m.pendingBallState != 0 {
+		t.Errorf("Expected pendingBallState to be 0 (pending), got %d", m.pendingBallState)
+	}
+
 	if len(m.pendingAcceptanceCriteria) != 0 {
 		t.Errorf("Expected pendingAcceptanceCriteria to be empty, got %d", len(m.pendingAcceptanceCriteria))
+	}
+}
+
+// Test ball form view navigation with arrow keys
+func TestBallFormNavigation(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallIntent:    "Test ball",
+		pendingBallFormField: 0, // Start at priority
+		pendingBallPriority:  1, // medium
+		pendingBallState:     0, // pending
+		textInput:            ti,
+		sessions:             []*session.JuggleSession{},
+	}
+
+	// Test down navigation
+	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
+	m := newModel.(Model)
+	if m.pendingBallFormField != 1 {
+		t.Errorf("Expected field to be 1 after down, got %d", m.pendingBallFormField)
+	}
+
+	// Test up navigation
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyUp})
+	m = newModel.(Model)
+	if m.pendingBallFormField != 0 {
+		t.Errorf("Expected field to be 0 after up, got %d", m.pendingBallFormField)
+	}
+
+	// Test wrap around down
+	m.pendingBallFormField = 3 // session field (last)
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(Model)
+	if m.pendingBallFormField != 0 {
+		t.Errorf("Expected field to wrap to 0, got %d", m.pendingBallFormField)
+	}
+
+	// Test wrap around up
+	m.pendingBallFormField = 0
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyUp})
+	m = newModel.(Model)
+	if m.pendingBallFormField != 3 {
+		t.Errorf("Expected field to wrap to 3, got %d", m.pendingBallFormField)
+	}
+}
+
+// Test ball form priority selection
+func TestBallFormPrioritySelection(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallFormField: 0, // priority field
+		pendingBallPriority:  1, // medium
+		textInput:            ti,
+		sessions:             []*session.JuggleSession{},
+	}
+
+	// Test right to cycle to high
+	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
+	m := newModel.(Model)
+	if m.pendingBallPriority != 2 {
+		t.Errorf("Expected priority to be 2 (high) after right, got %d", m.pendingBallPriority)
+	}
+
+	// Test left to cycle back to medium
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyLeft})
+	m = newModel.(Model)
+	if m.pendingBallPriority != 1 {
+		t.Errorf("Expected priority to be 1 (medium) after left, got %d", m.pendingBallPriority)
+	}
+
+	// Test wrap around right
+	m.pendingBallPriority = 3 // urgent
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
+	m = newModel.(Model)
+	if m.pendingBallPriority != 0 {
+		t.Errorf("Expected priority to wrap to 0 (low), got %d", m.pendingBallPriority)
+	}
+
+	// Test wrap around left
+	m.pendingBallPriority = 0 // low
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyLeft})
+	m = newModel.(Model)
+	if m.pendingBallPriority != 3 {
+		t.Errorf("Expected priority to wrap to 3 (urgent), got %d", m.pendingBallPriority)
+	}
+}
+
+// Test ball form state selection
+func TestBallFormStateSelection(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallFormField: 1, // state field
+		pendingBallState:     0, // pending
+		textInput:            ti,
+		sessions:             []*session.JuggleSession{},
+	}
+
+	// Test right to cycle to in_progress
+	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
+	m := newModel.(Model)
+	if m.pendingBallState != 1 {
+		t.Errorf("Expected state to be 1 (in_progress) after right, got %d", m.pendingBallState)
+	}
+
+	// Test wrap around right
+	newModel, _ = m.handleBallFormKey(tea.KeyMsg{Type: tea.KeyRight})
+	m = newModel.(Model)
+	if m.pendingBallState != 0 {
+		t.Errorf("Expected state to wrap to 0 (pending), got %d", m.pendingBallState)
+	}
+}
+
+// Test ball form enter transitions to AC input
+func TestBallFormEnterTransitionsToACInput(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallIntent:    "Test ball",
+		pendingBallFormField: 0,
+		pendingBallPriority:  2, // high
+		pendingBallState:     1, // in_progress
+		pendingBallTags:      "tag1, tag2",
+		pendingBallSession:   0,
+		textInput:            ti,
+		activityLog:          make([]ActivityEntry, 0),
+		sessions:             []*session.JuggleSession{},
+	}
+
+	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyEnter})
+	m := newModel.(Model)
+
+	if m.mode != inputAcceptanceCriteriaView {
+		t.Errorf("Expected mode to be inputAcceptanceCriteriaView after enter, got %v", m.mode)
+	}
+}
+
+// Test ball form escape cancels
+func TestBallFormEscapeCancels(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallIntent:    "Test ball",
+		pendingBallFormField: 0,
+		pendingBallPriority:  2,
+		pendingBallState:     1,
+		pendingBallTags:      "tag1",
+		textInput:            ti,
+		activityLog:          make([]ActivityEntry, 0),
+		sessions:             []*session.JuggleSession{},
+	}
+
+	newModel, _ := model.handleBallFormKey(tea.KeyMsg{Type: tea.KeyEscape})
+	m := newModel.(Model)
+
+	if m.mode != splitView {
+		t.Errorf("Expected mode to be splitView after escape, got %v", m.mode)
+	}
+
+	if m.pendingBallIntent != "" {
+		t.Errorf("Expected pendingBallIntent to be cleared, got %s", m.pendingBallIntent)
+	}
+
+	if m.pendingBallTags != "" {
+		t.Errorf("Expected pendingBallTags to be cleared, got %s", m.pendingBallTags)
+	}
+}
+
+// Test ball form view renders correctly
+func TestBallFormViewRenders(t *testing.T) {
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 40
+
+	model := Model{
+		mode:                 inputBallFormView,
+		pendingBallIntent:    "Test ball intent",
+		pendingBallFormField: 0,
+		pendingBallPriority:  1, // medium
+		pendingBallState:     0, // pending
+		pendingBallTags:      "",
+		pendingBallSession:   0,
+		textInput:            ti,
+		sessions: []*session.JuggleSession{
+			{ID: "test-session"},
+		},
+	}
+
+	view := model.renderBallFormView()
+
+	// Check title
+	if !strings.Contains(view, "Create New Ball") {
+		t.Error("Expected view to contain 'Create New Ball' title")
+	}
+
+	// Check intent is shown
+	if !strings.Contains(view, "Test ball intent") {
+		t.Error("Expected view to contain the ball intent")
+	}
+
+	// Check priority options are shown
+	if !strings.Contains(view, "low") || !strings.Contains(view, "medium") ||
+		!strings.Contains(view, "high") || !strings.Contains(view, "urgent") {
+		t.Error("Expected view to contain priority options")
+	}
+
+	// Check state options are shown
+	if !strings.Contains(view, "pending") || !strings.Contains(view, "in_progress") {
+		t.Error("Expected view to contain state options")
+	}
+
+	// Check help text
+	if !strings.Contains(view, "Enter = continue to ACs") {
+		t.Error("Expected view to contain help text")
 	}
 }
 

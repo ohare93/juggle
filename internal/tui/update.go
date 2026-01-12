@@ -24,6 +24,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleAcceptanceCriteriaKey(msg)
 		}
 
+		// Handle ball form view (multi-field form with selection)
+		if m.mode == inputBallFormView {
+			return m.handleBallFormKey(msg)
+		}
+
 		// Handle input modes (text entry)
 		if m.mode == inputSessionView || m.mode == inputBallView || m.mode == inputBlockedView || m.mode == inputTagView {
 			return m.handleInputKey(msg)
@@ -1322,14 +1327,19 @@ func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
 // submitBallInput handles ball add/edit submission
 func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 	if m.inputAction == actionAdd {
-		// Store the intent and transition to acceptance criteria input
+		// Store the intent and transition to ball form view
 		m.pendingBallIntent = value
 		m.pendingAcceptanceCriteria = []string{}
+		m.pendingBallPriority = 1 // Default to medium (index 1)
+		m.pendingBallState = 0    // Default to pending (index 0)
+		m.pendingBallTags = ""
+		m.pendingBallSession = 0 // Default to (none)
+		m.pendingBallFormField = 0
 		m.textInput.Reset()
-		m.textInput.Placeholder = "Acceptance criterion (empty to finish)"
-		m.textInput.Focus()
-		m.mode = inputAcceptanceCriteriaView
-		m.addActivity("Enter acceptance criteria (empty line to finish)")
+		m.textInput.Placeholder = "tag1, tag2, ..."
+		m.textInput.Blur() // Start with selection fields, not text
+		m.mode = inputBallFormView
+		m.addActivity("Configure ball properties")
 		return m, nil
 	} else {
 		// Edit ball intent
@@ -1408,21 +1418,187 @@ func (m Model) handleAcceptanceCriteriaKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	}
 }
 
-// finalizeBallCreation creates the ball with the collected intent and acceptance criteria
-func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
-	// Create new ball using the store's project directory
-	ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, session.PriorityMedium)
-	if err != nil {
-		m.message = "Error creating ball: " + err.Error()
+// handleBallFormKey handles keyboard input for the multi-field ball form
+func (m Model) handleBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Field indices: 0=priority, 1=state, 2=tags, 3=session
+	const (
+		fieldPriority = 0
+		fieldState    = 1
+		fieldTags     = 2
+		fieldSession  = 3
+		numFields     = 4
+	)
+
+	// Number of options for each selection field
+	numPriorityOptions := 4 // low, medium, high, urgent
+	numStateOptions := 2    // pending, in_progress
+
+	// Count real sessions (excluding pseudo-sessions)
+	numSessionOptions := 1 // Start with "(none)"
+	for _, sess := range m.sessions {
+		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+			numSessionOptions++
+		}
+	}
+
+	switch msg.String() {
+	case "esc":
+		// Cancel input - clear pending state
 		m.pendingBallIntent = ""
 		m.pendingAcceptanceCriteria = nil
+		m.pendingBallTags = ""
+		m.mode = splitView
+		m.message = "Cancelled"
+		m.textInput.Blur()
+		return m, nil
+
+	case "enter":
+		// Save tags value if on tags field
+		if m.pendingBallFormField == fieldTags {
+			m.pendingBallTags = strings.TrimSpace(m.textInput.Value())
+		}
+		// Proceed to acceptance criteria entry
+		m.textInput.Reset()
+		m.textInput.Placeholder = "Acceptance criterion (empty to finish)"
+		m.textInput.Focus()
+		m.mode = inputAcceptanceCriteriaView
+		m.addActivity("Enter acceptance criteria (empty line to finish)")
+		return m, nil
+
+	case "up", "k":
+		// Move to previous field
+		if m.pendingBallFormField == fieldTags {
+			// Save current tags value before moving
+			m.pendingBallTags = strings.TrimSpace(m.textInput.Value())
+			m.textInput.Blur()
+		}
+		m.pendingBallFormField--
+		if m.pendingBallFormField < 0 {
+			m.pendingBallFormField = numFields - 1
+		}
+		// Focus text input if on tags field
+		if m.pendingBallFormField == fieldTags {
+			m.textInput.SetValue(m.pendingBallTags)
+			m.textInput.Focus()
+		}
+		return m, nil
+
+	case "down", "j":
+		// Move to next field
+		if m.pendingBallFormField == fieldTags {
+			// Save current tags value before moving
+			m.pendingBallTags = strings.TrimSpace(m.textInput.Value())
+			m.textInput.Blur()
+		}
+		m.pendingBallFormField++
+		if m.pendingBallFormField >= numFields {
+			m.pendingBallFormField = 0
+		}
+		// Focus text input if on tags field
+		if m.pendingBallFormField == fieldTags {
+			m.textInput.SetValue(m.pendingBallTags)
+			m.textInput.Focus()
+		}
+		return m, nil
+
+	case "left", "h":
+		// Cycle selection left (for non-text fields)
+		switch m.pendingBallFormField {
+		case fieldPriority:
+			m.pendingBallPriority--
+			if m.pendingBallPriority < 0 {
+				m.pendingBallPriority = numPriorityOptions - 1
+			}
+		case fieldState:
+			m.pendingBallState--
+			if m.pendingBallState < 0 {
+				m.pendingBallState = numStateOptions - 1
+			}
+		case fieldSession:
+			m.pendingBallSession--
+			if m.pendingBallSession < 0 {
+				m.pendingBallSession = numSessionOptions - 1
+			}
+		}
+		return m, nil
+
+	case "right", "l", "tab":
+		// Cycle selection right (for non-text fields)
+		switch m.pendingBallFormField {
+		case fieldPriority:
+			m.pendingBallPriority++
+			if m.pendingBallPriority >= numPriorityOptions {
+				m.pendingBallPriority = 0
+			}
+		case fieldState:
+			m.pendingBallState++
+			if m.pendingBallState >= numStateOptions {
+				m.pendingBallState = 0
+			}
+		case fieldSession:
+			m.pendingBallSession++
+			if m.pendingBallSession >= numSessionOptions {
+				m.pendingBallSession = 0
+			}
+		}
+		return m, nil
+
+	default:
+		// Pass to textinput only if on tags field
+		if m.pendingBallFormField == fieldTags {
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+	}
+}
+
+// finalizeBallCreation creates the ball with the collected intent and acceptance criteria
+func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
+	// Map priority index to Priority constant
+	priorities := []session.Priority{session.PriorityLow, session.PriorityMedium, session.PriorityHigh, session.PriorityUrgent}
+	priority := priorities[m.pendingBallPriority]
+
+	// Create new ball using the store's project directory
+	ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, priority)
+	if err != nil {
+		m.message = "Error creating ball: " + err.Error()
+		m.clearPendingBallState()
 		m.mode = splitView
 		return m, nil
 	}
 
-	// Add session tag if a session is selected
-	if m.selectedSession != nil && m.selectedSession.ID != PseudoSessionAll && m.selectedSession.ID != PseudoSessionUntagged {
-		ball.Tags = append(ball.Tags, m.selectedSession.ID)
+	// Set state based on form selection (0=pending, 1=in_progress)
+	if m.pendingBallState == 1 {
+		ball.State = session.StateInProgress
+	} else {
+		ball.State = session.StatePending
+	}
+
+	// Add tags from the form (comma-separated)
+	if m.pendingBallTags != "" {
+		tags := strings.Split(m.pendingBallTags, ",")
+		for _, tag := range tags {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				ball.Tags = append(ball.Tags, tag)
+			}
+		}
+	}
+
+	// Add session tag if selected in form (0 = none, 1+ = session index)
+	if m.pendingBallSession > 0 {
+		// Get real sessions (excluding pseudo-sessions)
+		realSessions := []*session.JuggleSession{}
+		for _, sess := range m.sessions {
+			if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+				realSessions = append(realSessions, sess)
+			}
+		}
+		if m.pendingBallSession-1 < len(realSessions) {
+			ball.Tags = append(ball.Tags, realSessions[m.pendingBallSession-1].ID)
+		}
 	}
 
 	// Set acceptance criteria if any were collected
@@ -1434,8 +1610,7 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	err = m.store.AppendBall(ball)
 	if err != nil {
 		m.message = "Error creating ball: " + err.Error()
-		m.pendingBallIntent = ""
-		m.pendingAcceptanceCriteria = nil
+		m.clearPendingBallState()
 		m.mode = splitView
 		return m, nil
 	}
@@ -1444,12 +1619,22 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	m.message = "Created ball: " + ball.ID
 
 	// Clear pending state
-	m.pendingBallIntent = ""
-	m.pendingAcceptanceCriteria = nil
+	m.clearPendingBallState()
 	m.textInput.Blur()
 	m.mode = splitView
 
 	return m, loadBalls(m.store, m.config, m.localOnly)
+}
+
+// clearPendingBallState clears all pending ball creation state
+func (m *Model) clearPendingBallState() {
+	m.pendingBallIntent = ""
+	m.pendingAcceptanceCriteria = nil
+	m.pendingBallPriority = 1 // Reset to default (medium)
+	m.pendingBallState = 0    // Reset to default (pending)
+	m.pendingBallTags = ""
+	m.pendingBallSession = 0
+	m.pendingBallFormField = 0
 }
 
 // handleSplitConfirmDelete handles yes/no for delete confirmation
