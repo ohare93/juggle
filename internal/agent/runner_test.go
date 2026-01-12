@@ -13,7 +13,7 @@ func TestMockRunner_Run(t *testing.T) {
 		)
 
 		// First call
-		result, err := mock.Run("prompt1", false, 0)
+		result, err := mock.Run("prompt1", false, 0, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -25,7 +25,7 @@ func TestMockRunner_Run(t *testing.T) {
 		}
 
 		// Second call
-		result, err = mock.Run("prompt2", true, 0)
+		result, err = mock.Run("prompt2", true, 0, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -43,9 +43,9 @@ func TestMockRunner_Run(t *testing.T) {
 	t.Run("records all calls", func(t *testing.T) {
 		mock := NewMockRunner(&RunResult{Output: "ok"})
 
-		mock.Run("prompt1", false, 0)
-		mock.Run("prompt2", true, 0)
-		mock.Run("prompt3", false, 0)
+		mock.Run("prompt1", false, 0, false)
+		mock.Run("prompt2", true, 0, false)
+		mock.Run("prompt3", false, 0, false)
 
 		if len(mock.Calls) != 3 {
 			t.Fatalf("expected 3 calls, got %d", len(mock.Calls))
@@ -70,10 +70,10 @@ func TestMockRunner_Run(t *testing.T) {
 		mock := NewMockRunner(&RunResult{Output: "only one"})
 
 		// First call succeeds
-		mock.Run("first", false, 0)
+		mock.Run("first", false, 0, false)
 
 		// Second call should return default blocked
-		result, err := mock.Run("second", false, 0)
+		result, err := mock.Run("second", false, 0, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -91,8 +91,8 @@ func TestMockRunner_Run(t *testing.T) {
 			&RunResult{Output: "second"},
 		)
 
-		mock.Run("prompt1", false, 0)
-		mock.Run("prompt2", false, 0)
+		mock.Run("prompt1", false, 0, false)
+		mock.Run("prompt2", false, 0, false)
 
 		mock.Reset()
 
@@ -104,7 +104,7 @@ func TestMockRunner_Run(t *testing.T) {
 		}
 
 		// Should return first response again
-		result, _ := mock.Run("new prompt", false, 0)
+		result, _ := mock.Run("new prompt", false, 0, false)
 		if result.Output != "first" {
 			t.Errorf("expected 'first' after reset, got '%s'", result.Output)
 		}
@@ -113,16 +113,16 @@ func TestMockRunner_Run(t *testing.T) {
 	t.Run("SetResponses replaces queue", func(t *testing.T) {
 		mock := NewMockRunner(&RunResult{Output: "old"})
 
-		mock.Run("prompt", false, 0) // Consume old response
+		mock.Run("prompt", false, 0, false) // Consume old response
 
 		mock.SetResponses(&RunResult{Output: "new1"}, &RunResult{Output: "new2"})
 
-		result, _ := mock.Run("prompt", false, 0)
+		result, _ := mock.Run("prompt", false, 0, false)
 		if result.Output != "new1" {
 			t.Errorf("expected 'new1', got '%s'", result.Output)
 		}
 
-		result, _ = mock.Run("prompt", false, 0)
+		result, _ = mock.Run("prompt", false, 0, false)
 		if result.Output != "new2" {
 			t.Errorf("expected 'new2', got '%s'", result.Output)
 		}
@@ -132,7 +132,7 @@ func TestMockRunner_Run(t *testing.T) {
 		mock := NewMockRunner(&RunResult{Output: "ok"})
 
 		timeout := 5 * time.Minute
-		mock.Run("prompt", false, timeout)
+		mock.Run("prompt", false, timeout, false)
 
 		if len(mock.Calls) != 1 {
 			t.Fatalf("expected 1 call, got %d", len(mock.Calls))
@@ -146,7 +146,7 @@ func TestMockRunner_Run(t *testing.T) {
 	t.Run("returns timed out result", func(t *testing.T) {
 		mock := NewMockRunner(&RunResult{TimedOut: true, Output: "partial output before timeout"})
 
-		result, err := mock.Run("prompt", false, 5*time.Minute)
+		result, err := mock.Run("prompt", false, 5*time.Minute, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -399,7 +399,7 @@ func TestMockRunner_RateLimited(t *testing.T) {
 			RetryAfter:  30 * time.Second,
 		})
 
-		result, err := mock.Run("prompt", false, 0)
+		result, err := mock.Run("prompt", false, 0, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

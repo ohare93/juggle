@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	agentIterations int
-	agentTrust      bool
-	agentTimeout    time.Duration
-	agentDebug      bool
-	agentMaxWait    time.Duration
-	agentBallID     string
+	agentIterations  int
+	agentTrust       bool
+	agentTimeout     time.Duration
+	agentDebug       bool
+	agentMaxWait     time.Duration
+	agentBallID      string
+	agentInteractive bool
 )
 
 // agentCmd is the parent command for agent operations
@@ -52,11 +53,14 @@ Examples:
   # Run for specific number of iterations
   juggle agent run my-feature --iterations 5
 
-  # Work on a specific ball only (defaults to 1 iteration)
+  # Work on a specific ball only (1 iteration, interactive mode)
   juggle agent run my-feature --ball juggler-5
 
-  # Work on specific ball with multiple iterations
+  # Work on specific ball with multiple iterations (non-interactive)
   juggle agent run my-feature --ball juggler-5 -n 3
+
+  # Run in interactive mode (full Claude TUI)
+  juggle agent run my-feature --interactive
 
   # Run with full permissions (dangerous)
   juggle agent run my-feature --trust
@@ -76,7 +80,8 @@ func init() {
 	agentRunCmd.Flags().DurationVarP(&agentTimeout, "timeout", "T", 0, "Timeout per iteration (e.g., 5m, 1h). 0 = no timeout")
 	agentRunCmd.Flags().BoolVar(&agentDebug, "debug", false, "Add reasoning instructions to agent prompt")
 	agentRunCmd.Flags().DurationVar(&agentMaxWait, "max-wait", 0, "Maximum wait time for rate limits before giving up (e.g., 30m). 0 = wait indefinitely")
-	agentRunCmd.Flags().StringVarP(&agentBallID, "ball", "b", "", "Work on a specific ball only (defaults to 1 iteration)")
+	agentRunCmd.Flags().StringVarP(&agentBallID, "ball", "b", "", "Work on a specific ball only (defaults to 1 iteration, interactive)")
+	agentRunCmd.Flags().BoolVarP(&agentInteractive, "interactive", "i", false, "Run in interactive mode (full Claude TUI, defaults to 1 iteration)")
 
 	agentCmd.AddCommand(agentRunCmd)
 	rootCmd.AddCommand(agentCmd)
@@ -110,6 +115,7 @@ type AgentLoopConfig struct {
 	Timeout       time.Duration // Timeout per iteration (0 = no timeout)
 	MaxWait       time.Duration // Maximum time to wait for rate limits (0 = wait indefinitely)
 	BallID        string        // Specific ball to work on (empty = all session balls)
+	Interactive   bool          // Run in interactive mode (full Claude TUI)
 }
 
 // RunAgentLoop executes the agent loop with the given configuration.
@@ -162,7 +168,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		}
 
 		// Run agent with prompt using the Runner interface
-		runResult, err := agent.DefaultRunner.Run(prompt, config.Trust, config.Timeout)
+		runResult, err := agent.DefaultRunner.Run(prompt, config.Trust, config.Timeout, config.Interactive)
 		if err != nil {
 			return nil, fmt.Errorf("failed to run agent: %w", err)
 		}
@@ -331,10 +337,16 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Determine iterations (default to 1 when --ball is specified, unless -n was explicitly set)
+	// Determine iterations and interactive mode
+	// Default to 1 iteration when --ball or --interactive is specified (unless -n was explicitly set)
 	iterations := agentIterations
-	if agentBallID != "" && !cmd.Flags().Changed("iterations") {
+	interactive := agentInteractive
+	if (agentBallID != "" || agentInteractive) && !cmd.Flags().Changed("iterations") {
 		iterations = 1
+	}
+	// --ball implies interactive mode (unless -n was explicitly set for multiple iterations)
+	if agentBallID != "" && !cmd.Flags().Changed("iterations") {
+		interactive = true
 	}
 
 	// Print warning if --trust is used
@@ -368,6 +380,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		Timeout:       agentTimeout,
 		MaxWait:       agentMaxWait,
 		BallID:        agentBallID,
+		Interactive:   interactive,
 	}
 
 	result, err := RunAgentLoop(loopConfig)

@@ -33,7 +33,8 @@ type Runner interface {
 	// Run executes the agent with the given prompt and returns the result.
 	// The trust parameter controls permission levels (true = full permissions).
 	// The timeout parameter sets a maximum duration (0 = no timeout).
-	Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error)
+	// The interactive parameter runs without -p flag for full TUI mode.
+	Run(prompt string, trust bool, timeout time.Duration, interactive bool) (*RunResult, error)
 }
 
 // DefaultRunner is the package-level runner used for agent operations.
@@ -57,13 +58,17 @@ const autonomousSystemPrompt = `CRITICAL: You are an autonomous agent. DO NOT as
 type ClaudeRunner struct{}
 
 // Run executes Claude with the given prompt
-func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error) {
+func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration, interactive bool) (*RunResult, error) {
 	result := &RunResult{}
 
 	// Build command arguments
 	args := []string{
 		"--disable-slash-commands",
-		"--append-system-prompt", autonomousSystemPrompt,
+	}
+
+	// Only append autonomous system prompt in non-interactive mode
+	if !interactive {
+		args = append(args, "--append-system-prompt", autonomousSystemPrompt)
 	}
 
 	if trust {
@@ -73,8 +78,10 @@ func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration) (*R
 		args = append(args, "--permission-mode", "acceptEdits")
 	}
 
-	// Add prompt input flag
-	args = append(args, "-p", "-")
+	// Add prompt input flag only in non-interactive mode
+	if !interactive {
+		args = append(args, "-p", "-")
+	}
 
 	// Create context with timeout if specified
 	var ctx context.Context
@@ -88,39 +95,54 @@ func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration) (*R
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
 
-	// Set up stdin with prompt
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
-	}
-
-	// Set up combined stdout/stderr capture
 	var outputBuf strings.Builder
+	var err error
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+	if interactive {
+		// Interactive mode: pass prompt as argument, inherit terminal
+		args = append(args, prompt)
+		cmd.Args = append([]string{"claude"}, args...)
+
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Start command
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start claude: %w", err)
+		}
+	} else {
+		// Non-interactive mode: pipe prompt through stdin
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
+		}
+
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+		}
+
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+		}
+
+		// Start command
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start claude: %w", err)
+		}
+
+		// Write prompt to stdin
+		go func() {
+			defer stdin.Close()
+			io.WriteString(stdin, prompt)
+		}()
+
+		// Stream output to console and capture
+		go streamOutput(stdout, &outputBuf, os.Stdout)
+		go streamOutput(stderr, &outputBuf, os.Stderr)
 	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	// Start command
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start claude: %w", err)
-	}
-
-	// Write prompt to stdin
-	go func() {
-		defer stdin.Close()
-		io.WriteString(stdin, prompt)
-	}()
-
-	// Stream output to console and capture
-	go streamOutput(stdout, &outputBuf, os.Stdout)
-	go streamOutput(stderr, &outputBuf, os.Stderr)
 
 	// Wait for command to complete
 	err = cmd.Wait()
@@ -277,9 +299,10 @@ type MockRunner struct {
 
 // MockCall records the arguments of a single Run call
 type MockCall struct {
-	Prompt  string
-	Trust   bool
-	Timeout time.Duration
+	Prompt      string
+	Trust       bool
+	Timeout     time.Duration
+	Interactive bool
 }
 
 // NewMockRunner creates a new MockRunner with the given responses
@@ -291,8 +314,8 @@ func NewMockRunner(responses ...*RunResult) *MockRunner {
 }
 
 // Run records the call and returns the next queued response
-func (m *MockRunner) Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error) {
-	m.Calls = append(m.Calls, MockCall{Prompt: prompt, Trust: trust, Timeout: timeout})
+func (m *MockRunner) Run(prompt string, trust bool, timeout time.Duration, interactive bool) (*RunResult, error) {
+	m.Calls = append(m.Calls, MockCall{Prompt: prompt, Trust: trust, Timeout: timeout, Interactive: interactive})
 
 	if m.NextIndex >= len(m.Responses) {
 		// Return a default blocked result if no more responses queued
