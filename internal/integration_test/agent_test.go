@@ -3,6 +3,7 @@ package integration_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ohare93/juggle/internal/agent"
 	"github.com/ohare93/juggle/internal/cli"
@@ -739,5 +740,125 @@ func TestAgentLoop_ContinueSignalContinuesLoop(t *testing.T) {
 	// Should not be complete (balls are still pending)
 	if result.Complete {
 		t.Error("Expected result.Complete=false (balls still pending)")
+	}
+}
+
+func TestAgentLoop_TimeoutExitsLoop(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create a session
+	env.CreateSession(t, "test-session", "Test session for agent")
+
+	// Create a ball tagged with the session
+	ball := env.CreateBall(t, "Test ball", session.PriorityMedium)
+	ball.Tags = []string{"test-session"}
+	store := env.GetStore(t)
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Setup mock runner that returns TIMED_OUT
+	mock := agent.NewMockRunner(
+		&agent.RunResult{
+			Output:   "Working...",
+			TimedOut: true,
+		},
+	)
+	agent.SetRunner(mock)
+	defer agent.ResetRunner()
+
+	// Run the agent loop with timeout
+	config := cli.AgentLoopConfig{
+		SessionID:     "test-session",
+		ProjectDir:    env.ProjectDir,
+		MaxIterations: 5,
+		Trust:         false,
+		IterDelay:     0,
+		Timeout:       5 * time.Minute,
+	}
+
+	result, err := cli.RunAgentLoop(config)
+	if err != nil {
+		t.Fatalf("Agent run failed: %v", err)
+	}
+
+	// Verify runner was only called once (loop exited on timeout)
+	if len(mock.Calls) != 1 {
+		t.Errorf("Expected 1 call to runner (exited on timeout), got %d", len(mock.Calls))
+	}
+
+	// Verify timeout was passed to runner
+	if mock.Calls[0].Timeout != 5*time.Minute {
+		t.Errorf("Expected timeout 5m passed to runner, got %v", mock.Calls[0].Timeout)
+	}
+
+	// Verify result shows timed out
+	if !result.TimedOut {
+		t.Error("Expected result.TimedOut=true")
+	}
+	if result.Complete {
+		t.Error("Expected result.Complete=false")
+	}
+	if result.Blocked {
+		t.Error("Expected result.Blocked=false")
+	}
+	if result.TimeoutMessage == "" {
+		t.Error("Expected TimeoutMessage to be set")
+	}
+}
+
+func TestAgentLoop_TimeoutLogsToProgress(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	// Create a session
+	env.CreateSession(t, "test-session", "Test session for agent")
+
+	// Create a ball tagged with the session
+	ball := env.CreateBall(t, "Test ball", session.PriorityMedium)
+	ball.Tags = []string{"test-session"}
+	store := env.GetStore(t)
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Setup mock runner that returns TIMED_OUT
+	mock := agent.NewMockRunner(
+		&agent.RunResult{
+			Output:   "Working...",
+			TimedOut: true,
+		},
+	)
+	agent.SetRunner(mock)
+	defer agent.ResetRunner()
+
+	// Run the agent loop with timeout
+	config := cli.AgentLoopConfig{
+		SessionID:     "test-session",
+		ProjectDir:    env.ProjectDir,
+		MaxIterations: 5,
+		Trust:         false,
+		IterDelay:     0,
+		Timeout:       5 * time.Minute,
+	}
+
+	_, err := cli.RunAgentLoop(config)
+	if err != nil {
+		t.Fatalf("Agent run failed: %v", err)
+	}
+
+	// Verify timeout was logged to progress
+	sessionStore := env.GetSessionStore(t)
+	progress, err := sessionStore.LoadProgress("test-session")
+	if err != nil {
+		t.Fatalf("Failed to load progress: %v", err)
+	}
+
+	if !strings.Contains(progress, "[TIMEOUT]") {
+		t.Error("Expected [TIMEOUT] entry in progress log")
+	}
+	if !strings.Contains(progress, "Iteration 1 timed out") {
+		t.Error("Expected timeout message to contain iteration info")
 	}
 }

@@ -14,6 +14,7 @@ import (
 var (
 	agentIterations int
 	agentTrust      bool
+	agentTimeout    time.Duration
 )
 
 // agentCmd is the parent command for agent operations
@@ -44,7 +45,10 @@ Examples:
   juggle agent run my-feature --iterations 5
 
   # Run with full permissions (dangerous)
-  juggle agent run my-feature --trust`,
+  juggle agent run my-feature --trust
+
+  # Run with 5 minute timeout per iteration
+  juggle agent run my-feature --timeout 5m`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAgentRun,
 }
@@ -52,6 +56,7 @@ Examples:
 func init() {
 	agentRunCmd.Flags().IntVarP(&agentIterations, "iterations", "n", 10, "Maximum number of iterations")
 	agentRunCmd.Flags().BoolVar(&agentTrust, "trust", false, "Run with --dangerously-skip-permissions (dangerous!)")
+	agentRunCmd.Flags().DurationVarP(&agentTimeout, "timeout", "T", 0, "Timeout per iteration (e.g., 5m, 1h). 0 = no timeout")
 
 	agentCmd.AddCommand(agentRunCmd)
 	rootCmd.AddCommand(agentCmd)
@@ -59,15 +64,17 @@ func init() {
 
 // AgentResult holds the result of an agent run
 type AgentResult struct {
-	Iterations    int       `json:"iterations"`
-	Complete      bool      `json:"complete"`
-	Blocked       bool      `json:"blocked"`
-	BlockedReason string    `json:"blocked_reason,omitempty"`
-	BallsComplete int       `json:"balls_complete"`
-	BallsBlocked  int       `json:"balls_blocked"`
-	BallsTotal    int       `json:"balls_total"`
-	StartedAt     time.Time `json:"started_at"`
-	EndedAt       time.Time `json:"ended_at"`
+	Iterations     int       `json:"iterations"`
+	Complete       bool      `json:"complete"`
+	Blocked        bool      `json:"blocked"`
+	BlockedReason  string    `json:"blocked_reason,omitempty"`
+	TimedOut       bool      `json:"timed_out"`
+	TimeoutMessage string    `json:"timeout_message,omitempty"`
+	BallsComplete  int       `json:"balls_complete"`
+	BallsBlocked   int       `json:"balls_blocked"`
+	BallsTotal     int       `json:"balls_total"`
+	StartedAt      time.Time `json:"started_at"`
+	EndedAt        time.Time `json:"ended_at"`
 }
 
 // AgentLoopConfig configures the agent loop behavior
@@ -77,6 +84,7 @@ type AgentLoopConfig struct {
 	MaxIterations int
 	Trust         bool
 	IterDelay     time.Duration // Delay between iterations (set to 0 for tests)
+	Timeout       time.Duration // Timeout per iteration (0 = no timeout)
 }
 
 // RunAgentLoop executes the agent loop with the given configuration.
@@ -111,9 +119,18 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 		}
 
 		// Run agent with prompt using the Runner interface
-		runResult, err := agent.DefaultRunner.Run(prompt, config.Trust)
+		runResult, err := agent.DefaultRunner.Run(prompt, config.Trust, config.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("failed to run agent: %w", err)
+		}
+
+		// Check for timeout
+		if runResult.TimedOut {
+			result.TimedOut = true
+			result.TimeoutMessage = fmt.Sprintf("Iteration %d timed out after %v", iteration, config.Timeout)
+			// Log timeout to progress
+			logTimeoutToProgress(config.ProjectDir, config.SessionID, result.TimeoutMessage)
+			break
 		}
 
 		// Save output to file (ignore errors for test compatibility)
@@ -195,6 +212,11 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Max iterations: %d\n", agentIterations)
 	fmt.Println()
 
+	// Print timeout if specified
+	if agentTimeout > 0 {
+		fmt.Printf("Timeout per iteration: %v\n", agentTimeout)
+	}
+
 	// Run the agent loop
 	loopConfig := AgentLoopConfig{
 		SessionID:     sessionID,
@@ -202,6 +224,7 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		MaxIterations: agentIterations,
 		Trust:         agentTrust,
 		IterDelay:     2 * time.Second,
+		Timeout:       agentTimeout,
 	}
 
 	result, err := RunAgentLoop(loopConfig)
@@ -222,6 +245,8 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		fmt.Println("Status: COMPLETE")
 	} else if result.Blocked {
 		fmt.Printf("Status: BLOCKED (%s)\n", result.BlockedReason)
+	} else if result.TimedOut {
+		fmt.Printf("Status: TIMEOUT (%s)\n", result.TimeoutMessage)
 	} else {
 		fmt.Println("Status: Max iterations reached")
 	}
@@ -329,4 +354,15 @@ func checkBallsTerminal(projectDir, sessionID string) (terminal, complete, block
 	}
 
 	return terminal, complete, blocked, total
+}
+
+// logTimeoutToProgress logs a timeout event to the session's progress file
+func logTimeoutToProgress(projectDir, sessionID, message string) {
+	sessionStore, err := session.NewSessionStore(projectDir)
+	if err != nil {
+		return // Ignore errors - logging is best-effort
+	}
+
+	entry := fmt.Sprintf("[TIMEOUT] %s", message)
+	_ = sessionStore.AppendProgress(sessionID, entry)
 }

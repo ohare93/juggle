@@ -4,11 +4,13 @@ package agent
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // RunResult represents the outcome of a single agent run
@@ -19,6 +21,7 @@ type RunResult struct {
 	Continue      bool // Agent completed one ball, more remain - signals loop to continue to next iteration
 	Blocked       bool
 	BlockedReason string
+	TimedOut      bool
 	Error         error
 }
 
@@ -27,7 +30,8 @@ type RunResult struct {
 type Runner interface {
 	// Run executes the agent with the given prompt and returns the result.
 	// The trust parameter controls permission levels (true = full permissions).
-	Run(prompt string, trust bool) (*RunResult, error)
+	// The timeout parameter sets a maximum duration (0 = no timeout).
+	Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error)
 }
 
 // DefaultRunner is the package-level runner used for agent operations.
@@ -51,7 +55,7 @@ const autonomousSystemPrompt = `CRITICAL: You are an autonomous agent. DO NOT as
 type ClaudeRunner struct{}
 
 // Run executes Claude with the given prompt
-func (r *ClaudeRunner) Run(prompt string, trust bool) (*RunResult, error) {
+func (r *ClaudeRunner) Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error) {
 	result := &RunResult{}
 
 	// Build command arguments
@@ -70,7 +74,17 @@ func (r *ClaudeRunner) Run(prompt string, trust bool) (*RunResult, error) {
 	// Add prompt input flag
 	args = append(args, "-p", "-")
 
-	cmd := exec.Command("claude", args...)
+	// Create context with timeout if specified
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
+
+	cmd := exec.CommandContext(ctx, "claude", args...)
 
 	// Set up stdin with prompt
 	stdin, err := cmd.StdinPipe()
@@ -111,6 +125,13 @@ func (r *ClaudeRunner) Run(prompt string, trust bool) (*RunResult, error) {
 	result.Output = outputBuf.String()
 
 	if err != nil {
+		// Check if this was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			result.TimedOut = true
+			result.Error = fmt.Errorf("iteration timed out after %v", timeout)
+			return result, nil
+		}
+
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
 		}
@@ -169,8 +190,9 @@ type MockRunner struct {
 
 // MockCall records the arguments of a single Run call
 type MockCall struct {
-	Prompt string
-	Trust  bool
+	Prompt  string
+	Trust   bool
+	Timeout time.Duration
 }
 
 // NewMockRunner creates a new MockRunner with the given responses
@@ -182,8 +204,8 @@ func NewMockRunner(responses ...*RunResult) *MockRunner {
 }
 
 // Run records the call and returns the next queued response
-func (m *MockRunner) Run(prompt string, trust bool) (*RunResult, error) {
-	m.Calls = append(m.Calls, MockCall{Prompt: prompt, Trust: trust})
+func (m *MockRunner) Run(prompt string, trust bool, timeout time.Duration) (*RunResult, error) {
+	m.Calls = append(m.Calls, MockCall{Prompt: prompt, Trust: trust, Timeout: timeout})
 
 	if m.NextIndex >= len(m.Responses) {
 		// Return a default blocked result if no more responses queued
