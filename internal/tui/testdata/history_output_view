@@ -1,0 +1,20 @@
+# Test: History output viewer with content
+
+run
+----
+-- view:
+📄 Output: backend-work (2025-01-13 14:41)␤
+                                          ␤
+────────────────────────────────────────────────────────────────────────────────␤
+Starting agent loop for session: backend-work␤
+Iteration 1/10: Processing ball juggler-1␤
+Ball juggler-1 completed successfully␤
+Iteration 2/10: Processing ball juggler-2␤
+Ball juggler-2 completed successfully␤
+Iteration 3/10: Processing ball juggler-3␤
+Ball juggler-3 completed successfully␤
+All balls complete. Exiting agent loop.␤
+Total iterations: 3␤
+Total time: 15m0s␤
+␤
+j/k = scroll | ctrl+d/u = page | gg/G = top/bottom | b/Esc = back to history🛇

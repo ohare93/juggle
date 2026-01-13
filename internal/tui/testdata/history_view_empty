@@ -1,0 +1,11 @@
+# Test: History view with no agent run history
+
+run
+----
+-- view:
+📜 Agent Run History␤
+                    ␤
+␤
+No agent runs recorded yet.␤
+␤
+Press H or Esc to return🛇

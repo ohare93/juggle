@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1343,6 +1344,195 @@ func TestInputTagViewRemove(t *testing.T) {
 	model.textInput.SetValue("-obsolete")
 	model.textInput.Focus()
 	catwalk.RunModel(t, "testdata/input_tag_remove", model)
+}
+
+// TestHistoryViewEmpty tests the history view with no agent run history.
+func TestHistoryViewEmpty(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyView
+	model.agentHistory = make([]*session.AgentRunRecord, 0)
+	model.historyCursor = 0
+	model.historyScrollOffset = 0
+	catwalk.RunModel(t, "testdata/history_view_empty", model)
+}
+
+// TestHistoryViewWithEntries tests the history view with multiple agent run records.
+func TestHistoryViewWithEntries(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyView
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.agentHistory = []*session.AgentRunRecord{
+		{
+			ID:            "1736782871000000000",
+			SessionID:     "backend-work",
+			StartedAt:     fixedTime.Add(-2 * time.Hour),
+			EndedAt:       fixedTime.Add(-2*time.Hour + 15*time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "complete",
+			BallsComplete: 3,
+			BallsBlocked:  0,
+			BallsTotal:    3,
+		},
+		{
+			ID:            "1736779271000000000",
+			SessionID:     "frontend-tasks",
+			StartedAt:     fixedTime.Add(-1 * time.Hour),
+			EndedAt:       fixedTime.Add(-1*time.Hour + 8*time.Minute),
+			Iterations:    5,
+			MaxIterations: 10,
+			Result:        "blocked",
+			BlockedReason: "Missing API credentials",
+			BallsComplete: 2,
+			BallsBlocked:  1,
+			BallsTotal:    3,
+		},
+		{
+			ID:            "1736775671000000000",
+			SessionID:     "devops",
+			StartedAt:     fixedTime.Add(-30 * time.Minute),
+			EndedAt:       fixedTime.Add(-30*time.Minute + 3*time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "max_iterations",
+			BallsComplete: 1,
+			BallsBlocked:  0,
+			BallsTotal:    5,
+		},
+	}
+	model.historyCursor = 0
+	model.historyScrollOffset = 0
+	catwalk.RunModel(t, "testdata/history_view_with_entries", model)
+}
+
+// TestHistoryViewSelectedDetails tests the history view with a selected entry showing details.
+func TestHistoryViewSelectedDetails(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyView
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.agentHistory = []*session.AgentRunRecord{
+		{
+			ID:            "1736782871000000000",
+			SessionID:     "backend-work",
+			StartedAt:     fixedTime.Add(-2 * time.Hour),
+			EndedAt:       fixedTime.Add(-2*time.Hour + 15*time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "complete",
+			BallsComplete: 3,
+			BallsBlocked:  0,
+			BallsTotal:    3,
+			OutputFile:    "/tmp/juggler/backend-work/last_output.txt",
+		},
+		{
+			ID:             "1736779271000000000",
+			SessionID:      "frontend-tasks",
+			StartedAt:      fixedTime.Add(-1 * time.Hour),
+			EndedAt:        fixedTime.Add(-1*time.Hour + 8*time.Minute),
+			Iterations:     5,
+			MaxIterations:  10,
+			Result:         "blocked",
+			BlockedReason:  "Missing API credentials from DevOps team",
+			BallsComplete:  2,
+			BallsBlocked:   1,
+			BallsTotal:     3,
+			TotalWaitTime:  30 * time.Second,
+			OutputFile:     "/tmp/juggler/frontend-tasks/last_output.txt",
+		},
+		{
+			ID:            "1736775671000000000",
+			SessionID:     "devops",
+			StartedAt:     fixedTime.Add(-30 * time.Minute),
+			EndedAt:       fixedTime.Add(-30*time.Minute + 3*time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "error",
+			ErrorMessage:  "Failed to connect to database",
+			BallsComplete: 0,
+			BallsBlocked:  0,
+			BallsTotal:    2,
+		},
+	}
+	// Select the second entry (blocked one) to show detailed info
+	model.historyCursor = 1
+	model.historyScrollOffset = 0
+	catwalk.RunModel(t, "testdata/history_view_selected_details", model)
+}
+
+// TestHistoryOutputView tests the output viewer with content.
+func TestHistoryOutputView(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyOutputView
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.agentHistory = []*session.AgentRunRecord{
+		{
+			ID:            "1736782871000000000",
+			SessionID:     "backend-work",
+			StartedAt:     fixedTime.Add(-2 * time.Hour),
+			EndedAt:       fixedTime.Add(-2*time.Hour + 15*time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "complete",
+			BallsComplete: 3,
+			BallsTotal:    3,
+			OutputFile:    "/tmp/juggler/backend-work/last_output.txt",
+		},
+	}
+	model.historyCursor = 0
+	model.historyOutputOffset = 0
+	model.historyOutput = `Starting agent loop for session: backend-work
+Iteration 1/10: Processing ball juggler-1
+Ball juggler-1 completed successfully
+Iteration 2/10: Processing ball juggler-2
+Ball juggler-2 completed successfully
+Iteration 3/10: Processing ball juggler-3
+Ball juggler-3 completed successfully
+All balls complete. Exiting agent loop.
+Total iterations: 3
+Total time: 15m0s`
+
+	catwalk.RunModel(t, "testdata/history_output_view", model)
+}
+
+// TestHistoryOutputViewScrolling tests scrolling behavior in the output viewer.
+func TestHistoryOutputViewScrolling(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyOutputView
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.agentHistory = []*session.AgentRunRecord{
+		{
+			ID:            "1736782871000000000",
+			SessionID:     "backend-work",
+			StartedAt:     fixedTime,
+			EndedAt:       fixedTime.Add(30 * time.Minute),
+			Iterations:    10,
+			MaxIterations: 10,
+			Result:        "complete",
+			BallsComplete: 10,
+			BallsTotal:    10,
+			OutputFile:    "/tmp/juggler/backend-work/last_output.txt",
+		},
+	}
+	model.historyCursor = 0
+
+	// Create output content with many lines to test scrolling
+	var lines []string
+	lines = append(lines, "Starting agent loop for session: backend-work")
+	for i := 1; i <= 25; i++ {
+		lines = append(lines, fmt.Sprintf("Iteration %d/10: Processing ball juggler-%d", i, i))
+		lines = append(lines, fmt.Sprintf("Ball juggler-%d completed successfully", i))
+	}
+	lines = append(lines, "All balls complete. Exiting agent loop.")
+	lines = append(lines, "Total iterations: 10")
+	lines = append(lines, "Total time: 30m0s")
+
+	model.historyOutput = strings.Join(lines, "\n")
+	model.historyOutputOffset = 10 // Scroll to middle of content
+	catwalk.RunModel(t, "testdata/history_output_view_scrolling", model)
 }
 
 // Helper functions for creating test data

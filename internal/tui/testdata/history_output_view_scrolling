@@ -1,0 +1,30 @@
+# Test: History output viewer with scrolling
+
+run
+----
+-- view:
+📄 Output: backend-work (2025-01-13 16:41)␤
+                                          ␤
+────────────────────────────────────────────────────────────────────────────────␤
+Ball juggler-5 completed successfully␤
+Iteration 6/10: Processing ball juggler-6␤
+Ball juggler-6 completed successfully␤
+Iteration 7/10: Processing ball juggler-7␤
+Ball juggler-7 completed successfully␤
+Iteration 8/10: Processing ball juggler-8␤
+Ball juggler-8 completed successfully␤
+Iteration 9/10: Processing ball juggler-9␤
+Ball juggler-9 completed successfully␤
+Iteration 10/10: Processing ball juggler-10␤
+Ball juggler-10 completed successfully␤
+Iteration 11/10: Processing ball juggler-11␤
+Ball juggler-11 completed successfully␤
+Iteration 12/10: Processing ball juggler-12␤
+Ball juggler-12 completed successfully␤
+Iteration 13/10: Processing ball juggler-13␤
+Ball juggler-13 completed successfully␤
+Iteration 14/10: Processing ball juggler-14␤
+↑ 10 lines above␤
+                ↓ 26 lines below␤
+                ␤
+j/k = scroll | ctrl+d/u = page | gg/G = top/bottom | b/Esc = back to history🛇

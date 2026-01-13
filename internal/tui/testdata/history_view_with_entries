@@ -1,0 +1,17 @@
+# Test: History view with multiple agent run records
+
+run
+----
+-- view:
+📜 Agent Run History␤
+                    ␤
+␤
+  Date                 Session          Iter    Result          Duration  Balls  ␤
+                                                                                 ────────────────────────────────────────────────────────────────────────────────␤
+▶ 2025-01-13 14:41:11  backend-work     10/10   ✓ Complete      15m0s     3/3    ␤
+  2025-01-13 15:41:11  frontend-tasks   5/10    ⊘ Blocked       8m0s      2/3    ␤
+  2025-01-13 16:11:11  devops           10/10   ⟳ MaxIter       3m0s      1/5    ␤
+␤
+─── Selected Run Details ───␤
+␤
+j/k = navigate | Enter = view output | H/Esc = close | gg/G = top/bottom🛇
