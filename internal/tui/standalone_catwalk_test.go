@@ -279,3 +279,70 @@ func TestSessionsPanelWithAgentRunning(t *testing.T) {
 	}
 	catwalk.RunModel(t, "testdata/sessions_panel_with_agent_running", model)
 }
+
+// TestSessionSelectorEmpty tests the session selector renders correctly when empty.
+func TestSessionSelectorEmpty(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = sessionSelectorView
+	model.sessionSelectItems = make([]*session.JuggleSession, 0)
+	model.sessionSelectIndex = 0
+	catwalk.RunModel(t, "testdata/session_selector_empty", model)
+}
+
+// TestSessionSelectorWithSessions tests the session selector with multiple sessions.
+func TestSessionSelectorWithSessions(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = sessionSelectorView
+	sessions := []*session.JuggleSession{
+		{ID: "session-1", Description: "Backend work"},
+		{ID: "session-2", Description: "Frontend tasks"},
+		{ID: "session-3", Description: "DevOps improvements"},
+	}
+	model.sessionSelectItems = sessions
+	model.sessionSelectIndex = 0
+	catwalk.RunModel(t, "testdata/session_selector_with_sessions", model)
+}
+
+// TestDependencySelectorEmpty tests the dependency selector with no available balls.
+func TestDependencySelectorEmpty(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = dependencySelectorView
+	model.dependencySelectBalls = make([]*session.Ball, 0)
+	model.dependencySelectIndex = 0
+	model.dependencySelectActive = make(map[string]bool)
+	catwalk.RunModel(t, "testdata/dependency_selector_empty", model)
+}
+
+// TestDependencySelectorWithBalls tests the dependency selector with multiple balls.
+func TestDependencySelectorWithBalls(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = dependencySelectorView
+	balls := []*session.Ball{
+		{ID: "juggler-1", Title: "First pending task", State: session.StatePending, Priority: session.PriorityMedium},
+		{ID: "juggler-2", Title: "Second in progress task", State: session.StateInProgress, Priority: session.PriorityHigh},
+		{ID: "juggler-3", Title: "Third blocked task", State: session.StateBlocked, Priority: session.PriorityLow},
+	}
+	model.dependencySelectBalls = balls
+	model.dependencySelectIndex = 0
+	model.dependencySelectActive = make(map[string]bool)
+	catwalk.RunModel(t, "testdata/dependency_selector_with_balls", model)
+}
+
+// TestDependencySelectorWithSelection tests the dependency selector with some balls selected.
+func TestDependencySelectorWithSelection(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = dependencySelectorView
+	balls := []*session.Ball{
+		{ID: "juggler-1", Title: "First pending task", State: session.StatePending, Priority: session.PriorityMedium},
+		{ID: "juggler-2", Title: "Second in progress task", State: session.StateInProgress, Priority: session.PriorityHigh},
+		{ID: "juggler-3", Title: "Third blocked task", State: session.StateBlocked, Priority: session.PriorityLow},
+	}
+	selectedActive := make(map[string]bool)
+	selectedActive["juggler-1"] = true
+	selectedActive["juggler-3"] = true
+
+	model.dependencySelectBalls = balls
+	model.dependencySelectIndex = 1
+	model.dependencySelectActive = selectedActive
+	catwalk.RunModel(t, "testdata/dependency_selector_with_selection", model)
+}

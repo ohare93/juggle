@@ -1,0 +1,12 @@
+run
+----
+-- view:
+Select Dependencies␤
+␤
+Use Space to toggle selection, Enter to confirm␤
+␤
+> [ ] 1 (pending) - First pending task␤
+  [ ] 2 (in_progress) - Second in progress task␤
+  [ ] 3 (blocked) - Third blocked task␤
+␤
+j/k or ↑/↓ = navigate | Space = toggle | Enter = confirm | Esc = cancel🛇
