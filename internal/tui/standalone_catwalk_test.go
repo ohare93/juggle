@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -345,4 +346,275 @@ func TestDependencySelectorWithSelection(t *testing.T) {
 	model.dependencySelectIndex = 1
 	model.dependencySelectActive = selectedActive
 	catwalk.RunModel(t, "testdata/dependency_selector_with_selection", model)
+}
+
+// TestBallsPanelEmpty tests the balls panel with no balls.
+func TestBallsPanelEmpty(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = make([]*session.Ball, 0)
+	model.filteredBalls = make([]*session.Ball, 0)
+	catwalk.RunModel(t, "testdata/balls_panel_empty", model)
+}
+
+// TestBallsPanelWithBalls tests the balls panel with balls in different states.
+func TestBallsPanelWithBalls(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:       "juggler-1",
+			Title:    "First pending task",
+			State:    session.StatePending,
+			Priority: session.PriorityLow,
+		},
+		{
+			ID:       "juggler-2",
+			Title:    "Second in progress task",
+			State:    session.StateInProgress,
+			Priority: session.PriorityMedium,
+		},
+		{
+			ID:            "juggler-3",
+			Title:         "Third blocked task",
+			State:         session.StateBlocked,
+			BlockedReason: "Waiting for dependencies",
+			Priority:      session.PriorityHigh,
+		},
+		{
+			ID:       "juggler-4",
+			Title:    "Fourth complete task",
+			State:    session.StateComplete,
+			Priority: session.PriorityUrgent,
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/balls_panel_with_balls", model)
+}
+
+// TestBallsPanelWithPriorityColumn tests the balls panel with priority column visible.
+func TestBallsPanelWithPriorityColumn(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.showPriorityColumn = true
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Low priority task", State: session.StatePending, Priority: session.PriorityLow},
+		{ID: "juggler-2", Title: "Medium priority task", State: session.StateInProgress, Priority: session.PriorityMedium},
+		{ID: "juggler-3", Title: "High priority task", State: session.StateBlocked, Priority: session.PriorityHigh},
+		{ID: "juggler-4", Title: "Urgent task", State: session.StateComplete, Priority: session.PriorityUrgent},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 1
+	model.selectedBall = model.balls[1]
+	catwalk.RunModel(t, "testdata/balls_panel_with_priority_column", model)
+}
+
+// TestBallsPanelWithTagsColumn tests the balls panel with tags column visible.
+func TestBallsPanelWithTagsColumn(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.showTagsColumn = true
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Tagged task one", State: session.StatePending, Tags: []string{"feature", "backend"}},
+		{ID: "juggler-2", Title: "Tagged task two", State: session.StateInProgress, Tags: []string{"bugfix", "ui"}},
+		{ID: "juggler-3", Title: "Task with many tags", State: session.StateBlocked, Tags: []string{"docs", "refactor", "testing"}},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 2
+	model.selectedBall = model.balls[2]
+	catwalk.RunModel(t, "testdata/balls_panel_with_tags_column", model)
+}
+
+// TestBallsPanelWithTestsColumn tests the balls panel with tests column visible.
+func TestBallsPanelWithTestsColumn(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.showTestsColumn = true
+	model.balls = []*session.Ball{
+		{
+			ID:                   "juggler-1",
+			Title:                "Task with no tests",
+			State:                session.StatePending,
+			AcceptanceCriteria:   []string{},
+		},
+		{
+			ID:                   "juggler-2",
+			Title:                "Task with some tests",
+			State:                session.StateInProgress,
+			AcceptanceCriteria:   []string{"AC 1: Test X", "AC 2: Test Y"},
+		},
+		{
+			ID:                   "juggler-3",
+			Title:                "Task with many tests",
+			State:                session.StateBlocked,
+			AcceptanceCriteria:   []string{"AC 1", "AC 2", "AC 3", "AC 4", "AC 5"},
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 1
+	model.selectedBall = model.balls[1]
+	catwalk.RunModel(t, "testdata/balls_panel_with_tests_column", model)
+}
+
+// TestBallsPanelMultipleColumns tests the balls panel with all columns visible.
+func TestBallsPanelMultipleColumns(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.showPriorityColumn = true
+	model.showTagsColumn = true
+	model.showTestsColumn = true
+	model.balls = []*session.Ball{
+		{
+			ID:                   "juggler-1",
+			Title:                "First complex task",
+			State:                session.StatePending,
+			Priority:             session.PriorityHigh,
+			Tags:                 []string{"feature", "backend"},
+			AcceptanceCriteria:   []string{"AC 1", "AC 2"},
+		},
+		{
+			ID:                   "juggler-2",
+			Title:                "Second complex task",
+			State:                session.StateInProgress,
+			Priority:             session.PriorityMedium,
+			Tags:                 []string{"bugfix"},
+			AcceptanceCriteria:   []string{"AC 1"},
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/balls_panel_with_multiple_columns", model)
+}
+
+// TestBallsPanelSortByID tests the balls panel sorted by ID ascending.
+func TestBallsPanelSortByID(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.sortOrder = SortByIDASC
+	model.balls = []*session.Ball{
+		{ID: "juggler-3", Title: "Third task", State: session.StatePending},
+		{ID: "juggler-1", Title: "First task", State: session.StateInProgress},
+		{ID: "juggler-2", Title: "Second task", State: session.StateBlocked},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/balls_panel_sort_by_id", model)
+}
+
+// TestBallsPanelSortByPriority tests the balls panel sorted by priority.
+func TestBallsPanelSortByPriority(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.sortOrder = SortByPriority
+	model.showPriorityColumn = true
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Low priority", State: session.StatePending, Priority: session.PriorityLow},
+		{ID: "juggler-4", Title: "Urgent task", State: session.StateInProgress, Priority: session.PriorityUrgent},
+		{ID: "juggler-2", Title: "Medium priority", State: session.StateBlocked, Priority: session.PriorityMedium},
+		{ID: "juggler-3", Title: "High priority", State: session.StateComplete, Priority: session.PriorityHigh},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/balls_panel_sort_by_priority", model)
+}
+
+// TestBallsPanelWithBlockedReason tests displaying balls with blocked reasons.
+func TestBallsPanelWithBlockedReason(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:            "juggler-1",
+			Title:         "Blocked by dependency",
+			State:         session.StateBlocked,
+			BlockedReason: "Waiting for juggler-2 to complete",
+		},
+		{
+			ID:            "juggler-2",
+			Title:         "Blocked by external event",
+			State:         session.StateBlocked,
+			BlockedReason: "Awaiting API credentials from DevOps",
+		},
+		{
+			ID:       "juggler-3",
+			Title:    "In progress task",
+			State:    session.StateInProgress,
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/balls_panel_with_blocked_reason", model)
+}
+
+// TestBallsPanelWithDependencies tests displaying balls with dependency indicators.
+func TestBallsPanelWithDependencies(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:       "juggler-1",
+			Title:    "Task with no deps",
+			State:    session.StatePending,
+		},
+		{
+			ID:        "juggler-2",
+			Title:     "Task with dependencies",
+			State:     session.StatePending,
+			DependsOn: []string{"juggler-1"},
+		},
+		{
+			ID:        "juggler-3",
+			Title:     "Task with multiple deps",
+			State:     session.StateInProgress,
+			DependsOn: []string{"juggler-1", "juggler-2"},
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 2
+	model.selectedBall = model.balls[2]
+	catwalk.RunModel(t, "testdata/balls_panel_with_dependencies", model)
+}
+
+// TestBallsPanelScroll tests scrolling behavior with many balls.
+func TestBallsPanelScroll(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	// Create 20 balls to test scrolling
+	for i := 1; i <= 20; i++ {
+		idx := i - 1
+		priority := session.PriorityLow
+		if idx%4 == 1 {
+			priority = session.PriorityMedium
+		} else if idx%4 == 2 {
+			priority = session.PriorityHigh
+		} else if idx%4 == 3 {
+			priority = session.PriorityUrgent
+		}
+		model.balls = append(model.balls, &session.Ball{
+			ID:       formatBallID(i),
+			Title:    formatBallTitle(i),
+			State:    session.StatePending,
+			Priority: priority,
+		})
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 15 // Scroll to middle
+	model.selectedBall = model.balls[15]
+	model.showPriorityColumn = true
+	catwalk.RunModel(t, "testdata/balls_panel_scroll", model)
+}
+
+// Helper functions for creating test data
+func formatBallID(i int) string {
+	return fmt.Sprintf("juggler-%d", i)
+}
+
+func formatBallTitle(i int) string {
+	return fmt.Sprintf("Ball %d: Task description", i)
 }
