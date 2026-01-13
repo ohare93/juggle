@@ -3,6 +3,7 @@ package tui
 import (
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/ohare93/juggle/internal/session"
@@ -159,6 +160,7 @@ type Model struct {
 
 	// Input state for CRUD operations
 	textInput          textinput.Model
+	contextInput       textarea.Model   // Multiline text input for context field
 	inputAction        InputAction      // Add or Edit
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
 	editingBall        *session.Ball // Ball being edited (for edit action)
@@ -210,6 +212,17 @@ type Model struct {
 	historyOutputOffset int                       // Scroll offset for output view
 }
 
+// newContextTextarea creates a textarea for the context field with appropriate settings
+func newContextTextarea() textarea.Model {
+	ta := textarea.New()
+	ta.Placeholder = "Background context for this task"
+	ta.CharLimit = 2000 // Allow longer context
+	ta.SetWidth(60)
+	ta.SetHeight(1) // Start with 1 line, will grow dynamically
+	ta.ShowLineNumbers = false
+	return ta
+}
+
 // InitialModel creates a model for the legacy list view
 func InitialModel(store *session.Store, config *session.Config, localOnly bool) Model {
 	ti := textinput.New()
@@ -227,9 +240,10 @@ func InitialModel(store *session.Store, config *session.Config, localOnly bool) 
 			"blocked":     true,
 			"complete":    true,
 		},
-		cursor:      0,
-		activityLog: make([]ActivityEntry, 0),
-		textInput:   ti,
+		cursor:       0,
+		activityLog:  make([]ActivityEntry, 0),
+		textInput:    ti,
+		contextInput: newContextTextarea(),
 	}
 }
 
@@ -266,6 +280,7 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 		sessionCursor:      0,
 		activityLog:        make([]ActivityEntry, 0),
 		textInput:          ti,
+		contextInput:       newContextTextarea(),
 		fileWatcher:        w,
 	}
 }

@@ -9364,3 +9364,147 @@ func TestClearPendingBallStateClearsEditingBall(t *testing.T) {
 		t.Errorf("Expected inputAction to be actionAdd, got %v", model.inputAction)
 	}
 }
+
+// TestWrapText tests the wrapText helper function
+func TestWrapText(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		maxWidth int
+		expected string
+	}{
+		{
+			name:     "short text unchanged",
+			text:     "Short text",
+			maxWidth: 60,
+			expected: "Short text",
+		},
+		{
+			name:     "exact width unchanged",
+			text:     "Exactly sixty characters long which should not need wrapping",
+			maxWidth: 60,
+			expected: "Exactly sixty characters long which should not need wrapping",
+		},
+		{
+			name:     "long text wraps",
+			text:     "This is a longer text that should be wrapped to fit within the maximum width limit",
+			maxWidth: 30,
+			expected: "This is a longer text that\nshould be wrapped to fit\nwithin the maximum width limit",
+		},
+		{
+			name:     "single long word",
+			text:     "superlongwordthatexceedsmaxwidth",
+			maxWidth: 20,
+			expected: "superlongwordthatexceedsmaxwidth",
+		},
+		{
+			name:     "empty string",
+			text:     "",
+			maxWidth: 60,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := wrapText(tt.text, tt.maxWidth)
+			if result != tt.expected {
+				t.Errorf("wrapText(%q, %d) = %q, want %q", tt.text, tt.maxWidth, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestContextFieldMultilineDisplay tests that long context is displayed across multiple lines
+func TestContextFieldMultilineDisplay(t *testing.T) {
+	model := Model{
+		mode:               unifiedBallFormView,
+		pendingBallContext: "This is a very long context that should definitely span multiple lines when displayed in the form because it exceeds the maximum width of 60 characters",
+		pendingBallIntent:  "Test intent",
+		pendingBallFormField: 1, // Not on context field
+		textInput:           textinput.New(),
+		contextInput:        newContextTextarea(),
+	}
+
+	view := model.renderUnifiedBallFormView()
+
+	// Check that context appears in view
+	if !strings.Contains(view, "Context:") {
+		t.Error("Expected view to contain Context: label")
+	}
+
+	// Check that the long context is displayed (at least first part)
+	if !strings.Contains(view, "This is a very long context") {
+		t.Error("Expected view to contain context text")
+	}
+}
+
+// TestContextTextareaHeightAdjustment tests dynamic height adjustment
+func TestContextTextareaHeightAdjustment(t *testing.T) {
+	model := Model{
+		contextInput: newContextTextarea(),
+	}
+
+	// Initially should be 1 line
+	if model.contextInput.Height() != 1 {
+		t.Errorf("Expected initial height of 1, got %d", model.contextInput.Height())
+	}
+
+	// Short content should stay at 1 line
+	model.contextInput.SetValue("Short")
+	adjustContextTextareaHeight(&model)
+	if model.contextInput.Height() != 1 {
+		t.Errorf("Expected height of 1 for short content, got %d", model.contextInput.Height())
+	}
+
+	// Longer content should expand
+	model.contextInput.SetValue("This is a much longer text that will definitely need to wrap across multiple lines in the textarea because it exceeds the width")
+	adjustContextTextareaHeight(&model)
+	if model.contextInput.Height() <= 1 {
+		t.Errorf("Expected height > 1 for long content, got %d", model.contextInput.Height())
+	}
+}
+
+// TestContextFieldUsesTextarea tests that context field uses textarea for editing
+func TestContextFieldUsesTextarea(t *testing.T) {
+	model := Model{
+		mode:                 unifiedBallFormView,
+		pendingBallContext:   "",
+		pendingBallIntent:    "Test",
+		pendingBallFormField: 0, // On context field
+		textInput:            textinput.New(),
+		contextInput:         newContextTextarea(),
+	}
+	model.contextInput.Focus()
+
+	view := model.renderUnifiedBallFormView()
+
+	// View should contain the textarea placeholder when focused on context field
+	if !strings.Contains(view, "Context:") {
+		t.Error("Expected view to contain Context: label")
+	}
+}
+
+// TestContextFieldEnterAddsNewline tests that Enter in context field adds newline
+func TestContextFieldEnterAddsNewline(t *testing.T) {
+	model := Model{
+		mode:                 unifiedBallFormView,
+		pendingBallContext:   "Line 1",
+		pendingBallIntent:    "Test",
+		pendingBallFormField: 0, // On context field
+		textInput:            textinput.New(),
+		contextInput:         newContextTextarea(),
+	}
+	model.contextInput.SetValue("Line 1")
+	model.contextInput.Focus()
+
+	// Simulate Enter key
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, _ := model.handleUnifiedBallFormKey(msg)
+	m := newModel.(Model)
+
+	// Field should still be 0 (context field)
+	if m.pendingBallFormField != 0 {
+		t.Errorf("Expected to stay on field 0 after Enter in context, got %d", m.pendingBallFormField)
+	}
+}

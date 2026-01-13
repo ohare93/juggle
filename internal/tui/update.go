@@ -3120,6 +3120,48 @@ func (m Model) handleHistoryOutputViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// adjustContextTextareaHeight dynamically adjusts the context textarea height based on content
+// The textarea grows as the user types more content, and shrinks when content is deleted
+func adjustContextTextareaHeight(m *Model) {
+	content := m.contextInput.Value()
+	width := m.contextInput.Width()
+	if width <= 0 {
+		width = 60 // Default width
+	}
+
+	// Count lines needed for content
+	lines := 1
+	if content != "" {
+		// Count wrapped lines
+		for _, line := range strings.Split(content, "\n") {
+			if len(line) == 0 {
+				lines++
+			} else {
+				// Calculate how many display lines this line needs
+				lineCount := (len(line) + width - 1) / width
+				if lineCount == 0 {
+					lineCount = 1
+				}
+				lines += lineCount
+			}
+		}
+		// Don't double-count the initial line
+		if lines > 1 && content[len(content)-1] != '\n' {
+			lines--
+		}
+	}
+
+	// Minimum 1 line, maximum 5 lines
+	if lines < 1 {
+		lines = 1
+	}
+	if lines > 5 {
+		lines = 5
+	}
+
+	m.contextInput.SetHeight(lines)
+}
+
 // handleUnifiedBallFormKey handles keyboard input for the unified ball creation form
 // Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Depends On
 func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -3182,13 +3224,14 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Helper to save current field value before moving
 	saveCurrentFieldValue := func() {
-		value := strings.TrimSpace(m.textInput.Value())
 		switch m.pendingBallFormField {
 		case fieldContext:
-			m.pendingBallContext = value
+			// Get value from textarea for context field
+			m.pendingBallContext = strings.TrimSpace(m.contextInput.Value())
 		case fieldIntent:
-			m.pendingBallIntent = value
+			m.pendingBallIntent = strings.TrimSpace(m.textInput.Value())
 		default:
+			value := strings.TrimSpace(m.textInput.Value())
 			// Check if it's Tags field (dynamic index)
 			if m.pendingBallFormField == fieldTags {
 				m.pendingBallTags = value
@@ -3230,14 +3273,19 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textInput.Reset()
 		switch field {
 		case fieldContext:
-			m.textInput.SetValue(m.pendingBallContext)
-			m.textInput.Placeholder = "Background context for this task"
-			m.textInput.Focus()
+			// Use textarea for context field
+			m.contextInput.SetValue(m.pendingBallContext)
+			m.contextInput.Focus()
+			m.textInput.Blur()
+			// Dynamically adjust height based on content
+			adjustContextTextareaHeight(&m)
 		case fieldIntent:
+			m.contextInput.Blur()
 			m.textInput.SetValue(m.pendingBallIntent)
 			m.textInput.Placeholder = "What is this ball about? (50 char recommended)"
 			m.textInput.Focus()
 		default:
+			m.contextInput.Blur()
 			if field == tagsField {
 				m.textInput.SetValue(m.pendingBallTags)
 				m.textInput.Placeholder = "tag1, tag2, ..."
@@ -3266,6 +3314,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode = splitView
 		m.message = "Cancelled"
 		m.textInput.Blur()
+		m.contextInput.Blur()
 		return m, nil
 
 	case "ctrl+enter":
@@ -3283,7 +3332,13 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "enter":
 		// Behavior depends on current field
-		if m.pendingBallFormField == fieldDependsOn {
+		if m.pendingBallFormField == fieldContext {
+			// For context field, Enter adds newline in textarea
+			var cmd tea.Cmd
+			m.contextInput, cmd = m.contextInput.Update(msg)
+			adjustContextTextareaHeight(&m)
+			return m, cmd
+		} else if m.pendingBallFormField == fieldDependsOn {
 			// Open dependency selector
 			return m.openDependencySelector()
 		} else if isACField(m.pendingBallFormField) {
@@ -3381,6 +3436,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "k":
 		// k should ONLY be used for typing in text fields, never for navigation
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				adjustContextTextareaHeight(&m)
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			return m, cmd
@@ -3391,6 +3452,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "j":
 		// j should ONLY be used for typing in text fields, never for navigation
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				adjustContextTextareaHeight(&m)
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			return m, cmd
@@ -3433,6 +3500,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "h":
 		// h should ONLY be used for typing in text fields, never for navigation
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				adjustContextTextareaHeight(&m)
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			return m, cmd
@@ -3443,6 +3516,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "l":
 		// l should ONLY be used for typing in text fields, never for navigation
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				adjustContextTextareaHeight(&m)
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			return m, cmd
@@ -3454,9 +3533,15 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// If autocomplete is active and we're on an autocomplete field, accept the completion
 		if m.fileAutocomplete != nil && m.fileAutocomplete.Active && len(m.fileAutocomplete.Suggestions) > 0 {
 			// Apply the selected completion
-			newText := m.fileAutocomplete.ApplyCompletion(m.textInput.Value())
-			m.textInput.SetValue(newText)
-			m.textInput.SetCursor(len(newText))
+			if m.pendingBallFormField == fieldContext {
+				newText := m.fileAutocomplete.ApplyCompletion(m.contextInput.Value())
+				m.contextInput.SetValue(newText)
+				adjustContextTextareaHeight(&m)
+			} else {
+				newText := m.fileAutocomplete.ApplyCompletion(m.textInput.Value())
+				m.textInput.SetValue(newText)
+				m.textInput.SetCursor(len(newText))
+			}
 			m.fileAutocomplete.Reset()
 			return m, nil
 		}
@@ -3495,6 +3580,14 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Allow deletion in text fields
 		// Note: Backspace doesn't re-trigger autocomplete (per AC requirement)
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				// Use textarea for context
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				// Adjust height after deletion
+				adjustContextTextareaHeight(&m)
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			// Don't update autocomplete on backspace - only @ typing triggers it
@@ -3505,6 +3598,17 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case " ":
 		// Space dismisses autocomplete (per AC requirement)
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				// Use textarea for context
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				adjustContextTextareaHeight(&m)
+				// Dismiss autocomplete on space
+				if m.fileAutocomplete != nil {
+					m.fileAutocomplete.Deactivate()
+				}
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			// Dismiss autocomplete on space
@@ -3518,6 +3622,20 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		// Pass to textinput only if on text input field
 		if isTextInputField(m.pendingBallFormField) {
+			if m.pendingBallFormField == fieldContext {
+				// Use textarea for context
+				var cmd tea.Cmd
+				m.contextInput, cmd = m.contextInput.Update(msg)
+				// Adjust height after typing
+				adjustContextTextareaHeight(&m)
+				// Update autocomplete state after text changes (for @ detection)
+				if m.fileAutocomplete != nil {
+					text := m.contextInput.Value()
+					cursorPos := m.contextInput.LineInfo().CharOffset
+					m.fileAutocomplete.UpdateFromText(text, cursorPos)
+				}
+				return m, cmd
+			}
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 			// Update autocomplete state after text changes (for @ detection)

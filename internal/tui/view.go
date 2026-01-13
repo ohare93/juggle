@@ -1287,23 +1287,39 @@ func (m Model) renderUnifiedBallFormView() string {
 	editingACStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("240"))
 	warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow for warnings
 
-	// --- Context field ---
+	// --- Context field (multiline) ---
 	labelStyle := normalStyle
 	if m.pendingBallFormField == fieldContext {
 		labelStyle = activeFieldStyle
 	}
-	b.WriteString(labelStyle.Render("Context: "))
+	b.WriteString(labelStyle.Render("Context:"))
 	if m.pendingBallFormField == fieldContext {
-		b.WriteString(m.textInput.View())
+		// Render textarea for editing
+		b.WriteString("\n")
+		b.WriteString(m.contextInput.View())
 		// Show autocomplete popup if active on this field
 		if popup := m.renderAutocompletePopup(); popup != "" {
 			b.WriteString(popup)
 		}
 	} else {
+		b.WriteString(" ")
 		if m.pendingBallContext == "" {
 			b.WriteString(optionNormalStyle.Render("(empty)"))
 		} else {
-			b.WriteString(m.pendingBallContext)
+			// Wrap long context to multiple lines (max 60 chars per line)
+			wrapped := wrapText(m.pendingBallContext, 60)
+			lines := strings.Split(wrapped, "\n")
+			if len(lines) == 1 {
+				b.WriteString(m.pendingBallContext)
+			} else {
+				// First line on same line as label
+				b.WriteString(lines[0])
+				// Subsequent lines indented to align with content
+				indent := "         " // "Context: " is 9 chars
+				for i := 1; i < len(lines); i++ {
+					b.WriteString("\n" + indent + lines[i])
+				}
+			}
 		}
 	}
 	b.WriteString("\n")
@@ -1491,4 +1507,36 @@ func (m Model) renderUnifiedBallFormView() string {
 	b.WriteString(help)
 
 	return b.String()
+}
+
+// wrapText wraps text to fit within maxWidth characters per line
+func wrapText(text string, maxWidth int) string {
+	if len(text) <= maxWidth {
+		return text
+	}
+
+	var result strings.Builder
+	words := strings.Fields(text)
+	lineLen := 0
+
+	for i, word := range words {
+		wordLen := len(word)
+		if i == 0 {
+			// First word
+			result.WriteString(word)
+			lineLen = wordLen
+		} else if lineLen+1+wordLen <= maxWidth {
+			// Word fits on current line
+			result.WriteString(" ")
+			result.WriteString(word)
+			lineLen += 1 + wordLen
+		} else {
+			// Start new line
+			result.WriteString("\n")
+			result.WriteString(word)
+			lineLen = wordLen
+		}
+	}
+
+	return result.String()
 }
