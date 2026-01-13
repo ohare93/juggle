@@ -1,0 +1,16 @@
+run
+----
+-- view:
+Launch Agent␤
+␤
+Session: session-1␤
+Description: Backend development tasks␤
+Balls: 0␤
+␤
+Iterations: 10 (default)␤
+␤
+The agent will work on pending balls in this session.␤
+␤
+Launch agent? [y/N]␤
+␤
+y = confirm | n/Esc = cancel🛇

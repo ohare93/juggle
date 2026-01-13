@@ -1,0 +1,14 @@
+run
+----
+-- view:
+Cancel Agent␤
+␤
+Session: session-1␤
+Progress: 5/10 iterations␤
+␤
+The agent will be terminated immediately.␤
+Any completed work will be preserved, but the current task may be interrupted.␤
+␤
+Cancel agent? [y/N]␤
+␤
+y = terminate agent | n/Esc = continue running🛇

@@ -186,6 +186,7 @@ func createTestSplitViewModel(t *testing.T) Model {
 		config:       config,
 		localOnly:    true,
 		balls:        make([]*session.Ball, 0),
+		filteredBalls: make([]*session.Ball, 0),
 		sessions:     make([]*session.JuggleSession, 0),
 		activePanel:  SessionsPanel,
 		sessionCursor: 0,
@@ -817,6 +818,194 @@ func TestAgentOutputPanelExpanded(t *testing.T) {
 	})
 	model.filteredBalls = model.balls
 	catwalk.RunModel(t, "testdata/agent_output_panel_expanded", model)
+}
+
+// TestConfirmDeleteListView tests the delete confirmation dialog in list view.
+func TestConfirmDeleteListView(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-tui-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create balls
+	balls := []*session.Ball{
+		{ID: "juggler-1", Title: "Important task", State: session.StatePending, Priority: session.PriorityHigh},
+		{ID: "juggler-2", Title: "Another task", State: session.StateInProgress, Priority: session.PriorityMedium},
+	}
+	for _, ball := range balls {
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("failed to append ball: %v", err)
+		}
+	}
+
+	sessionStore, err := session.NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	config := &session.Config{
+		SearchPaths: []string{tmpDir},
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+
+	ta := textarea.New()
+	ta.CharLimit = 2000
+	ta.SetWidth(60)
+	ta.SetHeight(1)
+
+	model := Model{
+		store:         store,
+		sessionStore:  sessionStore,
+		config:        config,
+		localOnly:     true,
+		balls:         balls,
+		filteredBalls: balls,
+		sessions:      make([]*session.JuggleSession, 0),
+		activePanel:   BallsPanel,
+		mode:          confirmDeleteView,
+		cursor:        0,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false,
+		},
+		textInput:           ti,
+		contextInput:        ta,
+		width:               80,
+		height:              24,
+		showPriorityColumn:  true,
+		showTagsColumn:      true,
+		agentStatus:         AgentStatus{},
+		pendingKeySequence:  "",
+		activityLog:         make([]ActivityEntry, 0),
+	}
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.nowFunc = func() time.Time {
+		return fixedTime
+	}
+
+	catwalk.RunModel(t, "testdata/confirm_delete_list_view", model)
+}
+
+// TestConfirmDeleteSplitView tests the delete confirmation dialog in split view.
+func TestConfirmDeleteSplitView(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggler-tui-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create balls
+	balls := []*session.Ball{
+		{ID: "juggler-1", Title: "Critical bug fix", State: session.StateInProgress, Priority: session.PriorityHigh, Tags: []string{"bug", "urgent"}},
+		{ID: "juggler-2", Title: "Feature development", State: session.StatePending, Priority: session.PriorityMedium},
+	}
+	for _, ball := range balls {
+		if err := store.AppendBall(ball); err != nil {
+			t.Fatalf("failed to append ball: %v", err)
+		}
+	}
+
+	sessionStore, err := session.NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+
+	config := &session.Config{
+		SearchPaths: []string{tmpDir},
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+
+	ta := textarea.New()
+	ta.CharLimit = 2000
+	ta.SetWidth(60)
+	ta.SetHeight(1)
+
+	model := Model{
+		store:         store,
+		sessionStore:  sessionStore,
+		config:        config,
+		localOnly:     true,
+		balls:         balls,
+		filteredBalls: balls,
+		sessions:      make([]*session.JuggleSession, 0),
+		activePanel:   BallsPanel,
+		mode:          confirmDeleteView,
+		cursor:        0,
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    false,
+		},
+		textInput:           ti,
+		contextInput:        ta,
+		width:               80,
+		height:              24,
+		showPriorityColumn:  true,
+		showTagsColumn:      true,
+		agentStatus:         AgentStatus{},
+		pendingKeySequence:  "",
+		activityLog:         make([]ActivityEntry, 0),
+	}
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.nowFunc = func() time.Time {
+		return fixedTime
+	}
+
+	catwalk.RunModel(t, "testdata/confirm_delete_split_view", model)
+}
+
+// TestConfirmAgentLaunchDialog tests the agent launch confirmation dialog.
+func TestConfirmAgentLaunchDialog(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = confirmAgentLaunch
+	model.selectedSession = &session.JuggleSession{
+		ID:          "session-1",
+		Description: "Backend development tasks",
+	}
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Implement API endpoint", State: session.StatePending},
+		{ID: "juggler-2", Title: "Add database migration", State: session.StatePending},
+		{ID: "juggler-3", Title: "Write unit tests", State: session.StatePending},
+	}
+	model.filteredBalls = model.balls
+
+	catwalk.RunModel(t, "testdata/confirm_agent_launch", model)
+}
+
+// TestConfirmAgentCancelDialog tests the agent cancel confirmation dialog.
+func TestConfirmAgentCancelDialog(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = confirmAgentCancel
+	model.agentStatus = AgentStatus{
+		Running:        true,
+		SessionID:      "session-1",
+		Iteration:      5,
+		MaxIterations:  10,
+	}
+
+	catwalk.RunModel(t, "testdata/confirm_agent_cancel", model)
 }
 
 // Helper functions for creating test data

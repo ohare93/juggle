@@ -1,0 +1,15 @@
+run
+----
+-- view:
+⚠️  DELETE BALL␤
+␤
+ID:       juggler-1␤
+Title:    Important task␤
+State:    pending␤
+Priority: high␤
+␤
+This will permanently delete the ball.␤
+␤
+Delete this ball? [y/N]␤
+␤
+y = confirm | n/Esc = cancel🛇
