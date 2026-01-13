@@ -1030,6 +1030,106 @@ func TestHelpViewSplitScrolling(t *testing.T) {
 	catwalk.RunModel(t, "testdata/help_view_split_scrolling", model)
 }
 
+// TestCatwalkStatusBarSessionsPanel tests the status bar with sessions panel active.
+func TestCatwalkStatusBarSessionsPanel(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "session-1", Description: "Backend work"},
+		{ID: "session-2", Description: "Frontend tasks"},
+	}
+	model.sessionCursor = 2 // First real session after pseudo-sessions
+	model.selectedSession = model.sessions[0]
+	catwalk.RunModel(t, "testdata/status_bar_sessions_panel", model)
+}
+
+// TestCatwalkStatusBarBallsPanel tests the status bar with balls panel active.
+func TestCatwalkStatusBarBallsPanel(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "First task", State: session.StatePending},
+		{ID: "juggler-2", Title: "Second task", State: session.StateInProgress},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/status_bar_balls_panel", model)
+}
+
+// TestCatwalkStatusBarActivityPanel tests the status bar with activity panel active.
+func TestCatwalkStatusBarActivityPanel(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.activityLog = []ActivityEntry{
+		{Time: fixedTime, Message: "Balls loaded"},
+		{Time: fixedTime.Add(1 * time.Second), Message: "Sessions loaded"},
+	}
+
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Sample ball", State: session.StatePending},
+	}
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/status_bar_activity_panel", model)
+}
+
+// TestCatwalkStatusBarWithFilters tests the status bar showing filter indicators.
+func TestCatwalkStatusBarWithFilters(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	// Adjust filter states to hide some categories
+	model.filterStates["complete"] = true
+	model.filterStates["blocked"] = false
+
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Pending task", State: session.StatePending},
+		{ID: "juggler-2", Title: "In progress task", State: session.StateInProgress},
+		{ID: "juggler-3", Title: "Complete task", State: session.StateComplete},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/status_bar_with_filters", model)
+}
+
+// TestCatwalkStatusBarWithAgentRunning tests the status bar showing agent status.
+func TestCatwalkStatusBarWithAgentRunning(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "session-1", Description: "Backend work"},
+	}
+	model.sessionCursor = 2
+	model.selectedSession = model.sessions[0]
+	model.agentStatus = AgentStatus{
+		Running:       true,
+		SessionID:     "session-1",
+		Iteration:     3,
+		MaxIterations: 10,
+	}
+	catwalk.RunModel(t, "testdata/status_bar_with_agent_running", model)
+}
+
+// TestCatwalkStatusBarWithSearchQuery tests the status bar showing active search filter.
+func TestCatwalkStatusBarWithSearchQuery(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.panelSearchActive = true
+	model.panelSearchQuery = "backend"
+
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "Backend API task", State: session.StatePending},
+		{ID: "juggler-2", Title: "Frontend task", State: session.StateInProgress},
+	}
+	model.filteredBalls = model.balls[:1] // Only first ball matches filter
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/status_bar_with_search_query", model)
+}
+
 // Helper functions for creating test data
 func formatBallID(i int) string {
 	return fmt.Sprintf("juggler-%d", i)
