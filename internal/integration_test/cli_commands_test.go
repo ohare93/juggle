@@ -1625,6 +1625,48 @@ func TestPlanNonInteractiveWithAllFlags(t *testing.T) {
 	}
 }
 
+// TestPlanAcceptanceCriteriaWithCommas tests that AC containing commas are not split
+func TestPlanAcceptanceCriteriaWithCommas(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	juggleRoot := "/home/jmo/Development/juggler"
+	juggleBinary := filepath.Join(juggleRoot, "juggle")
+
+	// Use an AC with commas - should stay as ONE criterion
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Comma test",
+		"--non-interactive",
+		"-c", "first, second, third",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Plan with comma in AC failed: %v\nOutput: %s", err, output)
+	}
+
+	// Verify exactly ONE acceptance criterion was created
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Title == "Comma test" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if len(ball.AcceptanceCriteria) != 1 {
+		t.Errorf("Expected exactly 1 acceptance criterion, got %d: %v", len(ball.AcceptanceCriteria), ball.AcceptanceCriteria)
+	}
+	if len(ball.AcceptanceCriteria) > 0 && ball.AcceptanceCriteria[0] != "first, second, third" {
+		t.Errorf("Expected AC 'first, second, third', got: %s", ball.AcceptanceCriteria[0])
+	}
+}
+
 // TestPlanNonInteractiveNoIntent tests that --non-interactive requires intent
 func TestPlanNonInteractiveNoIntent(t *testing.T) {
 	env := SetupTestEnv(t)

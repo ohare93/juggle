@@ -53,7 +53,7 @@ var editFlag bool
 
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
-	planCmd.Flags().StringSliceVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
+	planCmd.Flags().StringArrayVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
 	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -c/--ac instead. Sets first acceptance criterion.")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "", "Priority: low, medium, high, urgent (default: medium)")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
