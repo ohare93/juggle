@@ -32,10 +32,10 @@
         "go test -v -tags=integration ./internal/agent_integration_test/..."
       ],
       "test-tui": [
-        "go test -v ./internal/tui/... -run 'TestStandaloneBall|TestSessionsPanel|TestSessionSelector|TestDependencySelector|TestBallsPanel'"
+        "go test -v ./internal/tui/... -run 'TestStandaloneBall|TestSessionsPanel|TestSessionSelector|TestDependencySelector|TestBallsPanel|TestActivityLog|TestBallDetail|TestSplitBottomPane|TestCyclingBottomPane|TestDetailViewScrolling|TestAgentOutputPanel'"
       ],
       "test-tui-rewrite": [
-        "go test -v ./internal/tui/... -run 'TestStandaloneBall|TestSessionsPanel|TestSessionSelector|TestDependencySelector|TestBallsPanel' -rewrite"
+        "go test -v ./internal/tui/... -run 'TestStandaloneBall|TestSessionsPanel|TestSessionSelector|TestDependencySelector|TestBallsPanel|TestActivityLog|TestBallDetail|TestSplitBottomPane|TestCyclingBottomPane|TestDetailViewScrolling|TestAgentOutputPanel' -rewrite"
       ]
     }
   }

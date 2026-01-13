@@ -610,6 +610,215 @@ func TestBallsPanelScroll(t *testing.T) {
 	catwalk.RunModel(t, "testdata/balls_panel_scroll", model)
 }
 
+// TestActivityLogViewEmpty tests the activity log view with no entries.
+func TestActivityLogViewEmpty(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+	model.activityLog = make([]ActivityEntry, 0)
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Sample ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/activity_log_view_empty", model)
+}
+
+// TestActivityLogViewWithEntries tests the activity log view with multiple entries.
+func TestActivityLogViewWithEntries(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.activityLog = []ActivityEntry{
+		{Time: fixedTime.Add(0), Message: "Balls loaded"},
+		{Time: fixedTime.Add(1 * time.Second), Message: "Sessions loaded"},
+		{Time: fixedTime.Add(2 * time.Second), Message: "Ball juggler-1 selected"},
+		{Time: fixedTime.Add(3 * time.Second), Message: "Activity log refreshed"},
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Sample ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/activity_log_view_with_entries", model)
+}
+
+// TestBallDetailView tests the ball detail view rendering.
+func TestBallDetailView(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneDetail
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:        "juggler-1",
+		Title:     "Fix authentication bug",
+		State:     session.StateInProgress,
+		Priority:  session.PriorityHigh,
+		Context:   "Users are unable to login with SSO",
+		Tags:      []string{"bug", "authentication"},
+		DependsOn: []string{},
+	})
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/ball_detail_view", model)
+}
+
+// TestSplitBottomPane tests the split bottom pane with activity and details side by side.
+func TestSplitBottomPane(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.bottomPaneMode = BottomPaneSplit
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.activityLog = []ActivityEntry{
+		{Time: fixedTime.Add(0), Message: "Balls loaded"},
+		{Time: fixedTime.Add(1 * time.Second), Message: "Sessions loaded"},
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:        "juggler-1",
+		Title:     "Add test coverage",
+		State:     session.StateInProgress,
+		Priority:  session.PriorityMedium,
+		Context:   "Need to improve test coverage to 80%",
+		Tags:      []string{"testing", "refactor"},
+		DependsOn: []string{},
+	})
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/split_bottom_pane", model)
+}
+
+// TestCyclingBottomPaneModes tests cycling through bottom pane display modes.
+func TestCyclingBottomPaneModes(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	model.activityLog = []ActivityEntry{
+		{Time: fixedTime.Add(0), Message: "Mode cycle test started"},
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Test ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/cycling_bottom_pane_modes", model)
+}
+
+// TestActivityLogScrolling tests scrolling behavior in the activity log.
+func TestActivityLogScrolling(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	// Create 20 activity entries to test scrolling
+	for i := 0; i < 20; i++ {
+		model.activityLog = append(model.activityLog, ActivityEntry{
+			Time:    fixedTime.Add(time.Duration(i) * time.Second),
+			Message: fmt.Sprintf("Activity entry %d", i+1),
+		})
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Test ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	model.activityLogOffset = 10 // Scroll to middle
+	catwalk.RunModel(t, "testdata/activity_log_scrolling", model)
+}
+
+// TestDetailViewScrolling tests scrolling behavior in the detail view.
+func TestDetailViewScrolling(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneDetail
+
+	longContext := "This is a very long context that should demonstrate scrolling in the detail view panel. " +
+		"It contains multiple lines of text to show how the detail view handles content that is too large " +
+		"to fit in the available space. The detail panel should be able to scroll through this content " +
+		"to show all the information about the selected ball. This is important for displaying comprehensive " +
+		"context and acceptance criteria that may be quite lengthy."
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:        "juggler-1",
+		Title:     "Long context ball",
+		State:     session.StateInProgress,
+		Priority:  session.PriorityHigh,
+		Context:   longContext,
+		Tags:      []string{"feature", "documentation"},
+		DependsOn: []string{},
+	})
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	model.detailScrollOffset = 5
+	catwalk.RunModel(t, "testdata/detail_view_scrolling", model)
+}
+
+// TestAgentOutputPanelVisible tests the agent output panel when visible but not expanded.
+func TestAgentOutputPanelVisible(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.bottomPaneMode = BottomPaneActivity
+	model.agentOutputVisible = true
+	model.agentOutputExpanded = false
+
+	fixedTime := time.Date(2025, 1, 13, 17, 11, 14, 0, time.UTC)
+	model.agentOutput = []AgentOutputEntry{
+		{Time: fixedTime, Line: "Starting agent...", IsError: false},
+		{Time: fixedTime, Line: "Agent running", IsError: false},
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Test ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/agent_output_panel_visible", model)
+}
+
+// TestAgentOutputPanelExpanded tests the agent output panel when expanded.
+func TestAgentOutputPanelExpanded(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.bottomPaneMode = BottomPaneActivity
+	model.agentOutputVisible = true
+	model.agentOutputExpanded = true
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	// Create multiple lines of agent output
+	for i := 0; i < 10; i++ {
+		model.agentOutput = append(model.agentOutput, AgentOutputEntry{
+			Time:    fixedTime.Add(time.Duration(i) * time.Second),
+			Line:    fmt.Sprintf("Agent output line %d", i+1),
+			IsError: i%3 == 2, // Make every third line an error
+		})
+	}
+
+	model.balls = append(model.balls, &session.Ball{
+		ID:    "juggler-1",
+		Title: "Test ball",
+		State: session.StatePending,
+	})
+	model.filteredBalls = model.balls
+	catwalk.RunModel(t, "testdata/agent_output_panel_expanded", model)
+}
+
 // Helper functions for creating test data
 func formatBallID(i int) string {
 	return fmt.Sprintf("juggler-%d", i)
