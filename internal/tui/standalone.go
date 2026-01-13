@@ -62,8 +62,8 @@ func NewStandaloneBallModel(store *session.Store, sessionStore *session.SessionS
 	ti := textinput.New()
 	ti.CharLimit = 256
 	ti.Width = 60
-	ti.Placeholder = "Background context for this task"
-	ti.Focus()
+	ti.Placeholder = "What is this ball about? (50 char recommended)"
+	ti.Blur() // Start with context field focused, not this
 
 	ta := textarea.New()
 	ta.Placeholder = "Background context for this task"
@@ -71,6 +71,7 @@ func NewStandaloneBallModel(store *session.Store, sessionStore *session.SessionS
 	ta.SetWidth(60)
 	ta.SetHeight(1)
 	ta.ShowLineNumbers = false
+	ta.Focus() // Context field is first, so focus it
 
 	return StandaloneBallModel{
 		store:               store,
@@ -302,7 +303,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		m.result = nil
 		return m, tea.Quit
 
-	case "ctrl+enter":
+	case "ctrl+enter", "ctrl+s":
+		// Create the ball (ctrl+s is more reliable across terminals)
 		saveCurrentFieldValue()
 		if m.pendingBallIntent == "" {
 			m.message = "Title is required"
@@ -390,14 +392,53 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return m, nil
 
 	case "tab":
+		// If autocomplete is active, accept the completion
 		if m.fileAutocomplete != nil && m.fileAutocomplete.Active && len(m.fileAutocomplete.Suggestions) > 0 {
-			text := m.textInput.Value()
-			newText := m.fileAutocomplete.ApplyCompletion(text)
-			m.textInput.SetValue(newText)
-			m.textInput.SetCursor(len(newText))
+			if m.pendingBallFormField == fieldContext {
+				newText := m.fileAutocomplete.ApplyCompletion(m.contextInput.Value())
+				m.contextInput.SetValue(newText)
+				adjustStandaloneContextHeight(&m)
+			} else {
+				text := m.textInput.Value()
+				newText := m.fileAutocomplete.ApplyCompletion(text)
+				m.textInput.SetValue(newText)
+				m.textInput.SetCursor(len(newText))
+			}
 			m.fileAutocomplete.Reset()
 			return m, nil
 		}
+
+		// Tab always moves to next field
+		// For selection fields, also toggle to next option before moving
+		_, _, sessionField, modelSizeField, _ := recalcFieldIndices()
+		if m.pendingBallFormField == sessionField {
+			// Toggle to next session option
+			m.pendingBallSession++
+			if m.pendingBallSession >= numSessionOptions {
+				m.pendingBallSession = 0
+			}
+		} else if m.pendingBallFormField == modelSizeField {
+			// Toggle to next model size option
+			m.pendingBallModelSize++
+			if m.pendingBallModelSize >= numModelSizeOptions {
+				m.pendingBallModelSize = 0
+			}
+		} else {
+			// For text fields, save current value
+			saveCurrentFieldValue()
+		}
+		// Move to next field
+		newACEnd, newFieldTags, _, _, newDependsOn := recalcFieldIndices()
+		if m.pendingBallFormField == newACEnd {
+			m.pendingBallFormField = newFieldTags
+		} else {
+			m.pendingBallFormField++
+			maxFieldIndex = newDependsOn
+			if m.pendingBallFormField > maxFieldIndex {
+				m.pendingBallFormField = 0
+			}
+		}
+		loadFieldValue(m.pendingBallFormField)
 		return m, nil
 
 	case " ":
@@ -818,7 +859,7 @@ func (m StandaloneBallModel) renderForm() string {
 
 	// Help text
 	helpStyle := lipgloss.NewStyle().Faint(true)
-	b.WriteString(helpStyle.Render("Navigation: ↑/↓ fields • ←/→ options • Enter next/add AC • Ctrl+Enter save • Esc cancel"))
+	b.WriteString(helpStyle.Render("Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel"))
 	b.WriteString("\n")
 
 	// Message

@@ -1700,6 +1700,9 @@ func (m Model) handleSplitAddItem() (tea.Model, tea.Cmd) {
 			}
 		}
 		m.pendingBallFormField = 0 // Start at context field
+		m.contextInput.SetValue("")
+		m.contextInput.Focus()
+		m.textInput.Blur()
 		m.textInput.Placeholder = "Background context for this task"
 		m.mode = unifiedBallFormView
 		m.addActivity("Creating new ball...")
@@ -1802,7 +1805,10 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 		}
 
 		m.pendingBallFormField = 0 // Start at context field
-		m.textInput.SetValue(ball.Context)
+		m.contextInput.SetValue(ball.Context)
+		m.contextInput.Focus()
+		adjustContextTextareaHeight(&m)
+		m.textInput.Blur()
 		m.textInput.Placeholder = "Background context for this task"
 		m.mode = unifiedBallFormView
 		m.addActivity("Editing ball: " + ball.ID)
@@ -3124,42 +3130,37 @@ func (m Model) handleHistoryOutputViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // The textarea grows as the user types more content, and shrinks when content is deleted
 func adjustContextTextareaHeight(m *Model) {
 	content := m.contextInput.Value()
-	width := m.contextInput.Width()
-	if width <= 0 {
-		width = 60 // Default width
+	if content == "" {
+		m.contextInput.SetHeight(1)
+		return
 	}
 
-	// Count lines needed for content
-	lines := 1
-	if content != "" {
-		// Count wrapped lines
-		for _, line := range strings.Split(content, "\n") {
-			if len(line) == 0 {
-				lines++
-			} else {
-				// Calculate how many display lines this line needs
-				lineCount := (len(line) + width - 1) / width
-				if lineCount == 0 {
-					lineCount = 1
-				}
-				lines += lineCount
-			}
-		}
-		// Don't double-count the initial line
-		if lines > 1 && content[len(content)-1] != '\n' {
-			lines--
+	// Use effective wrap width (textarea has internal padding that reduces usable width)
+	// The textarea is set to 60 chars but actual content wraps around 58
+	const wrapWidth = 58
+
+	// Count wrapped lines
+	wrappedLines := 0
+	for _, line := range strings.Split(content, "\n") {
+		if len(line) == 0 {
+			wrappedLines++
+		} else if len(line) > wrapWidth {
+			// Long line wraps to multiple display lines
+			wrappedLines += (len(line) / wrapWidth) + 1
+		} else {
+			wrappedLines++
 		}
 	}
 
-	// Minimum 1 line, maximum 5 lines
-	if lines < 1 {
-		lines = 1
+	// Minimum 1 line, maximum 10 lines
+	if wrappedLines < 1 {
+		wrappedLines = 1
 	}
-	if lines > 5 {
-		lines = 5
+	if wrappedLines > 10 {
+		wrappedLines = 10
 	}
 
-	m.contextInput.SetHeight(lines)
+	m.contextInput.SetHeight(wrappedLines)
 }
 
 // handleUnifiedBallFormKey handles keyboard input for the unified ball creation form
@@ -3317,8 +3318,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.contextInput.Blur()
 		return m, nil
 
-	case "ctrl+enter":
-		// Create the ball
+	case "ctrl+enter", "ctrl+s":
+		// Create the ball (ctrl+s is more reliable across terminals)
 		// Save current field value first
 		saveCurrentFieldValue()
 
@@ -3546,34 +3547,37 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Tab cycles through selection options or moves to next field
+		// Tab always moves to next field
+		// For selection fields, also toggle to next option before moving
 		_, _, sessionField, modelSizeField, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
+			// Toggle to next session option
 			m.pendingBallSession++
 			if m.pendingBallSession >= numSessionOptions {
 				m.pendingBallSession = 0
 			}
 		} else if m.pendingBallFormField == modelSizeField {
+			// Toggle to next model size option
 			m.pendingBallModelSize++
 			if m.pendingBallModelSize >= numModelSizeOptions {
 				m.pendingBallModelSize = 0
 			}
 		} else {
-			// For text fields, tab moves to next field
+			// For text fields, save current value
 			saveCurrentFieldValue()
-			// Check if we're on the "new AC" field - if so, move to Tags
-			newACEnd, newFieldTags, _, _, newDependsOn := recalcFieldIndices()
-			if m.pendingBallFormField == newACEnd {
-				m.pendingBallFormField = newFieldTags
-			} else {
-				m.pendingBallFormField++
-				maxFieldIndex = newDependsOn
-				if m.pendingBallFormField > maxFieldIndex {
-					m.pendingBallFormField = 0
-				}
-			}
-			loadFieldValue(m.pendingBallFormField)
 		}
+		// Move to next field
+		newACEnd, newFieldTags, _, _, newDependsOn := recalcFieldIndices()
+		if m.pendingBallFormField == newACEnd {
+			m.pendingBallFormField = newFieldTags
+		} else {
+			m.pendingBallFormField++
+			maxFieldIndex = newDependsOn
+			if m.pendingBallFormField > maxFieldIndex {
+				m.pendingBallFormField = 0
+			}
+		}
+		loadFieldValue(m.pendingBallFormField)
 		return m, nil
 
 	case "backspace", "delete":
