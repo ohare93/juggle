@@ -1,0 +1,6 @@
+# Test: Edge case long title narrow
+
+run
+----
+-- view:
+Loading...🛇

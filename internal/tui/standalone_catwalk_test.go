@@ -1682,6 +1682,418 @@ func TestBallFormDependencySelection(t *testing.T) {
 	catwalk.RunModel(t, "testdata/ball_form_dependency_selection", model)
 }
 
+// =============================================================================
+// EDGE CASE TESTS
+// =============================================================================
+
+// createNarrowTerminalModel creates a Model with narrow terminal width (40 cols).
+func createNarrowTerminalModel(t *testing.T) Model {
+	t.Helper()
+	model := createTestSplitViewModel(t)
+	model.width = 40
+	model.height = 24
+	return model
+}
+
+// createWideTerminalModel creates a Model with wide terminal width (200 cols).
+func createWideTerminalModel(t *testing.T) Model {
+	t.Helper()
+	model := createTestSplitViewModel(t)
+	model.width = 200
+	model.height = 24
+	return model
+}
+
+// createShortTerminalModel creates a Model with short terminal height (10 rows).
+func createShortTerminalModel(t *testing.T) Model {
+	t.Helper()
+	model := createTestSplitViewModel(t)
+	model.width = 80
+	model.height = 10
+	return model
+}
+
+// TestEdgeCaseNarrowTerminal tests rendering with a narrow terminal (40 cols).
+func TestEdgeCaseNarrowTerminal(t *testing.T) {
+	model := createNarrowTerminalModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "A task with a fairly long title", State: session.StatePending, Priority: session.PriorityMedium},
+		{ID: "juggler-2", Title: "Another task here", State: session.StateInProgress, Priority: session.PriorityHigh},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	model.showPriorityColumn = true
+	catwalk.RunModel(t, "testdata/edge_case_narrow_terminal", model)
+}
+
+// TestEdgeCaseNarrowTerminalWithSessions tests the sessions panel at narrow width.
+func TestEdgeCaseNarrowTerminalWithSessions(t *testing.T) {
+	model := createNarrowTerminalModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "session-with-very-long-name", Description: "A session with a long description"},
+		{ID: "short", Description: "Short desc"},
+	}
+	model.sessionCursor = 2
+	model.selectedSession = model.sessions[0]
+	catwalk.RunModel(t, "testdata/edge_case_narrow_sessions", model)
+}
+
+// TestEdgeCaseWideTerminal tests rendering with a wide terminal (200 cols).
+func TestEdgeCaseWideTerminal(t *testing.T) {
+	model := createWideTerminalModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "First task", State: session.StatePending, Priority: session.PriorityMedium, Tags: []string{"feature", "backend"}},
+		{ID: "juggler-2", Title: "Second task", State: session.StateInProgress, Priority: session.PriorityHigh, Tags: []string{"bug"}},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	model.showPriorityColumn = true
+	model.showTagsColumn = true
+	model.showTestsColumn = true
+	catwalk.RunModel(t, "testdata/edge_case_wide_terminal", model)
+}
+
+// TestEdgeCaseWideTerminalWithAllColumns tests wide terminal with all columns visible.
+func TestEdgeCaseWideTerminalWithAllColumns(t *testing.T) {
+	model := createWideTerminalModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:                 "juggler-1",
+			Title:              "A comprehensive task with many details",
+			State:              session.StatePending,
+			Priority:           session.PriorityUrgent,
+			Tags:               []string{"feature", "backend", "api", "testing"},
+			AcceptanceCriteria: []string{"AC 1", "AC 2", "AC 3", "AC 4"},
+		},
+		{
+			ID:                 "juggler-2",
+			Title:              "Another detailed task",
+			State:              session.StateInProgress,
+			Priority:           session.PriorityHigh,
+			Tags:               []string{"refactor"},
+			AcceptanceCriteria: []string{"AC 1"},
+		},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	model.showPriorityColumn = true
+	model.showTagsColumn = true
+	model.showTestsColumn = true
+	catwalk.RunModel(t, "testdata/edge_case_wide_all_columns", model)
+}
+
+// TestEdgeCaseShortTerminal tests rendering with a short terminal (10 rows).
+func TestEdgeCaseShortTerminal(t *testing.T) {
+	model := createShortTerminalModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "First task", State: session.StatePending},
+		{ID: "juggler-2", Title: "Second task", State: session.StateInProgress},
+		{ID: "juggler-3", Title: "Third task", State: session.StateBlocked},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_short_terminal", model)
+}
+
+// TestEdgeCaseShortTerminalWithManyBalls tests short terminal with many balls to scroll.
+func TestEdgeCaseShortTerminalWithManyBalls(t *testing.T) {
+	model := createShortTerminalModel(t)
+	model.activePanel = BallsPanel
+	// Create 15 balls to test scrolling in short terminal
+	for i := 1; i <= 15; i++ {
+		model.balls = append(model.balls, &session.Ball{
+			ID:    formatBallID(i),
+			Title: formatBallTitle(i),
+			State: session.StatePending,
+		})
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 7 // Scroll to middle
+	model.selectedBall = model.balls[7]
+	catwalk.RunModel(t, "testdata/edge_case_short_many_balls", model)
+}
+
+// TestEdgeCaseLongTitleTruncation tests truncation of very long ball titles.
+func TestEdgeCaseLongTitleTruncation(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:    "juggler-1",
+			Title: "This is an extremely long title that should definitely be truncated because it exceeds the available space in the balls panel",
+			State: session.StatePending,
+		},
+		{
+			ID:    "juggler-2",
+			Title: "Another very long title that goes on and on and on and should also be truncated to fit the display",
+			State: session.StateInProgress,
+		},
+		{ID: "juggler-3", Title: "Short title", State: session.StateBlocked},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_long_title_truncation", model)
+}
+
+// TestEdgeCaseLongTitleInNarrowTerminal tests long titles in narrow terminal.
+func TestEdgeCaseLongTitleInNarrowTerminal(t *testing.T) {
+	model := createNarrowTerminalModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{
+			ID:    "juggler-1",
+			Title: "This is a long title that must be truncated in narrow view",
+			State: session.StatePending,
+		},
+		{ID: "juggler-2", Title: "Short", State: session.StateInProgress},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_long_title_narrow", model)
+}
+
+// TestEdgeCaseEmptyBallsList tests empty balls list display.
+func TestEdgeCaseEmptyBallsList(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = make([]*session.Ball, 0)
+	model.filteredBalls = make([]*session.Ball, 0)
+	model.selectedBall = nil
+	catwalk.RunModel(t, "testdata/edge_case_empty_balls", model)
+}
+
+// TestEdgeCaseEmptySessionsList tests empty sessions list display.
+func TestEdgeCaseEmptySessionsList(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = make([]*session.JuggleSession, 0)
+	model.selectedSession = nil
+	model.sessionCursor = 0
+	catwalk.RunModel(t, "testdata/edge_case_empty_sessions", model)
+}
+
+// TestEdgeCaseEmptyActivityLog tests empty activity log display.
+func TestEdgeCaseEmptyActivityLog(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+	model.activityLog = make([]ActivityEntry, 0)
+	catwalk.RunModel(t, "testdata/edge_case_empty_activity", model)
+}
+
+// TestEdgeCaseEmptyHistory tests empty history view display.
+func TestEdgeCaseEmptyHistory(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyView
+	model.agentHistory = make([]*session.AgentRunRecord, 0)
+	model.historyCursor = 0
+	catwalk.RunModel(t, "testdata/edge_case_empty_history", model)
+}
+
+// TestEdgeCaseEmptyDependencySelector tests empty dependency selector.
+func TestEdgeCaseEmptyDependencySelector(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = dependencySelectorView
+	model.dependencySelectBalls = make([]*session.Ball, 0)
+	model.dependencySelectIndex = 0
+	model.dependencySelectActive = make(map[string]bool)
+	catwalk.RunModel(t, "testdata/edge_case_empty_dependency", model)
+}
+
+// TestEdgeCaseMaxScrollBallsAtBottom tests scroll position at the bottom of balls list.
+func TestEdgeCaseMaxScrollBallsAtBottom(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	// Create 30 balls to ensure we need to scroll
+	for i := 1; i <= 30; i++ {
+		model.balls = append(model.balls, &session.Ball{
+			ID:    formatBallID(i),
+			Title: formatBallTitle(i),
+			State: session.StatePending,
+		})
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 29 // Last ball
+	model.selectedBall = model.balls[29]
+	catwalk.RunModel(t, "testdata/edge_case_max_scroll_balls_bottom", model)
+}
+
+// TestEdgeCaseMaxScrollBallsAtTop tests scroll position at the top of balls list.
+func TestEdgeCaseMaxScrollBallsAtTop(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	// Create 30 balls to ensure we need to scroll
+	for i := 1; i <= 30; i++ {
+		model.balls = append(model.balls, &session.Ball{
+			ID:    formatBallID(i),
+			Title: formatBallTitle(i),
+			State: session.StatePending,
+		})
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0 // First ball
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_max_scroll_balls_top", model)
+}
+
+// TestEdgeCaseMaxScrollActivityAtBottom tests scroll position at bottom of activity log.
+func TestEdgeCaseMaxScrollActivityAtBottom(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	// Create 50 activity entries
+	for i := 0; i < 50; i++ {
+		model.activityLog = append(model.activityLog, ActivityEntry{
+			Time:    fixedTime.Add(time.Duration(i) * time.Second),
+			Message: fmt.Sprintf("Activity entry number %d", i+1),
+		})
+	}
+	// Scroll to bottom
+	model.activityLogOffset = 45 // Near the end
+	catwalk.RunModel(t, "testdata/edge_case_max_scroll_activity_bottom", model)
+}
+
+// TestEdgeCaseMaxScrollActivityAtTop tests scroll position at top of activity log.
+func TestEdgeCaseMaxScrollActivityAtTop(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = ActivityPanel
+	model.bottomPaneMode = BottomPaneActivity
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	// Create 50 activity entries
+	for i := 0; i < 50; i++ {
+		model.activityLog = append(model.activityLog, ActivityEntry{
+			Time:    fixedTime.Add(time.Duration(i) * time.Second),
+			Message: fmt.Sprintf("Activity entry number %d", i+1),
+		})
+	}
+	model.activityLogOffset = 0 // At the top
+	catwalk.RunModel(t, "testdata/edge_case_max_scroll_activity_top", model)
+}
+
+// TestEdgeCaseMaxScrollHistoryAtBottom tests scroll position at bottom of history.
+func TestEdgeCaseMaxScrollHistoryAtBottom(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = historyView
+
+	fixedTime := time.Date(2025, 1, 13, 16, 41, 11, 0, time.UTC)
+	// Create 20 history entries
+	for i := 0; i < 20; i++ {
+		model.agentHistory = append(model.agentHistory, &session.AgentRunRecord{
+			ID:            fmt.Sprintf("17367828%d1000000000", i),
+			SessionID:     fmt.Sprintf("session-%d", i+1),
+			StartedAt:     fixedTime.Add(time.Duration(-i) * time.Hour),
+			EndedAt:       fixedTime.Add(time.Duration(-i)*time.Hour + 15*time.Minute),
+			Iterations:    i + 1,
+			MaxIterations: 10,
+			Result:        "complete",
+			BallsComplete: i + 1,
+			BallsTotal:    i + 2,
+		})
+	}
+	model.historyCursor = 19 // Last entry
+	model.historyScrollOffset = 15
+	catwalk.RunModel(t, "testdata/edge_case_max_scroll_history_bottom", model)
+}
+
+// TestEdgeCaseCursorAtFirstBall tests cursor behavior when at first ball.
+func TestEdgeCaseCursorAtFirstBall(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "First ball", State: session.StatePending},
+		{ID: "juggler-2", Title: "Second ball", State: session.StateInProgress},
+		{ID: "juggler-3", Title: "Third ball", State: session.StateBlocked},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0 // At the top
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_cursor_first_ball", model)
+}
+
+// TestEdgeCaseCursorAtLastBall tests cursor behavior when at last ball.
+func TestEdgeCaseCursorAtLastBall(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-1", Title: "First ball", State: session.StatePending},
+		{ID: "juggler-2", Title: "Second ball", State: session.StateInProgress},
+		{ID: "juggler-3", Title: "Third ball", State: session.StateBlocked},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 2 // At the end
+	model.selectedBall = model.balls[2]
+	catwalk.RunModel(t, "testdata/edge_case_cursor_last_ball", model)
+}
+
+// TestEdgeCaseCursorAtFirstSession tests cursor behavior at first session.
+func TestEdgeCaseCursorAtFirstSession(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "session-1", Description: "First session"},
+		{ID: "session-2", Description: "Second session"},
+		{ID: "session-3", Description: "Third session"},
+	}
+	model.sessionCursor = 0 // At the top (All pseudo-session)
+	model.selectedSession = nil
+	catwalk.RunModel(t, "testdata/edge_case_cursor_first_session", model)
+}
+
+// TestEdgeCaseCursorAtLastSession tests cursor behavior at last session.
+func TestEdgeCaseCursorAtLastSession(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "session-1", Description: "First session"},
+		{ID: "session-2", Description: "Second session"},
+		{ID: "session-3", Description: "Third session"},
+	}
+	// With 2 pseudo-sessions + 3 real sessions = 5 total, last is index 4
+	model.sessionCursor = 4
+	model.selectedSession = model.sessions[2]
+	catwalk.RunModel(t, "testdata/edge_case_cursor_last_session", model)
+}
+
+// TestEdgeCaseSingleBall tests display with only one ball.
+func TestEdgeCaseSingleBall(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = BallsPanel
+	model.balls = []*session.Ball{
+		{ID: "juggler-only", Title: "The only ball", State: session.StatePending},
+	}
+	model.filteredBalls = model.balls
+	model.cursor = 0
+	model.selectedBall = model.balls[0]
+	catwalk.RunModel(t, "testdata/edge_case_single_ball", model)
+}
+
+// TestEdgeCaseSingleSession tests display with only one session.
+func TestEdgeCaseSingleSession(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.activePanel = SessionsPanel
+	model.sessions = []*session.JuggleSession{
+		{ID: "only-session", Description: "The only session"},
+	}
+	// Pseudo-sessions are at 0 and 1, the only real session is at 2
+	model.sessionCursor = 2
+	model.selectedSession = model.sessions[0]
+	catwalk.RunModel(t, "testdata/edge_case_single_session", model)
+}
+
 // Helper functions for creating test data
 func formatBallID(i int) string {
 	return fmt.Sprintf("juggler-%d", i)
