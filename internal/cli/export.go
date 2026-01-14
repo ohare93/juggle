@@ -197,6 +197,29 @@ func runExport(cmd *cobra.Command, args []string) error {
 		balls = filteredBalls
 	}
 
+	// Filter 4: For ralph/agent formats, exclude on_hold balls (they are deferred work)
+	// Warn if on_hold balls were found and would have been included
+	if exportFormat == "ralph" || exportFormat == "agent" {
+		var onHoldBalls []*session.Ball
+		filteredBalls := make([]*session.Ball, 0)
+		for _, ball := range balls {
+			if ball.State == session.StateOnHold {
+				onHoldBalls = append(onHoldBalls, ball)
+			} else {
+				filteredBalls = append(filteredBalls, ball)
+			}
+		}
+		// Warn about excluded on_hold balls (write to stderr so it doesn't pollute stdout export)
+		if len(onHoldBalls) > 0 {
+			fmt.Fprintf(os.Stderr, "⚠ Warning: %d on_hold ball(s) excluded from %s export:\n", len(onHoldBalls), exportFormat)
+			for _, ball := range onHoldBalls {
+				fmt.Fprintf(os.Stderr, "  - %s: %s\n", ball.ID, ball.Title)
+			}
+			fmt.Fprintln(os.Stderr)
+		}
+		balls = filteredBalls
+	}
+
 	// For ralph/agent formats, we allow empty balls (session might just have context)
 	if len(balls) == 0 && exportFormat != "ralph" && exportFormat != "agent" {
 		return fmt.Errorf("no balls to export")
@@ -288,7 +311,7 @@ func filterByState(balls []*session.Ball, stateStr string) ([]*session.Ball, err
 		}
 
 		if !session.ValidateBallState(s) {
-			return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, complete, or researched)", s)
+			return nil, fmt.Errorf("invalid state: %s (must be pending, in_progress, blocked, complete, researched, or on_hold)", s)
 		}
 		stateFilters = append(stateFilters, session.BallState(s))
 	}
@@ -796,12 +819,14 @@ func sortBallsForAgent(balls []*session.Ball) {
 	}
 
 	// State priority: in_progress first, then pending, then blocked, then complete
+	// on_hold balls are filtered out before reaching this sort, but included for completeness
 	stateOrder := map[session.BallState]int{
 		session.StateInProgress: 0,
 		session.StatePending:    1,
 		session.StateBlocked:    2,
 		session.StateComplete:   3,
 		session.StateResearched: 4,
+		session.StateOnHold:     5, // Should be filtered out for agent exports
 	}
 
 	// Priority order: urgent > high > medium > low

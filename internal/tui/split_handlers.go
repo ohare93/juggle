@@ -30,6 +30,9 @@ func (m Model) handleStateKeySequence(key string) (tea.Model, tea.Cmd) {
 	case "p":
 		// sp = Set to pending
 		return m.handleSplitSetPending()
+	case "h":
+		// sh = Set to on_hold
+		return m.handleSplitSetOnHold()
 	case "a":
 		// sa = Archive completed ball
 		return m.handleSplitArchiveBall()
@@ -38,7 +41,7 @@ func (m Model) handleStateKeySequence(key string) (tea.Model, tea.Cmd) {
 		m.message = ""
 		return m, nil
 	default:
-		m.message = "Unknown state: " + key + " (use c/s/b/p/a)"
+		m.message = "Unknown state: " + key + " (use c/s/b/p/h/a)"
 		return m, nil
 	}
 }
@@ -91,12 +94,23 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.addActivity("Hiding pending balls")
 			m.message = "Pending: hidden"
 		}
+	case "h":
+		// th = Toggle on_hold visibility
+		m.filterStates["on_hold"] = !m.filterStates["on_hold"]
+		if m.filterStates["on_hold"] {
+			m.addActivity("Showing on_hold balls")
+			m.message = "On-hold: visible"
+		} else {
+			m.addActivity("Hiding on_hold balls")
+			m.message = "On-hold: hidden"
+		}
 	case "a":
 		// ta = Show all states
 		m.filterStates["pending"] = true
 		m.filterStates["in_progress"] = true
 		m.filterStates["blocked"] = true
 		m.filterStates["complete"] = true
+		m.filterStates["on_hold"] = true
 		m.addActivity("Showing all states")
 		m.message = "All states visible"
 	case "esc":
@@ -104,7 +118,7 @@ func (m Model) handleToggleKeySequence(key string) (tea.Model, tea.Cmd) {
 		m.message = ""
 		needsFilterUpdate = false
 	default:
-		m.message = "Unknown toggle: " + key + " (use c/b/i/p/a)"
+		m.message = "Unknown toggle: " + key + " (use c/b/i/p/h/a)"
 		needsFilterUpdate = false
 	}
 
@@ -210,6 +224,26 @@ func (m Model) handleSplitSetPending() (tea.Model, tea.Cmd) {
 	ball := balls[m.cursor]
 	ball.SetState(session.StatePending)
 	m.addActivity("Set pending: " + ball.ID)
+
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	return m, updateBall(store, ball)
+}
+
+// handleSplitSetOnHold sets the selected ball to on_hold state
+func (m Model) handleSplitSetOnHold() (tea.Model, tea.Cmd) {
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		return m, nil
+	}
+
+	ball := balls[m.cursor]
+	ball.SetState(session.StateOnHold)
+	m.addActivity("Set on hold: " + ball.ID)
 
 	store, err := session.NewStore(ball.WorkingDir)
 	if err != nil {

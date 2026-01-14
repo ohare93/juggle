@@ -94,8 +94,8 @@ func (m Model) renderListView() string {
 	// Footer with keybindings
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Navigation: ↑/k up • ↓/j down • enter details • esc exit\n"))
-	b.WriteString(helpStyle.Render("State (s+key): sc complete • ss start • sb block • sp pending • sa archive\n"))
-	b.WriteString(helpStyle.Render("Filter (t+key): tc complete • tb blocked • ti in_progress • tp pending • ta all\n"))
+	b.WriteString(helpStyle.Render("State (s+key): sc complete • ss start • sb block • sp pending • sh hold • sa archive\n"))
+	b.WriteString(helpStyle.Render("Filter (t+key): tc complete • tb blocked • ti in_progress • tp pending • th hold • ta all\n"))
 	b.WriteString(helpStyle.Render("Other: a add • e edit • d delete • o sort • R refresh • ? help • q quit\n"))
 
 	// Message

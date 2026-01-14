@@ -277,6 +277,7 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 			"in_progress": true,
 			"blocked":     true,
 			"complete":    false, // Hidden by default
+			"on_hold":     true,  // Visible by default so users see their deferred work
 		},
 		// Column visibility defaults (all hidden by default for compact view)
 		showPriorityColumn:  false,

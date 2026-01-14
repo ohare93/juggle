@@ -74,6 +74,8 @@ func styleBallByState(ball *session.Ball, line string) string {
 		color = completeColor
 	case session.StateResearched:
 		color = researchedColor
+	case session.StateOnHold:
+		color = onHoldColor
 	default:
 		color = lipgloss.Color("7") // Default white
 	}

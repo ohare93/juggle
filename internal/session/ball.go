@@ -38,6 +38,7 @@ const (
 	StateComplete   BallState = "complete"
 	StateBlocked    BallState = "blocked"
 	StateResearched BallState = "researched" // Completed with no code changes, output contains results
+	StateOnHold     BallState = "on_hold"    // Deferred - not currently being worked on, excluded from agent loops
 )
 
 // TestsState represents whether tests are needed/done for a ball
@@ -401,7 +402,7 @@ func ValidatePriority(p string) bool {
 // ValidateBallState checks if a ball state string is valid
 func ValidateBallState(s string) bool {
 	switch BallState(s) {
-	case StatePending, StateInProgress, StateComplete, StateBlocked, StateResearched:
+	case StatePending, StateInProgress, StateComplete, StateBlocked, StateResearched, StateOnHold:
 		return true
 	default:
 		return false
