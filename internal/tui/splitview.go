@@ -855,12 +855,24 @@ func (m Model) renderStatusBar() string {
 	return helpStyle.Render(status)
 }
 
-// countBallsForSession counts balls that belong to a session
+// countBallsForSession counts non-completed balls that belong to a session.
+// Balls with state=complete or state=researched are excluded from the count.
 func (m Model) countBallsForSession(sessionID string) int {
+	// Helper to check if ball should be counted (not completed)
+	shouldCount := func(ball *session.Ball) bool {
+		return ball.State != session.StateComplete && ball.State != session.StateResearched
+	}
+
 	// Handle pseudo-sessions
 	switch sessionID {
 	case PseudoSessionAll:
-		return len(m.filteredBalls)
+		count := 0
+		for _, ball := range m.filteredBalls {
+			if shouldCount(ball) {
+				count++
+			}
+		}
+		return count
 	case PseudoSessionUntagged:
 		// Count balls with no session tags
 		count := 0
@@ -869,6 +881,9 @@ func (m Model) countBallsForSession(sessionID string) int {
 			sessionIDs[sess.ID] = true
 		}
 		for _, ball := range m.filteredBalls {
+			if !shouldCount(ball) {
+				continue
+			}
 			hasSessionTag := false
 			for _, tag := range ball.Tags {
 				if sessionIDs[tag] {
@@ -885,6 +900,9 @@ func (m Model) countBallsForSession(sessionID string) int {
 		// Regular session - count balls with matching tag
 		count := 0
 		for _, ball := range m.filteredBalls {
+			if !shouldCount(ball) {
+				continue
+			}
 			for _, tag := range ball.Tags {
 				if tag == sessionID {
 					count++

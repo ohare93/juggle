@@ -866,9 +866,9 @@ func TestFilterBallsForSession(t *testing.T) {
 // Test countBallsForSession (via split view delete confirmation)
 func TestCountBallsForSession(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "1", Tags: []string{"session-a"}},
-		{ID: "2", Tags: []string{"session-a"}},
-		{ID: "3", Tags: []string{"session-b"}},
+		{ID: "1", Tags: []string{"session-a"}, State: session.StatePending},
+		{ID: "2", Tags: []string{"session-a"}, State: session.StateInProgress},
+		{ID: "3", Tags: []string{"session-b"}, State: session.StatePending},
 	}
 
 	model := Model{
@@ -888,6 +888,60 @@ func TestCountBallsForSession(t *testing.T) {
 	count = model.countBallsForSession("nonexistent")
 	if count != 0 {
 		t.Errorf("Expected 0 balls for nonexistent session, got %d", count)
+	}
+}
+
+// TestCountBallsForSessionExcludesCompleted verifies that session ball counts
+// exclude balls with state=complete or state=researched (AC1, AC2 of juggler-aae71dd3)
+func TestCountBallsForSessionExcludesCompleted(t *testing.T) {
+	// Create balls with different states for the same session
+	balls := []*session.Ball{
+		{ID: "1", Tags: []string{"mysession"}, State: session.StatePending},
+		{ID: "2", Tags: []string{"mysession"}, State: session.StateInProgress},
+		{ID: "3", Tags: []string{"mysession"}, State: session.StateBlocked},
+		{ID: "4", Tags: []string{"mysession"}, State: session.StateComplete},     // Should NOT be counted
+		{ID: "5", Tags: []string{"mysession"}, State: session.StateResearched},   // Should NOT be counted
+		{ID: "6", Tags: []string{"other"}, State: session.StatePending},          // Different session
+		{ID: "7", Tags: []string{"other"}, State: session.StateComplete},         // Different session + complete
+	}
+
+	model := Model{
+		filteredBalls: balls,
+		sessions: []*session.JuggleSession{
+			{ID: "mysession"},
+			{ID: "other"},
+		},
+	}
+
+	// Test regular session count - should be 3 (pending + in_progress + blocked), excluding 2 complete/researched
+	count := model.countBallsForSession("mysession")
+	if count != 3 {
+		t.Errorf("Expected 3 non-completed balls for mysession, got %d", count)
+	}
+
+	// Test other session - should be 1 (pending only, complete excluded)
+	count = model.countBallsForSession("other")
+	if count != 1 {
+		t.Errorf("Expected 1 non-completed ball for other session, got %d", count)
+	}
+
+	// Test PseudoSessionAll - should count all non-complete balls: 4 (3 from mysession + 1 from other)
+	count = model.countBallsForSession(PseudoSessionAll)
+	if count != 4 {
+		t.Errorf("Expected 4 non-completed balls for All, got %d", count)
+	}
+
+	// Test PseudoSessionUntagged with untagged balls
+	untaggedBalls := []*session.Ball{
+		{ID: "u1", Tags: []string{}, State: session.StatePending},
+		{ID: "u2", Tags: []string{}, State: session.StateComplete},          // Should NOT be counted
+		{ID: "u3", Tags: []string{"mysession"}, State: session.StatePending}, // Has session tag
+	}
+	model.filteredBalls = untaggedBalls
+
+	count = model.countBallsForSession(PseudoSessionUntagged)
+	if count != 1 {
+		t.Errorf("Expected 1 non-completed untagged ball, got %d", count)
 	}
 }
 
