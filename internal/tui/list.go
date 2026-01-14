@@ -104,7 +104,7 @@ func truncateID(id string, maxLen int) string {
 		return id
 	}
 	// Keep project name and last chars that fit
-	// Example: juggle-20251012-143438 → juggle-...3438
+	// Example: juggle-20251012-143438 → juggle-...43438 (with maxLen=15)
 	parts := strings.Split(id, "-")
 	if len(parts) >= 2 {
 		projectName := parts[0]

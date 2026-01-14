@@ -15,6 +15,6 @@ run
 ─── Selected Run Details ───␤
 Blocked: Missing API credentials from DevOps team␤
                                                  Rate Limit Wait: 30s␤
-                    Output: /tmp/juggler/frontend-tasks/last_output.txt␤
-                                                   ␤
+                    Output: /tmp/juggle/frontend-tasks/last_output.txt␤
+                                                  ␤
 j/k = navigate | Enter = view output | H/Esc = close | gg/G = top/bottom🛇

@@ -12,6 +12,16 @@ import (
 	"github.com/ohare93/juggle/internal/session"
 )
 
+// Testing Note: When creating a Model for tests that render views,
+// certain fields must be initialized to avoid nil panics:
+//
+// - contextInput: Required when pendingBallFormField == 0 (fieldContext)
+//   because renderUnifiedBallFormView calls contextInput.View()
+//   Initialize with: contextInput: newContextTextarea()
+//
+// - textInput: Required for most form views
+//   Initialize with: textInput.New() with CharLimit and Width set
+
 func TestModelInitialization(t *testing.T) {
 	// Create a mock store (even though it's nil, we're just testing structure)
 	var store *session.Store
@@ -239,7 +249,7 @@ func TestTruncateID(t *testing.T) {
 			name:     "long timestamp ID",
 			id:       "juggle-20251012-143438",
 			maxLen:   15,
-			expected: "juggle-...3438",
+			expected: "juggle-...43438", // 15 chars: projectName(6) + -...(4) + lastChars(5)
 		},
 		{
 			name:     "exactly max length",
@@ -3771,7 +3781,7 @@ func TestStatusBarBallsPanel(t *testing.T) {
 	statusBar := model.renderStatusBar()
 
 	// Should contain ball-specific keybinds including two-key state change and filter keys
-	expectedKeys := []string{"j/k:nav", "s+c/s/b/p:state", "t+c/b/i/p:filter", "a:add", "e:edit", "d:del", "v+p/t/s:columns", "[/]:session", "o:sort", "?:help"}
+	expectedKeys := []string{"j/k:nav", "s+c/s/b/p:state", "t+c/b/i/p:filter", "a:add", "e:edit", "d:del", "v+p/t/s/m:columns", "[/]:session", "o:sort", "?:help"}
 	for _, key := range expectedKeys {
 		if !strings.Contains(statusBar, key) {
 			t.Errorf("Expected status bar to contain '%s', got: %s", key, statusBar)
@@ -8167,6 +8177,7 @@ func TestUnifiedBallFormFieldOrder(t *testing.T) {
 		pendingBallFormField:      0,
 		pendingAcceptanceCriteria: []string{"AC 1"},
 		textInput:                 ti,
+		contextInput:              newContextTextarea(), // Required when pendingBallFormField == 0 (fieldContext)
 		sessions: []*session.JuggleSession{
 			{ID: "test-session"},
 		},
@@ -8781,6 +8792,7 @@ func TestAddBallGoesToUnifiedForm(t *testing.T) {
 		mode:            splitView,
 		activePanel:     BallsPanel,
 		textInput:       ti,
+		contextInput:    newContextTextarea(), // Required for handleSplitAddItem
 		sessions:        []*session.JuggleSession{},
 		selectedSession: nil,
 		activityLog:     make([]ActivityEntry, 0),
@@ -8810,7 +8822,7 @@ func TestOpenDependencySelector(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      6, // On depends_on field
+		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
 		pendingAcceptanceCriteria: []string{},
 		pendingBallDependsOn:      []string{},
 		textInput:                 ti,
@@ -9001,7 +9013,7 @@ func TestDependencySelectorPreservesExisting(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      6, // On depends_on field
+		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
 		pendingBallDependsOn:      []string{"test-1"}, // Pre-existing dependency
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -9095,7 +9107,7 @@ func TestDependencySelectorNoBalls(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      6, // On depends_on field
+		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
 		pendingBallDependsOn:      []string{},
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -9134,6 +9146,7 @@ func TestRenderUnifiedBallFormDependsOnField(t *testing.T) {
 		pendingBallFormField:      0,
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
+		contextInput:              newContextTextarea(), // Required when pendingBallFormField == 0
 		sessions:                  []*session.JuggleSession{},
 	}
 
@@ -9411,6 +9424,7 @@ func TestRenderUnifiedBallFormModelSizeField(t *testing.T) {
 		pendingBallFormField:      0,
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
+		contextInput:              newContextTextarea(), // Required when pendingBallFormField == 0
 		sessions:                  []*session.JuggleSession{},
 	}
 
@@ -9470,6 +9484,7 @@ func TestEditBallFormPrepopulatesFields(t *testing.T) {
 		selectedSession: &session.JuggleSession{ID: PseudoSessionAll},
 		activityLog:     make([]ActivityEntry, 0),
 		textInput:       newTestTextInput(),
+		contextInput:    newContextTextarea(), // Required for edit form transition
 	}
 
 	// Simulate pressing 'e' key

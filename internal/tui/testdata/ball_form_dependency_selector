@@ -9,9 +9,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
- [ ] juggler-1: First pending task ␤
-  [ ] juggler-2: Second in progress task␤
-  [ ] juggler-3: Third blocked task␤
+ [ ] juggle-1: First pending task ␤
+  [ ] juggle-2: Second in progress task␤
+  [ ] juggle-3: Third blocked task␤
 
 # Navigate down to second item
 run
@@ -22,9 +22,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [ ] juggler-1: First pending task␤
- [ ] juggler-2: Second in progress task ␤
-  [ ] juggler-3: Third blocked task␤
+  [ ] juggle-1: First pending task␤
+ [ ] juggle-2: Second in progress task ␤
+  [ ] juggle-3: Third blocked task␤
 
 # Navigate down to third item
 run
@@ -35,9 +35,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [ ] juggler-1: First pending task␤
-  [ ] juggler-2: Second in progress task␤
- [ ] juggler-3: Third blocked task ␤
+  [ ] juggle-1: First pending task␤
+  [ ] juggle-2: Second in progress task␤
+ [ ] juggle-3: Third blocked task ␤
 
 # Navigate down past last item (should stay at last)
 run
@@ -48,9 +48,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [ ] juggler-1: First pending task␤
-  [ ] juggler-2: Second in progress task␤
- [ ] juggler-3: Third blocked task ␤
+  [ ] juggle-1: First pending task␤
+  [ ] juggle-2: Second in progress task␤
+ [ ] juggle-3: Third blocked task ␤
 
 # Navigate up to second item
 run
@@ -61,9 +61,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [ ] juggler-1: First pending task␤
- [ ] juggler-2: Second in progress task ␤
-  [ ] juggler-3: Third blocked task␤
+  [ ] juggle-1: First pending task␤
+ [ ] juggle-2: Second in progress task ␤
+  [ ] juggle-3: Third blocked task␤
 
 # Navigate up to first item
 run
@@ -74,9 +74,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
- [ ] juggler-1: First pending task ␤
-  [ ] juggler-2: Second in progress task␤
-  [ ] juggler-3: Third blocked task␤
+ [ ] juggle-1: First pending task ␤
+  [ ] juggle-2: Second in progress task␤
+  [ ] juggle-3: Third blocked task␤
 
 # Toggle selection with space on first item
 run
@@ -87,9 +87,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
- [✓] juggler-1: First pending task ␤
-  [ ] juggler-2: Second in progress task␤
-  [ ] juggler-3: Third blocked task␤
+ [✓] juggle-1: First pending task ␤
+  [ ] juggle-2: Second in progress task␤
+  [ ] juggle-3: Third blocked task␤
 
 # Navigate down to second item
 run
@@ -100,9 +100,9 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [✓] juggler-1: First pending task␤
- [ ] juggler-2: Second in progress task ␤
-  [ ] juggler-3: Third blocked task␤
+  [✓] juggle-1: First pending task␤
+ [ ] juggle-2: Second in progress task ␤
+  [ ] juggle-3: Third blocked task␤
 
 # Toggle second item
 run
@@ -113,6 +113,6 @@ Select Dependencies␤
 ␤
 Space: toggle • Enter: confirm • Esc: cancel␤
 ␤
-  [✓] juggler-1: First pending task␤
- [✓] juggler-2: Second in progress task ␤
-  [ ] juggler-3: Third blocked task␤
+  [✓] juggle-1: First pending task␤
+ [✓] juggle-2: Second in progress task ␤
+  [ ] juggle-3: Third blocked task␤
