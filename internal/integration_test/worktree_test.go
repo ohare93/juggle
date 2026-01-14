@@ -271,6 +271,47 @@ func TestWorktreeBallSharing(t *testing.T) {
 	})
 }
 
+func TestWorktreeBallIDUsesMainRepoName(t *testing.T) {
+	env := SetupTestEnv(t)
+
+	// Create the .juggle directory in the project
+	_ = env.GetStore(t)
+
+	// Create worktree with a distinct name
+	worktreePath := filepath.Join(env.TempDir, "some-worktree-name")
+	if err := os.MkdirAll(worktreePath, 0755); err != nil {
+		t.Fatalf("Failed to create worktree dir: %v", err)
+	}
+
+	// Register worktree
+	if err := session.RegisterWorktree(env.ProjectDir, worktreePath, ".juggle"); err != nil {
+		t.Fatalf("RegisterWorktree failed: %v", err)
+	}
+
+	// Create a ball from the worktree
+	ball, err := session.NewBall(worktreePath, "Test ball from worktree", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("Failed to create ball: %v", err)
+	}
+
+	// The ball ID should use the main repo's folder name ("project"), not the worktree name
+	mainRepoName := filepath.Base(env.ProjectDir)
+	worktreeName := filepath.Base(worktreePath)
+
+	if strings.HasPrefix(ball.ID, worktreeName+"-") {
+		t.Errorf("Ball ID %q should NOT start with worktree name %q", ball.ID, worktreeName)
+	}
+
+	if !strings.HasPrefix(ball.ID, mainRepoName+"-") {
+		t.Errorf("Ball ID %q should start with main repo name %q", ball.ID, mainRepoName)
+	}
+
+	// But WorkingDir should still be the worktree path (where agent works)
+	if ball.WorkingDir != worktreePath {
+		t.Errorf("Ball WorkingDir = %q, expected worktree path %q", ball.WorkingDir, worktreePath)
+	}
+}
+
 func TestWorktreeValidation(t *testing.T) {
 	env := SetupTestEnv(t)
 

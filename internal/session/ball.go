@@ -100,7 +100,15 @@ func NewBall(workingDir, title string, priority Priority) (*Ball, error) {
 func generateID(workingDir string) (string, error) {
 	// Generate a short UUID-based ID with project prefix for readability
 	// Format: <project>-<short-uuid> where short-uuid is first 8 chars of UUID
-	base := filepath.Base(workingDir)
+
+	// Resolve to main repo if this is a worktree, so ball IDs use the
+	// main project name rather than the worktree folder name
+	resolvedDir, err := ResolveStorageDir(workingDir, projectStorePath)
+	if err != nil {
+		resolvedDir = workingDir
+	}
+
+	base := filepath.Base(resolvedDir)
 	id := uuid.New().String()
 	shortID := id[:8] // First 8 characters of UUID (e.g., "a1b2c3d4")
 	return fmt.Sprintf("%s-%s", base, shortID), nil
