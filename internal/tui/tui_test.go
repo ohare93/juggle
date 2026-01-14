@@ -9540,7 +9540,7 @@ func TestContextFieldEnterAddsNewline(t *testing.T) {
 // TestCopyBallID_SplitView tests that 'y' key triggers copy in split view balls panel
 func TestCopyBallID_SplitView(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending},
+		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/testproject"},
 	}
 
 	model := Model{
@@ -9562,10 +9562,10 @@ func TestCopyBallID_SplitView(t *testing.T) {
 	newModel, _ := model.handleSplitViewKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 	m := newModel.(Model)
 
-	// The message should either be "Copied: test-ball-123" or "Clipboard unavailable: ..."
+	// The message should either be "Copied: testproject:test-ball-123" or "Clipboard unavailable: ..."
 	// depending on whether clipboard tools are available
-	if !strings.HasPrefix(m.message, "Copied:") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
-		t.Errorf("Expected copy result message, got '%s'", m.message)
+	if !strings.HasPrefix(m.message, "Copied: testproject:test-ball-123") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
+		t.Errorf("Expected copy result message with project:ballID format, got '%s'", m.message)
 	}
 }
 
@@ -9597,7 +9597,7 @@ func TestCopyBallID_SplitView_NoBall(t *testing.T) {
 // TestCopyBallID_SplitView_WrongPanel tests that 'y' does nothing in non-balls panel
 func TestCopyBallID_SplitView_WrongPanel(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending},
+		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/testproject"},
 	}
 
 	model := Model{
@@ -9621,7 +9621,7 @@ func TestCopyBallID_SplitView_WrongPanel(t *testing.T) {
 // TestCopyBallID_ListView tests that 'y' key triggers copy in list view
 func TestCopyBallID_ListView(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-ball-456", Title: "Test Ball", State: session.StatePending},
+		{ID: "test-ball-456", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/listproject"},
 	}
 
 	model := Model{
@@ -9635,15 +9635,15 @@ func TestCopyBallID_ListView(t *testing.T) {
 	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 	m := newModel.(Model)
 
-	// The message should either be "Copied: test-ball-456" or "Clipboard unavailable: ..."
-	if !strings.HasPrefix(m.message, "Copied:") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
-		t.Errorf("Expected copy result message, got '%s'", m.message)
+	// The message should either be "Copied: listproject:test-ball-456" or "Clipboard unavailable: ..."
+	if !strings.HasPrefix(m.message, "Copied: listproject:test-ball-456") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
+		t.Errorf("Expected copy result message with project:ballID format, got '%s'", m.message)
 	}
 }
 
 // TestCopyBallID_DetailView tests that 'y' key triggers copy in detail view
 func TestCopyBallID_DetailView(t *testing.T) {
-	ball := &session.Ball{ID: "test-ball-789", Title: "Test Ball", State: session.StatePending}
+	ball := &session.Ball{ID: "test-ball-789", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/detailproject"}
 
 	model := Model{
 		mode:         detailView,
@@ -9654,9 +9654,9 @@ func TestCopyBallID_DetailView(t *testing.T) {
 	newModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 	m := newModel.(Model)
 
-	// The message should either be "Copied: test-ball-789" or "Clipboard unavailable: ..."
-	if !strings.HasPrefix(m.message, "Copied:") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
-		t.Errorf("Expected copy result message, got '%s'", m.message)
+	// The message should either be "Copied: detailproject:test-ball-789" or "Clipboard unavailable: ..."
+	if !strings.HasPrefix(m.message, "Copied: detailproject:test-ball-789") && !strings.HasPrefix(m.message, "Clipboard unavailable:") {
+		t.Errorf("Expected copy result message with project:ballID format, got '%s'", m.message)
 	}
 }
 

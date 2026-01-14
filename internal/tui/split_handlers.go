@@ -1168,9 +1168,10 @@ func (m Model) handleBallEditInEditor() (tea.Model, tea.Cmd) {
 }
 
 // handleCopyBallID copies the current ball's ID to the system clipboard (split view)
+// Format: "projectName:ballID" (e.g., "myproject:myproject-abc123")
 func (m Model) handleCopyBallID() (tea.Model, tea.Cmd) {
 	// Get the current ball based on context
-	var ballID string
+	var ball *session.Ball
 	switch m.activePanel {
 	case BallsPanel:
 		balls := m.filterBallsForSession()
@@ -1178,51 +1179,58 @@ func (m Model) handleCopyBallID() (tea.Model, tea.Cmd) {
 			m.message = "No ball selected"
 			return m, nil
 		}
-		ballID = balls[m.cursor].ID
+		ball = balls[m.cursor]
 	default:
 		// If selected ball is set (e.g., in detail view), use that
 		if m.selectedBall != nil {
-			ballID = m.selectedBall.ID
+			ball = m.selectedBall
 		} else {
 			m.message = "No ball selected"
 			return m, nil
 		}
 	}
 
+	// Format: "projectName:ballID"
+	copyText := ball.FolderName() + ":" + ball.ID
+
 	// Copy to clipboard
-	if err := copyToClipboard(ballID); err != nil {
+	if err := copyToClipboard(copyText); err != nil {
 		m.message = "Clipboard unavailable: " + err.Error()
 		m.addActivity("Clipboard error: " + err.Error())
 		return m, nil
 	}
 
-	m.message = "Copied: " + ballID
-	m.addActivity("Copied ball ID to clipboard: " + ballID)
+	m.message = "Copied: " + copyText
+	m.addActivity("Copied ball ID to clipboard: " + copyText)
 	return m, nil
 }
 
 // handleCopyBallIDSimple copies the current ball's ID to clipboard (simple list/detail views)
+// Format: "projectName:ballID" (e.g., "myproject:myproject-abc123")
 func (m Model) handleCopyBallIDSimple() (tea.Model, tea.Cmd) {
-	var ballID string
+	var ball *session.Ball
 
 	// In detail view, use the selected ball
 	if m.mode == detailView && m.selectedBall != nil {
-		ballID = m.selectedBall.ID
+		ball = m.selectedBall
 	} else if m.mode == listView && len(m.filteredBalls) > 0 && m.cursor < len(m.filteredBalls) {
 		// In list view, use the ball at cursor
-		ballID = m.filteredBalls[m.cursor].ID
+		ball = m.filteredBalls[m.cursor]
 	} else {
 		m.message = "No ball selected"
 		return m, nil
 	}
 
+	// Format: "projectName:ballID"
+	copyText := ball.FolderName() + ":" + ball.ID
+
 	// Copy to clipboard
-	if err := copyToClipboard(ballID); err != nil {
+	if err := copyToClipboard(copyText); err != nil {
 		m.message = "Clipboard unavailable: " + err.Error()
 		return m, nil
 	}
 
-	m.message = "Copied: " + ballID
+	m.message = "Copied: " + copyText
 	return m, nil
 }
 
