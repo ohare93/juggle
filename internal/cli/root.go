@@ -18,10 +18,9 @@ acceptance criteria, start the loop, and add/modify tasks while it runs.
 No JSON editing - just TUI or CLI commands.
 
 Quick start:
+  juggle                   Launch the interactive terminal UI
   juggle plan              Define a new task interactively
-  juggle tui               Interactive terminal UI (add/edit tasks live)
   juggle agent run         Start the autonomous agent loop
-  juggle                   Show tasks in progress
 
 Task operations:
   juggle <id>              Start a pending task / show details

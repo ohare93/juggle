@@ -14,9 +14,9 @@ import (
 
 // runRootCommand handles dynamic routing for the root command
 func runRootCommand(cmd *cobra.Command, args []string) error {
-	// No args: list juggling balls
+	// No args: launch TUI
 	if len(args) == 0 {
-		return listJugglingBalls(cmd)
+		return runTUI(cmd, args)
 	}
 
 	// First arg determines action
