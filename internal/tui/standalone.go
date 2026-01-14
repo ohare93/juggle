@@ -323,6 +323,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			var cmd tea.Cmd
 			m.contextInput, cmd = m.contextInput.Update(msg)
 			adjustStandaloneContextHeight(&m)
+			// Update pendingBallContext live so title placeholder updates as you type
+			m.pendingBallContext = m.contextInput.Value()
 			return m, cmd
 		} else if m.pendingBallFormField == fieldDependsOn {
 			return m.openDependencySelector()
@@ -478,6 +480,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		if m.pendingBallFormField == fieldContext {
 			m.contextInput, cmd = m.contextInput.Update(msg)
 			adjustStandaloneContextHeight(&m)
+			// Update pendingBallContext live so title placeholder updates as you type
+			m.pendingBallContext = m.contextInput.Value()
 		} else {
 			m.textInput, cmd = m.textInput.Update(msg)
 			updateAutocomplete()
@@ -732,7 +736,17 @@ func (m StandaloneBallModel) renderForm() string {
 		}
 	} else {
 		if m.pendingBallIntent == "" {
-			b.WriteString(optionNormalStyle.Render("(empty)"))
+			// Show context-derived placeholder when unfocused, or (empty) if no context
+			if m.pendingBallContext != "" {
+				placeholder := generateTitlePlaceholderFromContext(m.pendingBallContext)
+				if placeholder != "" {
+					b.WriteString(optionNormalStyle.Render(placeholder))
+				} else {
+					b.WriteString(optionNormalStyle.Render("(empty)"))
+				}
+			} else {
+				b.WriteString(optionNormalStyle.Render("(empty)"))
+			}
 		} else {
 			titleLen := len(m.pendingBallIntent)
 			b.WriteString(m.pendingBallIntent)

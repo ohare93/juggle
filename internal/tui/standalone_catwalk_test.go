@@ -148,6 +148,26 @@ func TestStandaloneBallFormTypingLongContext(t *testing.T) {
 	catwalk.RunModel(t, "testdata/standalone_ball_form_typing_long_context", model)
 }
 
+// TestStandaloneTitlePlaceholderFromContext tests that title placeholder updates as context changes.
+// AC1: Title placeholder shows first ~50 chars of context
+// AC2: Placeholder updates as context changes
+// AC3: Empty context shows default placeholder
+func TestStandaloneTitlePlaceholderFromContext(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	model := NewStandaloneBallModel(store, nil)
+	catwalk.RunModel(t, "testdata/standalone_title_placeholder_from_context", model)
+}
+
 // createTestSplitViewModel creates a Model configured for split view testing.
 func createTestSplitViewModel(t *testing.T) Model {
 	t.Helper()

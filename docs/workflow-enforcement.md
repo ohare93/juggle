@@ -416,7 +416,7 @@ find /tmp -name "juggle-check-*" -mtime +7 -delete
 
 ### Custom Reminder Threshold
 
-Edit `/home/jmo/Development/juggle/internal/session/reminder.go`:
+Edit `internal/session/reminder.go`:
 
 ```go
 // ReminderThreshold is how long before showing reminder again
@@ -430,7 +430,7 @@ go build -o ~/.local/bin/juggle ./cmd/juggle
 
 ### Custom Instructions Template
 
-Edit `/home/jmo/Development/juggle/internal/claude/instructions.go`:
+Edit `internal/claude/instructions.go`:
 
 ```go
 const InstructionsTemplate = `

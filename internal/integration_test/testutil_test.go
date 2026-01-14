@@ -299,3 +299,29 @@ func (env *TestEnv) CreateBallInProject(t *testing.T, projectDir, intent string,
 
 	return ball
 }
+
+// GetRepoRoot finds the juggle repository root by walking up from current directory until finding go.mod
+func GetRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	// Walk up until we find go.mod
+	current := cwd
+	for {
+		gomod := filepath.Join(current, "go.mod")
+		if _, err := os.Stat(gomod); err == nil {
+			return current
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached filesystem root without finding go.mod
+			t.Fatalf("Failed to find repository root (go.mod) starting from %s", cwd)
+		}
+		current = parent
+	}
+}

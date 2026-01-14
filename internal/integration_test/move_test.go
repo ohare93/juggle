@@ -340,7 +340,7 @@ func setupConfigWithProjects(t *testing.T, configHome string, projectDirs ...str
 func runMoveCommand(t *testing.T, workingDir string, ballID string, targetDir string) string {
 	t.Helper()
 
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build juggle binary if it doesn't exist
@@ -368,7 +368,7 @@ func runMoveCommand(t *testing.T, workingDir string, ballID string, targetDir st
 func runMoveCommandWithError(t *testing.T, workingDir string, ballID string, targetDir string) (string, int) {
 	t.Helper()
 
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build binary if needed

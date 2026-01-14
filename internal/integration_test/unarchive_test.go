@@ -577,8 +577,7 @@ func runJuggleCommand(t *testing.T, workingDir string, args ...string) string {
 	t.Helper()
 
 	// Find juggle binary in the repo root
-	// From workingDir (temp test dir), go up to repo root
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build juggle binary if it doesn't exist
@@ -609,7 +608,7 @@ func runJuggleCommand(t *testing.T, workingDir string, args ...string) string {
 func runJuggleCommandWithError(t *testing.T, workingDir string, args ...string) (string, int) {
 	t.Helper()
 
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build binary if needed

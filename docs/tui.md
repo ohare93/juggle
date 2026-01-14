@@ -51,7 +51,7 @@ Press Enter on a ball to see full details:
 Intent: Interactive menu for all these items
 Priority: medium
 State: juggling:in-air
-Working Dir: /home/jmo/Development/juggle
+Working Dir: ~/Development/juggle
 Started: 2 hours ago
 Last Activity: 5 minutes ago
 Tags: ui, tui

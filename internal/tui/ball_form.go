@@ -573,6 +573,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.contextInput, cmd = m.contextInput.Update(msg)
 			adjustContextTextareaHeight(&m)
+			// Update pendingBallContext live so title placeholder updates as you type
+			m.pendingBallContext = m.contextInput.Value()
 			return m, cmd
 		} else if m.pendingBallFormField == fieldSave {
 			// Save button - finalize ball creation
@@ -686,6 +688,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -702,6 +706,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -760,6 +766,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -776,6 +784,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -793,6 +803,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				newText := m.fileAutocomplete.ApplyCompletion(m.contextInput.Value())
 				m.contextInput.SetValue(newText)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates
+				m.pendingBallContext = m.contextInput.Value()
 			} else {
 				newText := m.fileAutocomplete.ApplyCompletion(m.textInput.Value())
 				m.textInput.SetValue(newText)
@@ -851,6 +863,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				// Adjust height after deletion
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -868,6 +882,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				// Dismiss autocomplete on space
 				if m.fileAutocomplete != nil {
 					m.fileAutocomplete.Deactivate()
@@ -893,6 +909,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.contextInput, cmd = m.contextInput.Update(msg)
 				// Adjust height after typing
 				adjustContextTextareaHeight(&m)
+				// Update pendingBallContext live so title placeholder updates as you type
+				m.pendingBallContext = m.contextInput.Value()
 				// Update autocomplete state after text changes (for @ detection)
 				if m.fileAutocomplete != nil {
 					text := m.contextInput.Value()

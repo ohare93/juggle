@@ -347,7 +347,7 @@ func testCompleteWithShortID(t *testing.T) {
 func runCompletionCommand(t *testing.T, env *TestEnv, shell string) string {
 	t.Helper()
 
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build juggle binary if it doesn't exist
@@ -373,7 +373,7 @@ func runCompletionCommand(t *testing.T, env *TestEnv, shell string) string {
 func runCompletionCommandWithError(t *testing.T, env *TestEnv, shell string) (string, int) {
 	t.Helper()
 
-	juggleRoot := "/home/jmo/Development/juggler"
+	juggleRoot := GetRepoRoot(t)
 	juggleBinary := filepath.Join(juggleRoot, "juggle")
 
 	// Build binary if needed
