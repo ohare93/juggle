@@ -229,6 +229,28 @@ juggle config delay set 5 --fuzz 2
 juggle config delay clear
 ```
 
+## Worktrees
+
+Manage worktree links for running parallel agent loops across different VCS worktrees while sharing the same ball state.
+
+```bash
+# Register a worktree (run from main repo)
+juggle worktree add ../my-feature-worktree
+
+# List registered worktrees
+juggle worktree list
+
+# Check worktree status for current directory
+juggle worktree status
+
+# Unregister a worktree (doesn't delete it)
+juggle worktree forget ../my-feature-worktree
+```
+
+**Note:** The `workspace` alias works for all worktree commands (e.g., `juggle workspace add`).
+
+See [Installation Guide - Worktrees](./installation.md#worktrees-parallel-agent-loops) for full setup instructions.
+
 ## File Structure
 
 ```

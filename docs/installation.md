@@ -193,6 +193,95 @@ juggle jump <ball-id>  # Switches to the ball's tab
 juggle next            # Jumps to highest priority ball
 ```
 
+## Worktrees (Parallel Agent Loops)
+
+Run multiple agent loops simultaneously using VCS worktrees. Each worktree gets its own agent while sharing the same ball state from the main repo.
+
+### Why Worktrees?
+
+- **Parallel execution**: Run agents on different balls concurrently
+- **Isolated workspaces**: Each agent works in its own directory
+- **Shared state**: All worktrees read/write to the main repo's `.juggle/` directory
+- **No conflicts**: Agents work on different branches/changes
+
+### Setup Steps
+
+#### 1. Create VCS Worktree
+
+**For jj (Jujutsu):**
+```bash
+# From your main repo
+jj workspace add ../my-feature-worktree
+
+# Or create on a specific bookmark
+jj workspace add ../my-feature-worktree --revision my-bookmark
+```
+
+**For Git:**
+```bash
+# From your main repo
+git worktree add ../my-feature-worktree feature-branch
+```
+
+#### 2. Build in Worktree (if needed)
+
+If your project requires building:
+```bash
+cd ../my-feature-worktree
+go build ./...  # or npm install, cargo build, etc.
+```
+
+#### 3. Register with Juggle
+
+From the **main repo** (not the worktree):
+```bash
+juggle worktree add ../my-feature-worktree
+```
+
+This creates:
+- An entry in `.juggle/config.json` listing the worktree
+- A `.juggle/link` file in the worktree pointing to the main repo
+
+### Running Parallel Agents
+
+After setup, run agents from different terminals:
+
+```bash
+# Terminal 1 (main repo)
+cd ~/Development/my-project
+juggle agent run loop-a
+
+# Terminal 2 (worktree)
+cd ~/Development/my-feature-worktree
+juggle agent run loop-b
+```
+
+Both agents share the same balls and progress from the main repo's `.juggle/` directory.
+
+### Worktree Commands
+
+```bash
+# List registered worktrees
+juggle worktree list
+
+# Check worktree status
+juggle worktree status
+
+# Unregister a worktree (doesn't delete it)
+juggle worktree forget ../my-feature-worktree
+```
+
+### Cleanup
+
+```bash
+# Unregister from juggle
+juggle worktree forget ../my-feature-worktree
+
+# Remove VCS worktree
+jj workspace forget my-feature-worktree  # for jj
+git worktree remove ../my-feature-worktree  # for git
+```
+
 ## Updating
 
 ### Using Install Script
