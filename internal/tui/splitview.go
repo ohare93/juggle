@@ -402,6 +402,19 @@ func (m Model) renderBallsPanel(width, height int) string {
 			}
 		}
 
+		// Build model size suffix if set and visible
+		modelSizeSuffix := ""
+		if m.showModelSizeColumn && ball.ModelSize != "" {
+			switch ball.ModelSize {
+			case session.ModelSizeSmall:
+				modelSizeSuffix = " [M:S]"
+			case session.ModelSizeMedium:
+				modelSizeSuffix = " [M:M]"
+			case session.ModelSizeLarge:
+				modelSizeSuffix = " [M:L]"
+			}
+		}
+
 		// Add output marker if ball has output
 		outputMarker := ""
 		if ball.HasOutput() {
@@ -418,13 +431,13 @@ func (m Model) renderBallsPanel(width, height int) string {
 		idPrefix := fmt.Sprintf("[%s] ", idDisplay)
 
 		// Calculate total suffix length for width calculation
-		suffixLen := len(prioritySuffix) + len(tagsSuffix) + len(testsSuffix) + len(outputMarker) + len(depMarker)
+		suffixLen := len(prioritySuffix) + len(tagsSuffix) + len(testsSuffix) + len(modelSizeSuffix) + len(outputMarker) + len(depMarker)
 
 		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 			// Show blocked reason inline for blocked balls
 			intent := truncate(ball.Title, width-25-len(idPrefix)-suffixLen)
 			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(idPrefix)-suffixLen)
-			line = fmt.Sprintf("%s %s%s [%s]%s%s%s%s%s",
+			line = fmt.Sprintf("%s %s%s [%s]%s%s%s%s%s%s",
 				stateIcon,
 				idPrefix,
 				intent,
@@ -432,12 +445,13 @@ func (m Model) renderBallsPanel(width, height int) string {
 				prioritySuffix,
 				tagsSuffix,
 				testsSuffix,
+				modelSizeSuffix,
 				outputMarker,
 				depMarker,
 			)
 		} else {
 			availWidth := width - 15 - len(idPrefix) - suffixLen
-			line = fmt.Sprintf("%s %s%-*s %s%s%s%s%s%s",
+			line = fmt.Sprintf("%s %s%-*s %s%s%s%s%s%s%s",
 				stateIcon,
 				idPrefix,
 				availWidth,
@@ -446,6 +460,7 @@ func (m Model) renderBallsPanel(width, height int) string {
 				prioritySuffix,
 				tagsSuffix,
 				testsSuffix,
+				modelSizeSuffix,
 				outputMarker,
 				depMarker,
 			)
@@ -810,7 +825,7 @@ func (m Model) renderStatusBar() string {
 	case BallsPanel:
 		hints = []string{
 			"j/k:nav", "s+c/s/b/p:state", "t+c/b/i/p:filter",
-			"a:add", "e:edit", "E:editor", "d:del", "v+p/t/s:columns",
+			"a:add", "e:edit", "E:editor", "d:del", "v+p/t/s/m:columns",
 			"[/]:session", "o:sort", "?:help",
 		}
 	case ActivityPanel:

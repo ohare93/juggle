@@ -138,9 +138,10 @@ type Model struct {
 	sortOrder SortOrder
 
 	// Column visibility for balls panel
-	showPriorityColumn bool // Show priority column in balls list
-	showTagsColumn     bool // Show tags column in balls list
-	showTestsColumn    bool // Show tests state column in balls list
+	showPriorityColumn  bool // Show priority column in balls list
+	showTagsColumn      bool // Show tags column in balls list
+	showTestsColumn     bool // Show tests state column in balls list
+	showModelSizeColumn bool // Show model size column in balls list
 
 	// Filter state
 	filterStates         map[string]bool // State visibility toggles
@@ -278,9 +279,10 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 			"complete":    false, // Hidden by default
 		},
 		// Column visibility defaults (all hidden by default for compact view)
-		showPriorityColumn: false,
-		showTagsColumn:     false,
-		showTestsColumn:    false,
+		showPriorityColumn:  false,
+		showTagsColumn:      false,
+		showTestsColumn:     false,
+		showModelSizeColumn: false,
 		cursor:             0,
 		sessionCursor:      0,
 		activityLog:        make([]ActivityEntry, 0),
