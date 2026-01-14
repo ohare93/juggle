@@ -40,6 +40,8 @@ type Config struct {
 	IterationDelayFuzz    int `json:"iteration_delay_fuzz,omitempty"`    // Random +/- variance in minutes
 	// Overload retry settings (for 529 errors after Claude's built-in retries exhaust)
 	OverloadRetryMinutes int `json:"overload_retry_minutes,omitempty"` // Minutes to wait before retrying after 529 overload exhaustion
+	// VCS settings
+	VCS string `json:"vcs,omitempty"` // Version control system: "git" or "jj"
 
 	// UnknownFields stores any fields from the config file that aren't recognized.
 	// These are preserved when saving to avoid data loss.
@@ -52,6 +54,7 @@ var knownConfigFields = map[string]bool{
 	"iteration_delay_minutes": true,
 	"iteration_delay_fuzz":    true,
 	"overload_retry_minutes":  true,
+	"vcs":                     true,
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling to capture unknown fields
@@ -74,6 +77,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.IterationDelayMinutes = alias.IterationDelayMinutes
 	c.IterationDelayFuzz = alias.IterationDelayFuzz
 	c.OverloadRetryMinutes = alias.OverloadRetryMinutes
+	c.VCS = alias.VCS
 
 	// Extract unknown fields
 	c.UnknownFields = make(map[string]interface{})
@@ -104,6 +108,9 @@ func (c *Config) MarshalJSON() ([]byte, error) {
 	}
 	if c.OverloadRetryMinutes != 0 {
 		result["overload_retry_minutes"] = c.OverloadRetryMinutes
+	}
+	if c.VCS != "" {
+		result["vcs"] = c.VCS
 	}
 
 	return json.Marshal(result)
@@ -264,6 +271,26 @@ func (c *Config) ClearIterationDelay() {
 	c.IterationDelayFuzz = 0
 }
 
+// SetVCS sets the global VCS preference.
+// Valid values are "git", "jj", or "" (empty for auto-detect).
+func (c *Config) SetVCS(vcs string) error {
+	if vcs != "" && vcs != "git" && vcs != "jj" {
+		return fmt.Errorf("invalid VCS type: %s (must be 'git' or 'jj')", vcs)
+	}
+	c.VCS = vcs
+	return nil
+}
+
+// GetVCS returns the global VCS preference.
+func (c *Config) GetVCS() string {
+	return c.VCS
+}
+
+// ClearVCS removes the VCS preference, enabling auto-detection.
+func (c *Config) ClearVCS() {
+	c.VCS = ""
+}
+
 // EnsureProjectInSearchPaths ensures a project directory is in the search paths
 // This is called when creating balls to automatically track the project
 func EnsureProjectInSearchPaths(projectDir string) error {
@@ -285,6 +312,7 @@ func EnsureProjectInSearchPaths(projectDir string) error {
 // ProjectConfig holds per-project configuration stored in .juggle/config.json
 type ProjectConfig struct {
 	DefaultAcceptanceCriteria []string `json:"default_acceptance_criteria,omitempty"` // Repo-level ACs applied to all sessions
+	VCS                       string   `json:"vcs,omitempty"`                         // Version control system: "git" or "jj"
 }
 
 // DefaultProjectConfig returns a new project config with initial values
@@ -348,6 +376,26 @@ func (c *ProjectConfig) SetDefaultAcceptanceCriteria(criteria []string) {
 // HasDefaultAcceptanceCriteria returns true if the project has default ACs
 func (c *ProjectConfig) HasDefaultAcceptanceCriteria() bool {
 	return len(c.DefaultAcceptanceCriteria) > 0
+}
+
+// SetVCS sets the project VCS preference.
+// Valid values are "git", "jj", or "" (empty for inherit from global/auto-detect).
+func (c *ProjectConfig) SetVCS(vcs string) error {
+	if vcs != "" && vcs != "git" && vcs != "jj" {
+		return fmt.Errorf("invalid VCS type: %s (must be 'git' or 'jj')", vcs)
+	}
+	c.VCS = vcs
+	return nil
+}
+
+// GetVCS returns the project VCS preference.
+func (c *ProjectConfig) GetVCS() string {
+	return c.VCS
+}
+
+// ClearVCS removes the project VCS preference.
+func (c *ProjectConfig) ClearVCS() {
+	c.VCS = ""
 }
 
 // UpdateProjectAcceptanceCriteria updates the repo-level acceptance criteria
@@ -461,4 +509,85 @@ func UpdateGlobalOverloadRetryMinutesWithOptions(opts ConfigOptions, minutes int
 
 	config.SetOverloadRetryMinutes(minutes)
 	return config.SaveWithOptions(opts)
+}
+
+// GetGlobalVCS returns the VCS setting from global config
+func GetGlobalVCS() (string, error) {
+	return GetGlobalVCSWithOptions(DefaultConfigOptions())
+}
+
+// GetGlobalVCSWithOptions returns the VCS setting with custom options
+func GetGlobalVCSWithOptions(opts ConfigOptions) (string, error) {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return "", err
+	}
+	return config.GetVCS(), nil
+}
+
+// UpdateGlobalVCS updates the VCS setting in global config
+func UpdateGlobalVCS(vcs string) error {
+	return UpdateGlobalVCSWithOptions(DefaultConfigOptions(), vcs)
+}
+
+// UpdateGlobalVCSWithOptions updates the VCS setting with custom options
+func UpdateGlobalVCSWithOptions(opts ConfigOptions, vcs string) error {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return err
+	}
+
+	if err := config.SetVCS(vcs); err != nil {
+		return err
+	}
+	return config.SaveWithOptions(opts)
+}
+
+// ClearGlobalVCS clears the VCS setting from global config
+func ClearGlobalVCS() error {
+	return ClearGlobalVCSWithOptions(DefaultConfigOptions())
+}
+
+// ClearGlobalVCSWithOptions clears the VCS setting with custom options
+func ClearGlobalVCSWithOptions(opts ConfigOptions) error {
+	config, err := LoadConfigWithOptions(opts)
+	if err != nil {
+		return err
+	}
+
+	config.ClearVCS()
+	return config.SaveWithOptions(opts)
+}
+
+// GetProjectVCS returns the VCS setting from project config
+func GetProjectVCS(projectDir string) (string, error) {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return "", err
+	}
+	return config.GetVCS(), nil
+}
+
+// UpdateProjectVCS updates the VCS setting in project config
+func UpdateProjectVCS(projectDir, vcs string) error {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return err
+	}
+
+	if err := config.SetVCS(vcs); err != nil {
+		return err
+	}
+	return SaveProjectConfig(projectDir, config)
+}
+
+// ClearProjectVCS clears the VCS setting from project config
+func ClearProjectVCS(projectDir string) error {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return err
+	}
+
+	config.ClearVCS()
+	return SaveProjectConfig(projectDir, config)
 }

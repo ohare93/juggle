@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/vcs"
 	"github.com/spf13/cobra"
 )
 
@@ -491,4 +493,194 @@ func runConfigDelayClear(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("Cleared iteration delay settings.")
 	return nil
+}
+
+// VCS command variables
+var configVCSProjectFlag bool
+
+// configVCSCmd is the parent command for VCS settings
+var configVCSCmd = &cobra.Command{
+	Use:   "vcs",
+	Short: "Manage version control system settings",
+	Long: `Manage the version control system used for agent commits.
+
+By default, juggle auto-detects VCS by checking for .jj (preferred) then .git.
+You can override this globally or per-project.
+
+Resolution order (highest to lowest priority):
+  1. Project config (.juggle/config.json vcs field)
+  2. Global config (~/.juggle/config.json vcs field)
+  3. Auto-detect: .jj directory > .git directory > git (default)
+
+Commands:
+  config vcs show              Show current VCS settings and detection
+  config vcs set <type>        Set VCS type (git or jj)
+  config vcs clear             Clear VCS setting (use auto-detection)
+
+Examples:
+  juggle config vcs show
+  juggle config vcs set git           # Use git globally
+  juggle config vcs set jj            # Use jj globally
+  juggle config vcs set git --project # Use git for this project only
+  juggle config vcs clear             # Clear global setting
+  juggle config vcs clear --project   # Clear project setting`,
+	RunE: runConfigVCSShow,
+}
+
+var configVCSShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show current VCS settings and detection",
+	RunE:  runConfigVCSShow,
+}
+
+var configVCSSetCmd = &cobra.Command{
+	Use:   "set <type>",
+	Short: "Set VCS type (git or jj)",
+	Long: `Set the version control system type.
+
+Valid types: git, jj
+
+Use --project to set for the current project only (stored in .juggle/config.json).
+Without --project, sets the global default (stored in ~/.juggle/config.json).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runConfigVCSSet,
+}
+
+var configVCSClearCmd = &cobra.Command{
+	Use:   "clear",
+	Short: "Clear VCS setting (use auto-detection)",
+	Long: `Clear the VCS setting to use auto-detection.
+
+Use --project to clear the project setting only.
+Without --project, clears the global setting.`,
+	RunE: runConfigVCSClear,
+}
+
+func init() {
+	configVCSSetCmd.Flags().BoolVar(&configVCSProjectFlag, "project", false, "Set for this project only (vs global)")
+	configVCSClearCmd.Flags().BoolVar(&configVCSProjectFlag, "project", false, "Clear for this project only (vs global)")
+
+	configVCSCmd.AddCommand(configVCSShowCmd)
+	configVCSCmd.AddCommand(configVCSSetCmd)
+	configVCSCmd.AddCommand(configVCSClearCmd)
+
+	configCmd.AddCommand(configVCSCmd)
+}
+
+func runConfigVCSShow(cmd *cobra.Command, args []string) error {
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+
+	// Get global config
+	globalVCS, err := session.GetGlobalVCSWithOptions(GetConfigOptions())
+	if err != nil {
+		return fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	fmt.Println(labelStyle.Render("VCS Settings:"))
+	fmt.Println()
+
+	// Global setting
+	fmt.Printf("  %s: ", keyStyle.Render("global"))
+	if globalVCS == "" {
+		fmt.Println(dimStyle.Render("(not set)"))
+	} else {
+		fmt.Println(valueStyle.Render(globalVCS))
+	}
+
+	// Try to load project config
+	cwd, err := GetWorkingDir()
+	if err == nil {
+		projectVCS, err := session.GetProjectVCS(cwd)
+		if err == nil {
+			fmt.Printf("  %s: ", keyStyle.Render("project"))
+			if projectVCS == "" {
+				fmt.Println(dimStyle.Render("(not set)"))
+			} else {
+				fmt.Println(valueStyle.Render(projectVCS))
+			}
+
+			// Show auto-detection result
+			detected := autoDetectVCS(cwd)
+			fmt.Printf("  %s: ", keyStyle.Render("auto-detected"))
+			fmt.Println(valueStyle.Render(detected))
+
+			// Show effective VCS
+			effective := resolveVCS(cwd, projectVCS, globalVCS)
+			fmt.Println()
+			fmt.Printf("  %s: ", keyStyle.Render("effective"))
+			fmt.Println(valueStyle.Render(effective))
+		}
+	}
+
+	return nil
+}
+
+func runConfigVCSSet(cmd *cobra.Command, args []string) error {
+	vcsType := vcs.VCSType(strings.ToLower(strings.TrimSpace(args[0])))
+	if !vcsType.IsValid() {
+		return fmt.Errorf("invalid VCS type: %s (must be 'git' or 'jj')", args[0])
+	}
+
+	if configVCSProjectFlag {
+		cwd, err := GetWorkingDir()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		if err := session.UpdateProjectVCS(cwd, string(vcsType)); err != nil {
+			return fmt.Errorf("failed to set project VCS: %w", err)
+		}
+		fmt.Printf("Set project VCS to: %s\n", vcsType)
+	} else {
+		if err := session.UpdateGlobalVCSWithOptions(GetConfigOptions(), string(vcsType)); err != nil {
+			return fmt.Errorf("failed to set global VCS: %w", err)
+		}
+		fmt.Printf("Set global VCS to: %s\n", vcsType)
+	}
+
+	return nil
+}
+
+func runConfigVCSClear(cmd *cobra.Command, args []string) error {
+	if configVCSProjectFlag {
+		cwd, err := GetWorkingDir()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		if err := session.ClearProjectVCS(cwd); err != nil {
+			return fmt.Errorf("failed to clear project VCS: %w", err)
+		}
+		fmt.Println("Cleared project VCS setting.")
+	} else {
+		if err := session.ClearGlobalVCSWithOptions(GetConfigOptions()); err != nil {
+			return fmt.Errorf("failed to clear global VCS: %w", err)
+		}
+		fmt.Println("Cleared global VCS setting.")
+	}
+
+	return nil
+}
+
+// autoDetectVCS checks for .jj or .git directories
+func autoDetectVCS(projectDir string) string {
+	if _, err := os.Stat(filepath.Join(projectDir, ".jj")); err == nil {
+		return "jj"
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, ".git")); err == nil {
+		return "git"
+	}
+	return "git" // default
+}
+
+// resolveVCS determines the effective VCS using resolution priority
+func resolveVCS(projectDir, projectVCS, globalVCS string) string {
+	if projectVCS != "" {
+		return projectVCS
+	}
+	if globalVCS != "" {
+		return globalVCS
+	}
+	return autoDetectVCS(projectDir)
 }

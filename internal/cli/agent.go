@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/ohare93/juggle/internal/agent"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/vcs"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -1901,68 +1901,46 @@ func LoadBallsForModelSelectionForTest(projectDir, sessionID, ballID string) ([]
 	return loadBallsForModelSelection(projectDir, sessionID, ballID)
 }
 
-// CommitResult represents the outcome of a jj commit operation
+// CommitResult represents the outcome of a VCS commit operation
 type CommitResult struct {
 	Success       bool   // Whether the commit succeeded
 	CommitHash    string // Short hash of the new commit (if successful)
-	StatusOutput  string // Output from jj status after commit
+	StatusOutput  string // Output from status after commit
 	ErrorMessage  string // Error message if commit failed
 }
 
-// performJJCommit executes a jj commit with the given message and returns status.
+// performVCSCommit executes a commit using the configured VCS backend.
 // This is called by juggle after the agent signals completion.
 // Returns nil if there are no changes to commit.
+func performVCSCommit(projectDir, commitMessage string) (*CommitResult, error) {
+	// Load VCS settings
+	globalVCS, _ := session.GetGlobalVCSWithOptions(GetConfigOptions())
+	projectVCS, _ := session.GetProjectVCS(projectDir)
+
+	// Get the appropriate backend
+	backend := vcs.GetBackendForProject(projectDir, vcs.VCSType(projectVCS), vcs.VCSType(globalVCS))
+
+	// Perform commit
+	vcsResult, err := backend.Commit(projectDir, commitMessage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to our CommitResult type
+	return &CommitResult{
+		Success:      vcsResult.Success,
+		CommitHash:   vcsResult.CommitHash,
+		StatusOutput: vcsResult.StatusOutput,
+		ErrorMessage: vcsResult.ErrorMessage,
+	}, nil
+}
+
+// performJJCommit is kept for backward compatibility - delegates to performVCSCommit
 func performJJCommit(projectDir, commitMessage string) (*CommitResult, error) {
-	result := &CommitResult{}
-
-	// First check if there are changes to commit
-	statusCmd := exec.Command("jj", "status")
-	statusCmd.Dir = projectDir
-	statusOutput, err := statusCmd.CombinedOutput()
-	if err != nil {
-		result.ErrorMessage = fmt.Sprintf("failed to check jj status: %v", err)
-		return result, nil
-	}
-
-	statusStr := string(statusOutput)
-
-	// Check if working copy is clean (no changes)
-	// jj status outputs "The working copy has no changes." when clean
-	if strings.Contains(statusStr, "The working copy has no changes.") {
-		result.Success = true
-		result.StatusOutput = "No changes to commit"
-		return result, nil
-	}
-
-	// Perform the commit
-	commitCmd := exec.Command("jj", "commit", "-m", commitMessage)
-	commitCmd.Dir = projectDir
-	commitOutput, err := commitCmd.CombinedOutput()
-	if err != nil {
-		result.ErrorMessage = fmt.Sprintf("jj commit failed: %v\n%s", err, string(commitOutput))
-		return result, nil
-	}
-
-	result.Success = true
-
-	// Get the commit hash from jj log
-	logCmd := exec.Command("jj", "log", "-n", "1", "--no-graph", "-T", "commit_id.short()")
-	logCmd.Dir = projectDir
-	logOutput, err := logCmd.CombinedOutput()
-	if err == nil {
-		result.CommitHash = strings.TrimSpace(string(logOutput))
-	}
-
-	// Get updated status
-	finalStatusCmd := exec.Command("jj", "status")
-	finalStatusCmd.Dir = projectDir
-	finalStatusOutput, _ := finalStatusCmd.CombinedOutput()
-	result.StatusOutput = strings.TrimSpace(string(finalStatusOutput))
-
-	return result, nil
+	return performVCSCommit(projectDir, commitMessage)
 }
 
 // PerformJJCommitForTest is an exported wrapper for testing
 func PerformJJCommitForTest(projectDir, commitMessage string) (*CommitResult, error) {
-	return performJJCommit(projectDir, commitMessage)
+	return performVCSCommit(projectDir, commitMessage)
 }
