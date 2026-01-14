@@ -47,6 +47,7 @@ Planned balls can be started later with: juggle <ball-id>`,
 }
 
 var acceptanceCriteriaFlag []string
+var criteriaAliasFlag []string // Alias for --ac
 var dependsOnFlag []string
 var nonInteractiveFlag bool
 var editFlag bool
@@ -54,6 +55,7 @@ var editFlag bool
 func init() {
 	planCmd.Flags().StringVarP(&intentFlag, "intent", "i", "", "What are you planning to work on?")
 	planCmd.Flags().StringArrayVarP(&acceptanceCriteriaFlag, "ac", "c", []string{}, "Acceptance criteria (can be specified multiple times)")
+	planCmd.Flags().StringArrayVar(&criteriaAliasFlag, "criteria", []string{}, "Alias for --ac (acceptance criteria)")
 	planCmd.Flags().StringVarP(&descriptionFlag, "description", "d", "", "DEPRECATED: Use -c/--ac instead. Sets first acceptance criterion.")
 	planCmd.Flags().StringVarP(&priorityFlag, "priority", "p", "", "Priority: low, medium, high, urgent (default: medium)")
 	planCmd.Flags().StringSliceVarP(&tagsFlag, "tags", "t", []string{}, "Tags for categorization")
@@ -83,8 +85,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		intent = intentFlag
 	}
 
-	// Build acceptance criteria list from flags
-	acceptanceCriteria := acceptanceCriteriaFlag
+	// Build acceptance criteria list from flags (merge --ac and --criteria)
+	acceptanceCriteria := append(acceptanceCriteriaFlag, criteriaAliasFlag...)
 	if descriptionFlag != "" && len(acceptanceCriteria) == 0 {
 		acceptanceCriteria = []string{descriptionFlag}
 	}

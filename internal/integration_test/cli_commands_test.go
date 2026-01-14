@@ -1725,6 +1725,91 @@ func TestPlanAlwaysCreatesPendingState(t *testing.T) {
 	}
 }
 
+// TestPlanCriteriaAliasFlag tests that --criteria works as alias for --ac
+func TestPlanCriteriaAliasFlag(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	juggleRoot := GetRepoRoot(t)
+	juggleBinary := filepath.Join(juggleRoot, "juggle")
+
+	// Test --criteria alone
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Criteria alias test",
+		"--non-interactive",
+		"--criteria", "First via criteria",
+		"--criteria", "Second via criteria",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Plan with --criteria failed: %v\nOutput: %s", err, output)
+	}
+
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Title == "Criteria alias test" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if len(ball.AcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 acceptance criteria, got: %d", len(ball.AcceptanceCriteria))
+	}
+	if len(ball.AcceptanceCriteria) >= 2 {
+		if ball.AcceptanceCriteria[0] != "First via criteria" {
+			t.Errorf("Expected first AC 'First via criteria', got: %s", ball.AcceptanceCriteria[0])
+		}
+		if ball.AcceptanceCriteria[1] != "Second via criteria" {
+			t.Errorf("Expected second AC 'Second via criteria', got: %s", ball.AcceptanceCriteria[1])
+		}
+	}
+}
+
+// TestPlanCriteriaAndACTogether tests that --criteria and -c can be used together
+func TestPlanCriteriaAndACTogether(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	juggleRoot := GetRepoRoot(t)
+	juggleBinary := filepath.Join(juggleRoot, "juggle")
+
+	cmd := exec.Command(juggleBinary, "--config-home", env.ConfigHome, "plan",
+		"Both flags test",
+		"--non-interactive",
+		"-c", "Via -c flag",
+		"--criteria", "Via criteria flag",
+	)
+	cmd.Dir = env.ProjectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Plan with both flags failed: %v\nOutput: %s", err, output)
+	}
+
+	store := env.GetStore(t)
+	balls, _ := store.LoadBalls()
+	var ball *session.Ball
+	for _, b := range balls {
+		if b.Title == "Both flags test" {
+			ball = b
+			break
+		}
+	}
+	if ball == nil {
+		t.Fatal("Ball not created")
+	}
+
+	if len(ball.AcceptanceCriteria) != 2 {
+		t.Errorf("Expected 2 acceptance criteria from both flags, got: %d", len(ball.AcceptanceCriteria))
+	}
+}
+
 // TestPlanStateFlagRemoved verifies that --state flag no longer exists
 func TestPlanStateFlagRemoved(t *testing.T) {
 	env := SetupTestEnv(t)
