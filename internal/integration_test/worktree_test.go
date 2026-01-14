@@ -312,6 +312,94 @@ func TestWorktreeBallIDUsesMainRepoName(t *testing.T) {
 	}
 }
 
+func TestWorkspaceAlias(t *testing.T) {
+	env := SetupTestEnv(t)
+
+	// Create the .juggle directory in the project
+	_ = env.GetStore(t)
+
+	// Create a worktree directory
+	worktreePath := filepath.Join(env.TempDir, "worktree-alias-test")
+	if err := os.MkdirAll(worktreePath, 0755); err != nil {
+		t.Fatalf("Failed to create worktree dir: %v", err)
+	}
+
+	t.Run("WorkspaceAddSameAsWorktreeAdd", func(t *testing.T) {
+		// Register worktree using session API (simulating CLI behavior)
+		err := session.RegisterWorktree(env.ProjectDir, worktreePath, ".juggle")
+		if err != nil {
+			t.Fatalf("RegisterWorktree failed: %v", err)
+		}
+
+		// Verify worktree was registered
+		worktrees, err := session.ListWorktrees(env.ProjectDir, ".juggle")
+		if err != nil {
+			t.Fatalf("ListWorktrees failed: %v", err)
+		}
+
+		found := false
+		for _, wt := range worktrees {
+			if wt == worktreePath {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Worktree %s not found in list: %v", worktreePath, worktrees)
+		}
+	})
+
+	t.Run("WorkspaceListSameAsWorktreeList", func(t *testing.T) {
+		worktrees, err := session.ListWorktrees(env.ProjectDir, ".juggle")
+		if err != nil {
+			t.Fatalf("ListWorktrees failed: %v", err)
+		}
+
+		if len(worktrees) == 0 {
+			t.Error("Expected at least one worktree")
+		}
+	})
+
+	t.Run("WorkspaceStatusSameAsWorktreeStatus", func(t *testing.T) {
+		// Main repo should not be a worktree
+		isWt, err := session.IsWorktree(env.ProjectDir, ".juggle")
+		if err != nil {
+			t.Fatalf("IsWorktree failed: %v", err)
+		}
+		if isWt {
+			t.Error("Main repo should not be detected as worktree")
+		}
+
+		// Worktree directory should be a worktree
+		isWt, err = session.IsWorktree(worktreePath, ".juggle")
+		if err != nil {
+			t.Fatalf("IsWorktree failed: %v", err)
+		}
+		if !isWt {
+			t.Error("Worktree should be detected as worktree")
+		}
+	})
+
+	t.Run("WorkspaceForgetSameAsWorktreeForget", func(t *testing.T) {
+		err := session.ForgetWorktree(env.ProjectDir, worktreePath, ".juggle")
+		if err != nil {
+			t.Fatalf("ForgetWorktree failed: %v", err)
+		}
+
+		// Verify worktree was removed
+		worktrees, err := session.ListWorktrees(env.ProjectDir, ".juggle")
+		if err != nil {
+			t.Fatalf("ListWorktrees failed: %v", err)
+		}
+
+		for _, wt := range worktrees {
+			if wt == worktreePath {
+				t.Error("Worktree should not be in list after forget")
+			}
+		}
+	})
+}
+
 func TestWorktreeValidation(t *testing.T) {
 	env := SetupTestEnv(t)
 

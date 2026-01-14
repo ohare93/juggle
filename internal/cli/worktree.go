@@ -10,8 +10,9 @@ import (
 )
 
 var worktreeCmd = &cobra.Command{
-	Use:   "worktree",
-	Short: "Manage git worktree links for parallel agent execution",
+	Use:     "worktree",
+	Aliases: []string{"workspace"},
+	Short:   "Manage git worktree links for parallel agent execution",
 	Long: `Manage worktree links so multiple agents can run in parallel across
 different git worktrees while sharing the same ball state.
 
