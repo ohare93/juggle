@@ -1,10 +1,8 @@
 package provider
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -119,11 +117,11 @@ func (o *OpenCodeProvider) runHeadless(opts RunOptions) (*RunResult, error) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		o.streamOutput(stdout, &outputBuf, os.Stdout)
+		streamOutput(stdout, &outputBuf, os.Stdout)
 	}()
 	go func() {
 		defer wg.Done()
-		o.streamOutput(stderr, &outputBuf, os.Stderr)
+		streamOutput(stderr, &outputBuf, os.Stderr)
 	}()
 
 	// Wait for command to complete
@@ -213,19 +211,6 @@ func (o *OpenCodeProvider) runInteractive(opts RunOptions) (*RunResult, error) {
 	}
 
 	return result, nil
-}
-
-// streamOutput reads from reader and writes to both buffer and writer
-func (o *OpenCodeProvider) streamOutput(reader io.Reader, buf *strings.Builder, writer io.Writer) {
-	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		buf.WriteString(line)
-		buf.WriteString("\n")
-		fmt.Fprintln(writer, line)
-	}
 }
 
 // parseRateLimit detects rate limit errors with OpenCode/OpenAI-specific patterns

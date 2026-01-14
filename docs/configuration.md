@@ -243,6 +243,21 @@ Use `model_overrides` to customize these mappings when new models are released:
 }
 ```
 
+### Model Override Priority
+
+When both global and project configs define `model_overrides`, settings are merged with project taking precedence:
+
+1. **Project config overrides** (`.juggle/config.json`)
+2. **Global config overrides** (`~/.juggle/config.json`)
+3. **Provider default mappings**
+
+Example: If global has `"opus": "anthropic/claude-opus-4"` and project has `"opus": "anthropic/claude-opus-5"`, the project version wins.
+
+When an override is applied, juggle logs the mapping:
+```
+Model override: opus → anthropic/claude-opus-5
+```
+
 ### Using the --provider Flag
 
 ```bash

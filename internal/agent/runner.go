@@ -3,8 +3,15 @@
 package agent
 
 import (
+	"fmt"
+	"os"
+	"sync"
+
 	"github.com/ohare93/juggle/internal/agent/provider"
 )
+
+// runnerMu protects access to DefaultRunner for concurrent safety.
+var runnerMu sync.RWMutex
 
 // RunMode defines how the agent should be executed
 type RunMode = provider.RunMode
@@ -60,7 +67,11 @@ func (r *ProviderRunner) Run(opts RunOptions) (*RunResult, error) {
 
 	// Apply model overrides if configured
 	if opts.Model != "" && r.ModelOverrides != nil {
+		originalModel := opts.Model
 		opts.Model = provider.ApplyModelOverrides(opts.Model, r.ModelOverrides, p)
+		if opts.Model != originalModel {
+			fmt.Fprintf(os.Stderr, "Model override: %s → %s\n", originalModel, opts.Model)
+		}
 	}
 
 	return p.Run(opts)
@@ -73,12 +84,18 @@ var DefaultRunner Runner = &ProviderRunner{
 }
 
 // SetRunner sets the package-level runner (for testing).
+// This function is goroutine-safe.
 func SetRunner(r Runner) {
+	runnerMu.Lock()
+	defer runnerMu.Unlock()
 	DefaultRunner = r
 }
 
 // ResetRunner resets the runner to the default Claude provider.
+// This function is goroutine-safe.
 func ResetRunner() {
+	runnerMu.Lock()
+	defer runnerMu.Unlock()
 	DefaultRunner = &ProviderRunner{
 		Provider: provider.NewClaudeProvider(),
 	}
@@ -86,14 +103,20 @@ func ResetRunner() {
 
 // SetProvider sets the provider for the default runner.
 // This is used to switch between Claude and OpenCode at runtime.
+// This function is goroutine-safe.
 func SetProvider(p provider.Provider) {
+	runnerMu.Lock()
+	defer runnerMu.Unlock()
 	if pr, ok := DefaultRunner.(*ProviderRunner); ok {
 		pr.Provider = p
 	}
 }
 
 // SetModelOverrides sets the model overrides for the default runner.
+// This function is goroutine-safe.
 func SetModelOverrides(overrides map[string]string) {
+	runnerMu.Lock()
+	defer runnerMu.Unlock()
 	if pr, ok := DefaultRunner.(*ProviderRunner); ok {
 		pr.ModelOverrides = overrides
 	}
@@ -101,7 +124,10 @@ func SetModelOverrides(overrides map[string]string) {
 
 // GetProvider returns the current provider from the default runner.
 // Returns nil if the default runner is not a ProviderRunner.
+// This function is goroutine-safe.
 func GetProvider() provider.Provider {
+	runnerMu.RLock()
+	defer runnerMu.RUnlock()
 	if pr, ok := DefaultRunner.(*ProviderRunner); ok {
 		return pr.Provider
 	}

@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -248,20 +247,6 @@ func (c *ClaudeProvider) runInteractive(opts RunOptions) (*RunResult, error) {
 	}
 
 	return result, nil
-}
-
-// streamOutput reads from reader and writes to both buffer and writer
-func streamOutput(reader io.Reader, buf *strings.Builder, writer io.Writer) {
-	scanner := bufio.NewScanner(reader)
-	// Increase scanner buffer for long lines
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		buf.WriteString(line)
-		buf.WriteString("\n")
-		fmt.Fprintln(writer, line)
-	}
 }
 
 // parseSignals checks the output for COMPLETE/CONTINUE/BLOCKED signals

@@ -288,15 +288,34 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 	}
 
 	// Configure agent provider based on CLI flag, project config, and global config
-	globalProvider, _ := session.GetGlobalAgentProviderWithOptions(GetConfigOptions())
-	projectProvider, _ := session.GetProjectAgentProvider(config.ProjectDir)
+	globalProvider, err := session.GetGlobalAgentProviderWithOptions(GetConfigOptions())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load global agent provider config: %v\n", err)
+	}
+	projectProvider, err := session.GetProjectAgentProvider(config.ProjectDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load project agent provider config: %v\n", err)
+	}
 	providerType := provider.Detect(config.Provider, projectProvider, globalProvider)
+
+	// Verify provider binary is available
+	if !provider.IsAvailable(providerType) {
+		return nil, fmt.Errorf("agent provider %q is not available (binary %q not found in PATH)",
+			providerType, provider.BinaryName(providerType))
+	}
+
 	agentProv := provider.Get(providerType)
 	agent.SetProvider(agentProv)
 
 	// Configure model overrides
-	globalOverrides, _ := session.GetGlobalModelOverridesWithOptions(GetConfigOptions())
-	projectOverrides, _ := session.GetProjectModelOverrides(config.ProjectDir)
+	globalOverrides, err := session.GetGlobalModelOverridesWithOptions(GetConfigOptions())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load global model overrides: %v\n", err)
+	}
+	projectOverrides, err := session.GetProjectModelOverrides(config.ProjectDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load project model overrides: %v\n", err)
+	}
 	modelOverrides := session.MergeModelOverrides(globalOverrides, projectOverrides)
 	agent.SetModelOverrides(modelOverrides)
 

@@ -349,3 +349,59 @@ func TestValidProviders(t *testing.T) {
 		t.Error("expected 'opencode' in valid providers")
 	}
 }
+
+func TestOpenCodeProvider_ParseRateLimit(t *testing.T) {
+	p := NewOpenCodeProvider()
+
+	tests := []struct {
+		name        string
+		output      string
+		wantLimited bool
+	}{
+		// Common rate limit patterns
+		{"rate limit", "Error: rate limit exceeded", true},
+		{"429 status", "HTTP 429 Too Many Requests", true},
+		{"overloaded", "Server is overloaded, please try again", true},
+		{"throttled", "Request was throttled", true},
+
+		// OpenAI-specific patterns
+		{"quota exceeded", "You exceeded your quota for the month", true},
+		{"tpm limit", "TPM limit reached for model", true},
+		{"rpm limit", "RPM limit exceeded", true},
+
+		// Case insensitivity
+		{"RATE LIMIT caps", "RATE LIMIT ERROR", true},
+		{"Quota Exceeded caps", "Quota Exceeded", true},
+
+		// Non-matching output
+		{"normal output", "Task completed successfully", false},
+		{"empty output", "", false},
+		{"partial match no rate", "This is a limited feature", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := &RunResult{Output: tc.output}
+			p.parseRateLimit(result)
+
+			if result.RateLimited != tc.wantLimited {
+				t.Errorf("parseRateLimit(%q) RateLimited = %v, want %v",
+					tc.output, result.RateLimited, tc.wantLimited)
+			}
+		})
+	}
+}
+
+func TestOpenCodeProvider_ParseRateLimitWithRetryAfter(t *testing.T) {
+	p := NewOpenCodeProvider()
+
+	result := &RunResult{Output: "Rate limit exceeded. Please retry in 30 seconds."}
+	p.parseRateLimit(result)
+
+	if !result.RateLimited {
+		t.Error("expected RateLimited=true")
+	}
+	if result.RetryAfter != 30*time.Second {
+		t.Errorf("expected RetryAfter=30s, got %v", result.RetryAfter)
+	}
+}
