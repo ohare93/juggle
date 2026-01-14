@@ -36,13 +36,39 @@ Juggle adds the missing structure:
 
 ![JJ Commit Log with Worktrees](assets/jj-commit-log-with-3-worktrees.png)
 
-## Quick Start
+## Installation
 
-### Install
+### Windows (Scoop)
+
+```bash
+scoop bucket add ohare93 https://github.com/ohare93/scoop && scoop install juggle
+```
+
+### macOS (Homebrew)
+
+```bash
+brew tap ohare93/tap && brew install juggle
+```
+
+### Linux
+
+**Install script (recommended):**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/ohare93/juggle/main/install.sh | bash
 ```
+
+**Or with Go:**
+
+```bash
+go install github.com/ohare93/juggle/cmd/juggle@latest
+```
+
+### Build from Source
+
+See [Installation Guide](docs/installation.md) for building from source and additional options.
+
+## Quick Start
 
 ### Create a session and add tasks
 
