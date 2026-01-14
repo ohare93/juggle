@@ -4281,7 +4281,6 @@ func TestBottomPaneSplitModeRendering(t *testing.T) {
 		activePanel:    BallsPanel,
 		cursor:         0,
 		filteredBalls:  []*session.Ball{ball},
-		selectedBall:   ball,
 		bottomPaneMode: BottomPaneSplit,
 		width:          120,
 		height:         40,

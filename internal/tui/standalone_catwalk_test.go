@@ -428,7 +428,6 @@ func TestBallsPanelWithBalls(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/balls_panel_with_balls", model)
 }
 
@@ -445,7 +444,6 @@ func TestBallsPanelWithPriorityColumn(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 1
-	model.selectedBall = model.balls[1]
 	catwalk.RunModel(t, "testdata/balls_panel_with_priority_column", model)
 }
 
@@ -461,7 +459,6 @@ func TestBallsPanelWithTagsColumn(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 2
-	model.selectedBall = model.balls[2]
 	catwalk.RunModel(t, "testdata/balls_panel_with_tags_column", model)
 }
 
@@ -492,7 +489,6 @@ func TestBallsPanelWithTestsColumn(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 1
-	model.selectedBall = model.balls[1]
 	catwalk.RunModel(t, "testdata/balls_panel_with_tests_column", model)
 }
 
@@ -523,7 +519,6 @@ func TestBallsPanelMultipleColumns(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/balls_panel_with_multiple_columns", model)
 }
 
@@ -539,7 +534,6 @@ func TestBallsPanelSortByID(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/balls_panel_sort_by_id", model)
 }
 
@@ -557,7 +551,6 @@ func TestBallsPanelSortByPriority(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/balls_panel_sort_by_priority", model)
 }
 
@@ -586,7 +579,6 @@ func TestBallsPanelWithBlockedReason(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/balls_panel_with_blocked_reason", model)
 }
 
@@ -615,7 +607,6 @@ func TestBallsPanelWithDependencies(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 2
-	model.selectedBall = model.balls[2]
 	catwalk.RunModel(t, "testdata/balls_panel_with_dependencies", model)
 }
 
@@ -643,7 +634,6 @@ func TestBallsPanelScroll(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 15 // Scroll to middle
-	model.selectedBall = model.balls[15]
 	model.showPriorityColumn = true
 	catwalk.RunModel(t, "testdata/balls_panel_scroll", model)
 }
@@ -703,7 +693,6 @@ func TestBallDetailView(t *testing.T) {
 	})
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/ball_detail_view", model)
 }
 
@@ -730,7 +719,6 @@ func TestSplitBottomPane(t *testing.T) {
 	})
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/split_bottom_pane", model)
 }
 
@@ -802,7 +790,6 @@ func TestDetailViewScrolling(t *testing.T) {
 	})
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	model.detailScrollOffset = 5
 	catwalk.RunModel(t, "testdata/detail_view_scrolling", model)
 }
@@ -987,7 +974,6 @@ func TestCatwalkStatusBarBallsPanel(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/status_bar_balls_panel", model)
 }
 
@@ -1025,7 +1011,6 @@ func TestCatwalkStatusBarWithFilters(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/status_bar_with_filters", model)
 }
 
@@ -1060,7 +1045,6 @@ func TestCatwalkStatusBarWithSearchQuery(t *testing.T) {
 	}
 	model.filteredBalls = model.balls[:1] // Only first ball matches filter
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/status_bar_with_search_query", model)
 }
 
@@ -1819,7 +1803,6 @@ func TestEdgeCaseNarrowTerminal(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	model.showPriorityColumn = true
 	catwalk.RunModel(t, "testdata/edge_case_narrow_terminal", model)
 }
@@ -1847,7 +1830,6 @@ func TestEdgeCaseWideTerminal(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	model.showPriorityColumn = true
 	model.showTagsColumn = true
 	model.showTestsColumn = true
@@ -1878,7 +1860,6 @@ func TestEdgeCaseWideTerminalWithAllColumns(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	model.showPriorityColumn = true
 	model.showTagsColumn = true
 	model.showTestsColumn = true
@@ -1896,7 +1877,6 @@ func TestEdgeCaseShortTerminal(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_short_terminal", model)
 }
 
@@ -1914,7 +1894,6 @@ func TestEdgeCaseShortTerminalWithManyBalls(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 7 // Scroll to middle
-	model.selectedBall = model.balls[7]
 	catwalk.RunModel(t, "testdata/edge_case_short_many_balls", model)
 }
 
@@ -1937,7 +1916,6 @@ func TestEdgeCaseLongTitleTruncation(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_long_title_truncation", model)
 }
 
@@ -1955,7 +1933,6 @@ func TestEdgeCaseLongTitleInNarrowTerminal(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_long_title_narrow", model)
 }
 
@@ -1965,7 +1942,6 @@ func TestEdgeCaseEmptyBallsList(t *testing.T) {
 	model.activePanel = BallsPanel
 	model.balls = make([]*session.Ball, 0)
 	model.filteredBalls = make([]*session.Ball, 0)
-	model.selectedBall = nil
 	catwalk.RunModel(t, "testdata/edge_case_empty_balls", model)
 }
 
@@ -2021,7 +1997,6 @@ func TestEdgeCaseMaxScrollBallsAtBottom(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 29 // Last ball
-	model.selectedBall = model.balls[29]
 	catwalk.RunModel(t, "testdata/edge_case_max_scroll_balls_bottom", model)
 }
 
@@ -2039,7 +2014,6 @@ func TestEdgeCaseMaxScrollBallsAtTop(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0 // First ball
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_max_scroll_balls_top", model)
 }
 
@@ -2116,7 +2090,6 @@ func TestEdgeCaseCursorAtFirstBall(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0 // At the top
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_cursor_first_ball", model)
 }
 
@@ -2131,7 +2104,6 @@ func TestEdgeCaseCursorAtLastBall(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 2 // At the end
-	model.selectedBall = model.balls[2]
 	catwalk.RunModel(t, "testdata/edge_case_cursor_last_ball", model)
 }
 
@@ -2173,7 +2145,6 @@ func TestEdgeCaseSingleBall(t *testing.T) {
 	}
 	model.filteredBalls = model.balls
 	model.cursor = 0
-	model.selectedBall = model.balls[0]
 	catwalk.RunModel(t, "testdata/edge_case_single_ball", model)
 }
 

@@ -469,8 +469,6 @@ func (m Model) renderBallsPanel(width, height int) string {
 
 		if i == m.cursor && m.activePanel == BallsPanel {
 			b.WriteString(selectedBallStyle.Render(line) + "\n")
-		} else if m.selectedBall != nil && m.selectedBall.ID == ball.ID {
-			b.WriteString(lipgloss.NewStyle().Background(lipgloss.Color("235")).Render(line) + "\n")
 		} else {
 			b.WriteString(ballStyle.Render(line) + "\n")
 		}
@@ -544,16 +542,11 @@ func (m Model) renderActivityPanel(width, height int) string {
 func (m Model) renderBallDetailPanel(width, height int) string {
 	var b strings.Builder
 
-	// Get the currently highlighted ball based on active panel
+	// Get the currently highlighted ball based on cursor position
 	var ball *session.Ball
-	if m.activePanel == BallsPanel {
-		balls := m.filterBallsForSession()
-		if m.cursor < len(balls) {
-			ball = balls[m.cursor]
-		}
-	}
-	if ball == nil && m.selectedBall != nil {
-		ball = m.selectedBall
+	balls := m.filterBallsForSession()
+	if m.cursor < len(balls) {
+		ball = balls[m.cursor]
 	}
 
 	// Title with scroll indicator
@@ -730,16 +723,11 @@ func (m Model) renderSplitBottomPane(width, height int) string {
 func (m Model) renderBallDetailPanelCompact(width, height int) string {
 	var b strings.Builder
 
-	// Get the currently highlighted ball
+	// Get the currently highlighted ball based on cursor position
 	var ball *session.Ball
-	if m.activePanel == BallsPanel {
-		balls := m.filterBallsForSession()
-		if m.cursor < len(balls) {
-			ball = balls[m.cursor]
-		}
-	}
-	if ball == nil && m.selectedBall != nil {
-		ball = m.selectedBall
+	balls := m.filterBallsForSession()
+	if m.cursor < len(balls) {
+		ball = balls[m.cursor]
 	}
 
 	b.WriteString(panelTitleStyle.Render("Details") + "\n")

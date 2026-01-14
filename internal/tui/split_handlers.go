@@ -663,12 +663,8 @@ func (m Model) handleSplitViewEnter() (tea.Model, tea.Cmd) {
 			m.addActivity("Selected session: " + m.selectedSession.ID)
 		}
 	case BallsPanel:
-		// Select ball
-		balls := m.filterBallsForSession()
-		if len(balls) > 0 && m.cursor < len(balls) {
-			m.selectedBall = balls[m.cursor]
-			m.addActivity("Selected ball: " + m.selectedBall.ID)
-		}
+		// Open ball in edit mode (same as 'e' key)
+		return m.handleSplitEditItem()
 	}
 	return m, nil
 }
@@ -1144,25 +1140,13 @@ func (m Model) handleBallEditInEditor() (tea.Model, tea.Cmd) {
 // handleCopyBallID copies the current ball's ID to the system clipboard (split view)
 // Format: "projectName:ballID" (e.g., "myproject:myproject-abc123")
 func (m Model) handleCopyBallID() (tea.Model, tea.Cmd) {
-	// Get the current ball based on context
-	var ball *session.Ball
-	switch m.activePanel {
-	case BallsPanel:
-		balls := m.filterBallsForSession()
-		if len(balls) == 0 || m.cursor >= len(balls) {
-			m.message = "No ball selected"
-			return m, nil
-		}
-		ball = balls[m.cursor]
-	default:
-		// If selected ball is set (e.g., in detail view), use that
-		if m.selectedBall != nil {
-			ball = m.selectedBall
-		} else {
-			m.message = "No ball selected"
-			return m, nil
-		}
+	// Get the current ball under cursor
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		m.message = "No ball selected"
+		return m, nil
 	}
+	ball := balls[m.cursor]
 
 	// Format: "projectName:ballID"
 	copyText := ball.FolderName() + ":" + ball.ID

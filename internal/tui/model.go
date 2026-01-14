@@ -108,9 +108,8 @@ type Model struct {
 	sessionCursor   int
 
 	// View state
-	mode         viewMode
-	cursor       int
-	selectedBall *session.Ball
+	mode   viewMode
+	cursor int
 
 	// Panel state (for split view)
 	activePanel Panel

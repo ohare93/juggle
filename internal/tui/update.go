@@ -154,10 +154,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.message = "Ball archived successfully"
 			m.addActivity("Archived ball: " + msg.ball.ID)
-			// Clear selection if we archived the selected ball
-			if m.selectedBall != nil && m.selectedBall.ID == msg.ball.ID {
-				m.selectedBall = nil
-			}
 		}
 		// Reload balls
 		return m, loadBalls(m.store, m.config, m.localOnly)
@@ -458,9 +454,7 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "esc":
 		// Go back or deselect
-		if m.selectedBall != nil {
-			m.selectedBall = nil
-		} else if m.selectedSession != nil {
+		if m.selectedSession != nil {
 			m.selectedSession = nil
 			m.cursor = 0
 		} else {
@@ -702,10 +696,6 @@ func (m Model) executeSplitDelete() (tea.Model, tea.Cmd) {
 		}
 		m.addActivity("Deleted ball: " + ball.ID)
 		m.message = "Deleted ball: " + ball.ID
-		// Reset selection if we deleted the selected ball
-		if m.selectedBall != nil && m.selectedBall.ID == ball.ID {
-			m.selectedBall = nil
-		}
 		m.mode = splitView
 		return m, loadBalls(m.store, m.config, m.localOnly)
 	}
