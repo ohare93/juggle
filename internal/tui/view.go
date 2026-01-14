@@ -210,9 +210,8 @@ func (m Model) renderInputView() string {
 	// Show context based on mode
 	switch m.mode {
 	case inputSessionView:
-		if m.inputAction == actionEdit && m.sessionCursor < len(m.sessions) {
-			sess := m.sessions[m.sessionCursor]
-			b.WriteString(fmt.Sprintf("Session: %s\n\n", sess.ID))
+		if m.inputAction == actionEdit && m.editingSession != nil {
+			b.WriteString(fmt.Sprintf("Session: %s\n\n", m.editingSession.ID))
 		}
 	case inputBallView:
 		if m.inputAction == actionEdit && m.editingBall != nil {

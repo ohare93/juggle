@@ -12,6 +12,8 @@ func (m Model) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		// Cancel input
+		m.editingSession = nil // Clear the editing session
+		m.editingBall = nil // Clear the editing ball
 		m.mode = splitView
 		m.message = "Cancelled"
 		m.textInput.Blur()
@@ -73,29 +75,22 @@ func (m Model) submitSessionInput(value string) (tea.Model, tea.Cmd) {
 		m.message = "Created session: " + value
 	} else {
 		// Edit session description
-		// Note: use filterSessions() since sessionCursor indexes into filtered list
-		sessions := m.filterSessions()
-		if m.sessionCursor >= len(sessions) {
+		if m.editingSession == nil {
+			m.message = "No session selected for editing"
 			m.mode = splitView
 			return m, nil
 		}
-		sess := sessions[m.sessionCursor]
-		// Double-check we're not editing a pseudo-session (shouldn't happen due to guard in handleSplitEditItem)
-		if sess.ID == PseudoSessionAll || sess.ID == PseudoSessionUntagged {
-			m.message = "Cannot edit built-in session"
-			m.mode = splitView
-			return m, nil
-		}
-		err := m.sessionStore.UpdateSessionDescription(sess.ID, value)
+		err := m.sessionStore.UpdateSessionDescription(m.editingSession.ID, value)
 		if err != nil {
 			m.message = "Error updating session: " + err.Error()
 			m.mode = splitView
 			return m, nil
 		}
-		m.addActivity("Updated session description: " + sess.ID)
-		m.message = "Updated session: " + sess.ID
+		m.addActivity("Updated session description: " + m.editingSession.ID)
+		m.message = "Updated session: " + m.editingSession.ID
 	}
 
+	m.editingSession = nil // Clear the editing session
 	m.mode = splitView
 	return m, loadSessions(m.sessionStore, m.config, m.localOnly)
 }

@@ -1001,6 +1001,7 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 			m.message = "Cannot edit built-in session"
 			return m, nil
 		}
+		m.editingSession = sess
 		m.textInput.Placeholder = "Session description"
 		m.textInput.SetValue(sess.Description)
 		m.inputTarget = "session_description"

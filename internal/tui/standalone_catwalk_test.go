@@ -1151,9 +1151,31 @@ func TestInputSessionViewEdit(t *testing.T) {
 		{ID: "frontend", Description: "Frontend improvements"},
 	}
 	model.sessionCursor = 0
+	model.editingSession = model.sessions[0]
 	model.textInput.SetValue("Updated description for backend")
 	model.textInput.Focus()
 	catwalk.RunModel(t, "testdata/input_session_edit", model)
+}
+
+// TestInputSessionViewEditFiltered tests editing a session that was found via filtering.
+func TestInputSessionViewEditFiltered(t *testing.T) {
+	model := createTestSplitViewModel(t)
+	model.mode = inputSessionView
+	model.inputAction = actionEdit
+	model.sessions = []*session.JuggleSession{
+		{ID: "backend-work", Description: "Backend development tasks"},
+		{ID: "frontend-auth", Description: "Frontend authentication"},
+		{ID: "frontend-ui", Description: "Frontend UI improvements"},
+	}
+	// Simulate filtering - only the frontend-auth session is visible
+	model.panelSearchActive = true
+	model.panelSearchQuery = "auth"
+	// sessionCursor points to the filtered result (which is sessions[1])
+	model.sessionCursor = 1
+	model.editingSession = model.sessions[1]
+	model.textInput.SetValue("Updated auth description")
+	model.textInput.Focus()
+	catwalk.RunModel(t, "testdata/input_session_edit_filtered", model)
 }
 
 // TestInputBallViewAdd tests the ball title input dialog for adding a new ball.

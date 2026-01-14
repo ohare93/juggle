@@ -165,6 +165,7 @@ type Model struct {
 	inputAction        InputAction      // Add or Edit
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
 	editingBall        *session.Ball // Ball being edited (for edit action)
+	editingSession     *session.JuggleSession // Session being edited (for edit action)
 	tagEditMode        TagEditMode      // Whether adding or removing a tag
 	sessionSelectItems []*session.JuggleSession // Sessions available for selection
 	sessionSelectIndex int                      // Current selection index in session selector
