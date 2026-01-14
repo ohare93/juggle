@@ -53,3 +53,13 @@ release:
     name: juggle
   draft: false
   prerelease: auto
+
+scoops:
+  - name: juggle
+    repository:
+      owner: ohare93
+      name: scoop
+    directory: bucket
+    homepage: https://github.com/ohare93/juggle
+    description: Task management CLI for autonomous AI agent loops
+    license: MIT
