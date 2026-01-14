@@ -50,6 +50,6 @@ changelog:
 release:
   github:
     owner: ohare93
-    name: juggler
+    name: juggle
   draft: false
   prerelease: auto
