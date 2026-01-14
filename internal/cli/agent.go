@@ -1927,12 +1927,8 @@ func performJJCommit(projectDir, commitMessage string) (*CommitResult, error) {
 	statusStr := string(statusOutput)
 
 	// Check if working copy is clean (no changes)
-	// jj status shows "Working copy : " with the commit, but if clean it shows no file changes
-	if !strings.Contains(statusStr, "Added ") &&
-	   !strings.Contains(statusStr, "Modified ") &&
-	   !strings.Contains(statusStr, "Removed ") &&
-	   !strings.Contains(statusStr, "Renamed ") {
-		// No changes to commit
+	// jj status outputs "The working copy has no changes." when clean
+	if strings.Contains(statusStr, "The working copy has no changes.") {
 		result.Success = true
 		result.StatusOutput = "No changes to commit"
 		return result, nil
