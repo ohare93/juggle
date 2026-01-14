@@ -17,9 +17,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to title field (Tab or Down)
 run
@@ -37,9 +42,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to acceptance criteria section
 run
@@ -57,9 +67,14 @@ Acceptance Criteria:␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to tags field
 run
@@ -77,9 +92,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: > tag1, tag2, ...                                              ␤
 Session: (none)␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to session field
 run
@@ -97,9 +117,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session:  (none) ␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to model size field
 run
@@ -117,9 +142,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size:  (default)  small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle through model size options with right arrow
 run
@@ -137,9 +167,14 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default)  small  medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Move to depends on field
 run
@@ -157,6 +192,11 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
-Depends On:  (select) ␤
+Priority: low | medium | high | urgent␤
+Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇

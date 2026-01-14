@@ -183,6 +183,7 @@ func (m StandaloneBallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Field indices are dynamic due to variable AC count
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, DependsOn, Save
 	const (
 		fieldContext = 0
 		fieldIntent  = 1
@@ -192,16 +193,19 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	fieldTags := fieldACEnd + 1
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
-	fieldDependsOn := fieldModelSize + 1
+	fieldPriority := fieldModelSize + 1
+	fieldDependsOn := fieldPriority + 1
+	fieldSave := fieldDependsOn + 1
 
 	numModelSizeOptions := 4
+	numPriorityOptions := 4
 	numSessionOptions := 1
 	for _, sess := range m.sessions {
 		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
 			numSessionOptions++
 		}
 	}
-	maxFieldIndex := fieldDependsOn
+	maxFieldIndex := fieldSave
 
 	isTextInputField := func(field int) bool {
 		return field == fieldContext || field == fieldIntent || field == fieldTags ||
@@ -256,17 +260,19 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 	}
 
-	recalcFieldIndices := func() (int, int, int, int, int) {
+	recalcFieldIndices := func() (int, int, int, int, int, int, int) {
 		newFieldACEnd := fieldACStart + len(m.pendingAcceptanceCriteria)
 		newFieldTags := newFieldACEnd + 1
 		newFieldSession := newFieldTags + 1
 		newFieldModelSize := newFieldSession + 1
-		newFieldDependsOn := newFieldModelSize + 1
-		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldDependsOn
+		newFieldPriority := newFieldModelSize + 1
+		newFieldDependsOn := newFieldPriority + 1
+		newFieldSave := newFieldDependsOn + 1
+		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldPriority, newFieldDependsOn, newFieldSave
 	}
 
 	loadFieldValue := func(field int) {
-		acEnd, tagsField, _, _, _ := recalcFieldIndices()
+		acEnd, tagsField, _, _, _, _, _ := recalcFieldIndices()
 
 		m.textInput.Reset()
 		switch field {
@@ -326,6 +332,14 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			// Update pendingBallContext live so title placeholder updates as you type
 			m.pendingBallContext = m.contextInput.Value()
 			return m, cmd
+		} else if m.pendingBallFormField == fieldSave {
+			// Save button - finalize ball creation
+			saveCurrentFieldValue()
+			if m.pendingBallIntent == "" {
+				m.message = "Title is required"
+				return m, nil
+			}
+			return m.finalizeBallCreation()
 		} else if m.pendingBallFormField == fieldDependsOn {
 			return m.openDependencySelector()
 		} else if isACField(m.pendingBallFormField) {
@@ -350,10 +364,10 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			} else {
 				saveCurrentFieldValue()
 				m.pendingBallFormField++
-				newACEnd, _, _, _, newDependsOn := recalcFieldIndices()
-				maxFieldIndex = newDependsOn
+				newACEnd, _, _, _, _, _, newSave := recalcFieldIndices()
+				maxFieldIndex = newSave
 				if m.pendingBallFormField > newACEnd {
-					_, newFieldTags, _, _, _ := recalcFieldIndices()
+					_, newFieldTags, _, _, _, _, _ := recalcFieldIndices()
 					m.pendingBallFormField = newFieldTags
 				}
 				loadFieldValue(m.pendingBallFormField)
@@ -361,8 +375,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		} else {
 			saveCurrentFieldValue()
 			m.pendingBallFormField++
-			_, _, _, _, newDependsOn := recalcFieldIndices()
-			maxFieldIndex = newDependsOn
+			_, _, _, _, _, _, newSave := recalcFieldIndices()
+			maxFieldIndex = newSave
 			if m.pendingBallFormField > maxFieldIndex {
 				m.pendingBallFormField = maxFieldIndex
 			}
@@ -377,8 +391,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		saveCurrentFieldValue()
 		m.pendingBallFormField--
-		_, _, _, _, newDependsOn := recalcFieldIndices()
-		maxFieldIndex = newDependsOn
+		_, _, _, _, _, _, newSave := recalcFieldIndices()
+		maxFieldIndex = newSave
 		if m.pendingBallFormField < 0 {
 			m.pendingBallFormField = maxFieldIndex
 		}
@@ -392,8 +406,8 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		saveCurrentFieldValue()
 		m.pendingBallFormField++
-		_, _, _, _, newDependsOn := recalcFieldIndices()
-		maxFieldIndex = newDependsOn
+		_, _, _, _, _, _, newSave := recalcFieldIndices()
+		maxFieldIndex = newSave
 		if m.pendingBallFormField > maxFieldIndex {
 			m.pendingBallFormField = 0
 		}
@@ -419,7 +433,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 		// Tab always moves to next field
 		// For selection fields, also toggle to next option before moving
-		_, _, sessionField, modelSizeField, _ := recalcFieldIndices()
+		_, _, sessionField, modelSizeField, priorityField, _, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
 			// Toggle to next session option
 			m.pendingBallSession++
@@ -432,17 +446,23 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			if m.pendingBallModelSize >= numModelSizeOptions {
 				m.pendingBallModelSize = 0
 			}
+		} else if m.pendingBallFormField == priorityField {
+			// Toggle to next priority option
+			m.pendingBallPriority++
+			if m.pendingBallPriority >= numPriorityOptions {
+				m.pendingBallPriority = 0
+			}
 		} else {
 			// For text fields, save current value
 			saveCurrentFieldValue()
 		}
 		// Move to next field
-		newACEnd, newFieldTags, _, _, newDependsOn := recalcFieldIndices()
+		newACEnd, newFieldTags, _, _, _, _, newSave := recalcFieldIndices()
 		if m.pendingBallFormField == newACEnd {
 			m.pendingBallFormField = newFieldTags
 		} else {
 			m.pendingBallFormField++
-			maxFieldIndex = newDependsOn
+			maxFieldIndex = newSave
 			if m.pendingBallFormField > maxFieldIndex {
 				m.pendingBallFormField = 0
 			}
@@ -469,6 +489,13 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 				m.pendingBallModelSize--
 			} else if msg.String() == "right" && m.pendingBallModelSize < numModelSizeOptions-1 {
 				m.pendingBallModelSize++
+			}
+			return m, nil
+		} else if m.pendingBallFormField == fieldPriority {
+			if msg.String() == "left" && m.pendingBallPriority > 0 {
+				m.pendingBallPriority--
+			} else if msg.String() == "right" && m.pendingBallPriority < numPriorityOptions-1 {
+				m.pendingBallPriority++
 			}
 			return m, nil
 		}
@@ -666,7 +693,9 @@ func (m StandaloneBallModel) renderForm() string {
 	fieldTags := fieldACEnd + 1
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
-	fieldDependsOn := fieldModelSize + 1
+	fieldPriority := fieldModelSize + 1
+	fieldDependsOn := fieldPriority + 1
+	fieldSave := fieldDependsOn + 1
 
 	sessionOptions := []string{"(none)"}
 	for _, sess := range m.sessions {
@@ -677,6 +706,7 @@ func (m StandaloneBallModel) renderForm() string {
 
 	activeFieldStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
 	normalStyle := lipgloss.NewStyle()
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	optionSelectedStyle := lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("6")).Foreground(lipgloss.Color("0"))
 	optionNormalStyle := lipgloss.NewStyle().Faint(true)
 	acNumberStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
@@ -862,6 +892,32 @@ func (m StandaloneBallModel) renderForm() string {
 	}
 	b.WriteString("\n")
 
+	// Priority field
+	priorityOptions := []string{"low", "medium", "high", "urgent"}
+	priorityColors := []string{"245", "6", "214", "196"} // gray, cyan, orange, red
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldPriority {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Priority: "))
+	for i, opt := range priorityOptions {
+		if i > 0 {
+			b.WriteString(" | ")
+		}
+		if i == m.pendingBallPriority {
+			if m.pendingBallFormField == fieldPriority {
+				b.WriteString(optionSelectedStyle.Render(opt))
+			} else {
+				// Use priority color for selected option when not focused
+				colorStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(priorityColors[i]))
+				b.WriteString(colorStyle.Render(opt))
+			}
+		} else {
+			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
 	// Depends On field
 	labelStyle = normalStyle
 	if m.pendingBallFormField == fieldDependsOn {
@@ -870,30 +926,38 @@ func (m StandaloneBallModel) renderForm() string {
 	b.WriteString(labelStyle.Render("Depends On: "))
 	if len(m.pendingBallDependsOn) == 0 {
 		if m.pendingBallFormField == fieldDependsOn {
-			b.WriteString(optionSelectedStyle.Render(" (select) "))
+			b.WriteString(optionSelectedStyle.Render("(none) - press Enter to select"))
 		} else {
 			b.WriteString(optionNormalStyle.Render("(none)"))
 		}
 	} else {
 		depDisplay := strings.Join(m.pendingBallDependsOn, ", ")
 		if m.pendingBallFormField == fieldDependsOn {
-			b.WriteString(optionSelectedStyle.Render(" " + depDisplay + " "))
+			b.WriteString(selectedStyle.Render(depDisplay) + optionNormalStyle.Render(" - press Enter to edit"))
 		} else {
 			b.WriteString(depDisplay)
 		}
 	}
 	b.WriteString("\n\n")
 
-	// Help text
-	helpStyle := lipgloss.NewStyle().Faint(true)
-	b.WriteString(helpStyle.Render("Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel"))
-	b.WriteString("\n")
+	// Save button
+	saveButtonStyle := lipgloss.NewStyle().Padding(0, 2)
+	if m.pendingBallFormField == fieldSave {
+		saveButtonStyle = saveButtonStyle.Bold(true).Background(lipgloss.Color("2")).Foreground(lipgloss.Color("0"))
+	} else {
+		saveButtonStyle = saveButtonStyle.Foreground(lipgloss.Color("2")).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("2"))
+	}
+	b.WriteString(saveButtonStyle.Render("[ Save ]") + "\n\n")
 
 	// Message
 	if m.message != "" {
 		msgStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-		b.WriteString("\n" + msgStyle.Render(m.message))
+		b.WriteString(msgStyle.Render(m.message) + "\n\n")
 	}
+
+	// Help text
+	helpStyle := lipgloss.NewStyle().Faint(true)
+	b.WriteString(helpStyle.Render("↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel"))
 
 	return b.String()
 }

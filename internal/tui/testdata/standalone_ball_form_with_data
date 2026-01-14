@@ -18,6 +18,11 @@ Acceptance Criteria:␤
 Tags: feature, backend␤
 Session: (none)␤
 Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
