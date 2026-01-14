@@ -465,44 +465,12 @@ func TestBallsPanelWithTagsColumn(t *testing.T) {
 	catwalk.RunModel(t, "testdata/balls_panel_with_tags_column", model)
 }
 
-// TestBallsPanelWithTestsColumn tests the balls panel with tests column visible.
-func TestBallsPanelWithTestsColumn(t *testing.T) {
-	model := createTestSplitViewModel(t)
-	model.activePanel = BallsPanel
-	model.showTestsColumn = true
-	model.balls = []*session.Ball{
-		{
-			ID:                   "juggle-1",
-			Title:                "Task with no tests",
-			State:                session.StatePending,
-			AcceptanceCriteria:   []string{},
-		},
-		{
-			ID:                   "juggle-2",
-			Title:                "Task with some tests",
-			State:                session.StateInProgress,
-			AcceptanceCriteria:   []string{"AC 1: Test X", "AC 2: Test Y"},
-		},
-		{
-			ID:                   "juggle-3",
-			Title:                "Task with many tests",
-			State:                session.StateBlocked,
-			AcceptanceCriteria:   []string{"AC 1", "AC 2", "AC 3", "AC 4", "AC 5"},
-		},
-	}
-	model.filteredBalls = model.balls
-	model.cursor = 1
-	model.selectedBall = model.balls[1]
-	catwalk.RunModel(t, "testdata/balls_panel_with_tests_column", model)
-}
-
 // TestBallsPanelMultipleColumns tests the balls panel with all columns visible.
 func TestBallsPanelMultipleColumns(t *testing.T) {
 	model := createTestSplitViewModel(t)
 	model.activePanel = BallsPanel
 	model.showPriorityColumn = true
 	model.showTagsColumn = true
-	model.showTestsColumn = true
 	model.balls = []*session.Ball{
 		{
 			ID:                   "juggle-1",
@@ -1986,7 +1954,6 @@ func TestEdgeCaseWideTerminal(t *testing.T) {
 	model.selectedBall = model.balls[0]
 	model.showPriorityColumn = true
 	model.showTagsColumn = true
-	model.showTestsColumn = true
 	catwalk.RunModel(t, "testdata/edge_case_wide_terminal", model)
 }
 
@@ -2017,7 +1984,6 @@ func TestEdgeCaseWideTerminalWithAllColumns(t *testing.T) {
 	model.selectedBall = model.balls[0]
 	model.showPriorityColumn = true
 	model.showTagsColumn = true
-	model.showTestsColumn = true
 	catwalk.RunModel(t, "testdata/edge_case_wide_all_columns", model)
 }
 

@@ -126,18 +126,6 @@ func listJugglingBalls(cmd *cobra.Command) error {
 		if ball.BlockedReason != "" {
 			intentDisplay = fmt.Sprintf("%s %s", ball.Title, dimStyle.Render("("+ball.BlockedReason+")"))
 		}
-		// Add tests state indicator
-		testsIndicator := ""
-		if ball.TestsState != "" {
-			switch ball.TestsState {
-			case session.TestsStateNeeded:
-				testsIndicator = " " + dimStyle.Render("[tests:needed]")
-			case session.TestsStateDone:
-				testsIndicator = " " + dimStyle.Render("[tests:done]")
-			case session.TestsStateNotNeeded:
-				testsIndicator = " " + dimStyle.Render("[tests:n/a]")
-			}
-		}
 		// Add output marker
 		outputMarker := ""
 		if ball.HasOutput() {
@@ -149,13 +137,12 @@ func listJugglingBalls(cmd *cobra.Command) error {
 			depMarker = " " + dimStyle.Render("[→deps]")
 		}
 
-		fmt.Printf("  [%s] %s  %s  %s  %s%s%s%s\n",
+		fmt.Printf("  [%s] %s  %s  %s  %s%s%s\n",
 			idPadded,
 			projectPadded,
 			statePadded,
 			priorityPadded,
 			intentDisplay,
-			testsIndicator,
 			outputMarker,
 			depMarker,
 		)
@@ -340,18 +327,6 @@ func listAllBalls(cmd *cobra.Command) error {
 				if ball.BlockedReason != "" {
 					intentDisplay = fmt.Sprintf("%s %s", ball.Title, dimStyle.Render("("+ball.BlockedReason+")"))
 				}
-				// Add tests state indicator
-				testsIndicator := ""
-				if ball.TestsState != "" {
-					switch ball.TestsState {
-					case session.TestsStateNeeded:
-						testsIndicator = " " + dimStyle.Render("[tests:needed]")
-					case session.TestsStateDone:
-						testsIndicator = " " + dimStyle.Render("[tests:done]")
-					case session.TestsStateNotNeeded:
-						testsIndicator = " " + dimStyle.Render("[tests:n/a]")
-					}
-				}
 				// Add output marker
 				outputMarker := ""
 				if ball.HasOutput() {
@@ -363,12 +338,11 @@ func listAllBalls(cmd *cobra.Command) error {
 					depMarker = " " + dimStyle.Render("[→deps]")
 				}
 
-				fmt.Printf("  [%s] %s  %s  %s%s%s%s\n",
+				fmt.Printf("  [%s] %s  %s  %s%s%s\n",
 					idPadded,
 					statePadded,
 					priorityPadded,
 					intentDisplay,
-					testsIndicator,
 					outputMarker,
 					depMarker,
 				)

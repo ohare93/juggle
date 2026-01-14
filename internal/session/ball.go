@@ -40,16 +40,6 @@ const (
 	StateResearched BallState = "researched" // Completed with no code changes, output contains results
 )
 
-// TestsState represents whether tests are needed/done for a ball
-type TestsState string
-
-const (
-	TestsStateUnset    TestsState = ""           // Default - not specified
-	TestsStateNotNeeded TestsState = "not_needed" // Tests are not required for this task
-	TestsStateNeeded   TestsState = "needed"     // Tests are required but not yet done
-	TestsStateDone     TestsState = "done"       // Tests have been completed
-)
-
 
 // Ball represents a task being tracked
 type Ball struct {
@@ -61,7 +51,6 @@ type Ball struct {
 	Priority           Priority    `json:"priority"`
 	State              BallState   `json:"state"`
 	BlockedReason      string      `json:"blocked_reason,omitempty"`
-	TestsState         TestsState  `json:"tests_state,omitempty"`
 	Output             string      `json:"output,omitempty"` // Research results or investigation output
 	DependsOn          []string    `json:"depends_on,omitempty"` // Ball IDs this ball depends on
 	StartedAt          time.Time   `json:"started_at"`
@@ -484,16 +473,6 @@ func (b *Ball) PriorityWeight() int {
 	}
 }
 
-// ValidateTestsState checks if a tests state string is valid
-func ValidateTestsState(s string) bool {
-	switch TestsState(s) {
-	case TestsStateUnset, TestsStateNotNeeded, TestsStateNeeded, TestsStateDone:
-		return true
-	default:
-		return false
-	}
-}
-
 // ValidateModelSize checks if a model size string is valid
 func ValidateModelSize(s string) bool {
 	switch ModelSize(s) {
@@ -504,30 +483,10 @@ func ValidateModelSize(s string) bool {
 	}
 }
 
-// SetTestsState sets the tests state for the ball
-func (b *Ball) SetTestsState(state TestsState) {
-	b.TestsState = state
-	b.UpdateActivity()
-}
-
 // SetModelSize sets the preferred model size for the ball
 func (b *Ball) SetModelSize(size ModelSize) {
 	b.ModelSize = size
 	b.UpdateActivity()
-}
-
-// TestsStateLabel returns a human-readable label for the tests state
-func (b *Ball) TestsStateLabel() string {
-	switch b.TestsState {
-	case TestsStateNotNeeded:
-		return "not needed"
-	case TestsStateNeeded:
-		return "needed"
-	case TestsStateDone:
-		return "done"
-	default:
-		return ""
-	}
 }
 
 // HasDependencies returns true if the ball has dependencies

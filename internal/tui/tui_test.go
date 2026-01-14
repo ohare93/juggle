@@ -4861,7 +4861,6 @@ func TestBallDetailPanelShowsAllProperties(t *testing.T) {
 		Priority:      session.PriorityHigh,
 		BlockedReason: "Waiting for API",
 		Tags:          []string{"feature", "backend"},
-		TestsState:    session.TestsStateNeeded,
 		AcceptanceCriteria: []string{
 			"First criterion",
 		},
@@ -7703,32 +7702,6 @@ func TestViewColumnToggle_Tags(t *testing.T) {
 	}
 }
 
-// Test view column toggle - vs toggles tests column
-func TestViewColumnToggle_Tests(t *testing.T) {
-	model := Model{
-		mode:            splitView,
-		activePanel:     BallsPanel,
-		showTestsColumn: false,
-		activityLog:     make([]ActivityEntry, 0),
-	}
-
-	// Toggle tests column on
-	newModel, _ := model.handleViewColumnKeySequence("s")
-	m := newModel.(Model)
-
-	if !m.showTestsColumn {
-		t.Error("Expected showTestsColumn to be true after vs")
-	}
-
-	// Toggle off
-	newModel, _ = m.handleViewColumnKeySequence("s")
-	m = newModel.(Model)
-
-	if m.showTestsColumn {
-		t.Error("Expected showTestsColumn to be false after second vs")
-	}
-}
-
 // Test view column toggle - va toggles all columns
 func TestViewColumnToggle_All(t *testing.T) {
 	model := Model{
@@ -7736,7 +7709,6 @@ func TestViewColumnToggle_All(t *testing.T) {
 		activePanel:         BallsPanel,
 		showPriorityColumn:  false,
 		showTagsColumn:      false,
-		showTestsColumn:     false,
 		showModelSizeColumn: false,
 		activityLog:         make([]ActivityEntry, 0),
 	}
@@ -7745,7 +7717,7 @@ func TestViewColumnToggle_All(t *testing.T) {
 	newModel, _ := model.handleViewColumnKeySequence("a")
 	m := newModel.(Model)
 
-	if !m.showPriorityColumn || !m.showTagsColumn || !m.showTestsColumn || !m.showModelSizeColumn {
+	if !m.showPriorityColumn || !m.showTagsColumn || !m.showModelSizeColumn {
 		t.Error("Expected all columns to be visible after va")
 	}
 
@@ -7757,7 +7729,7 @@ func TestViewColumnToggle_All(t *testing.T) {
 	newModel, _ = m.handleViewColumnKeySequence("a")
 	m = newModel.(Model)
 
-	if m.showPriorityColumn || m.showTagsColumn || m.showTestsColumn || m.showModelSizeColumn {
+	if m.showPriorityColumn || m.showTagsColumn || m.showModelSizeColumn {
 		t.Error("Expected all columns to be hidden after second va")
 	}
 
@@ -7837,7 +7809,7 @@ func TestViewColumnToggle_UnknownKey(t *testing.T) {
 	newModel, _ := model.handleViewColumnKeySequence("x")
 	m := newModel.(Model)
 
-	if m.message != "Unknown view column: x (use p/t/s/m/a)" {
+	if m.message != "Unknown view column: x (use p/t/m/a)" {
 		t.Errorf("Expected error message, got '%s'", m.message)
 	}
 }
@@ -7898,9 +7870,6 @@ func TestViewColumnDefaults(t *testing.T) {
 	if model.showTagsColumn {
 		t.Error("Expected showTagsColumn to be false by default")
 	}
-	if model.showTestsColumn {
-		t.Error("Expected showTestsColumn to be false by default")
-	}
 	if model.showModelSizeColumn {
 		t.Error("Expected showModelSizeColumn to be false by default")
 	}
@@ -7922,7 +7891,7 @@ func TestHelpViewContainsViewColumnKeybinds(t *testing.T) {
 	}
 
 	// Check for specific bindings (rendered with leading spaces as keys)
-	bindings := []string{"vp", "vt", "vs", "va"}
+	bindings := []string{"vp", "vt", "va"}
 	for _, binding := range bindings {
 		if !strings.Contains(helpContent, binding) {
 			t.Errorf("Help should contain '%s' keybinding", binding)

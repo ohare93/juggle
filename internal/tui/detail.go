@@ -42,11 +42,6 @@ func renderBallDetail(ball *session.Ball) string {
 		b.WriteString(renderField("Tags", strings.Join(ball.Tags, ", ")))
 	}
 
-	// Tests State
-	if ball.TestsState != "" {
-		b.WriteString(renderField("Tests", ball.TestsStateLabel()))
-	}
-
 	// Acceptance Criteria
 	if len(ball.AcceptanceCriteria) > 0 {
 		b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Acceptance Criteria:") + "\n")

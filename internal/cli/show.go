@@ -79,10 +79,6 @@ func renderBallDetails(ball *session.Ball) {
 		fmt.Println(labelStyle.Render("Blocked:"), valueStyle.Render(ball.BlockedReason))
 	}
 
-	if ball.TestsState != "" {
-		fmt.Println(labelStyle.Render("Tests:"), valueStyle.Render(ball.TestsStateLabel()))
-	}
-
 	fmt.Println(labelStyle.Render("Started:"), valueStyle.Render(ball.StartedAt.Format("2006-01-02 15:04:05")))
 	fmt.Println(labelStyle.Render("Last Activity:"), valueStyle.Render(ball.LastActivity.Format("2006-01-02 15:04:05")))
 	fmt.Println(labelStyle.Render("Updates:"), valueStyle.Render(fmt.Sprintf("%d", ball.UpdateCount)))

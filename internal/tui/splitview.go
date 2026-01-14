@@ -389,19 +389,6 @@ func (m Model) renderBallsPanel(width, height int) string {
 			tagsSuffix = fmt.Sprintf(" [%s]", tagsStr)
 		}
 
-		// Build tests state suffix if set and visible
-		testsSuffix := ""
-		if m.showTestsColumn && ball.TestsState != "" {
-			switch ball.TestsState {
-			case session.TestsStateNeeded:
-				testsSuffix = " [T:!]"
-			case session.TestsStateDone:
-				testsSuffix = " [T:✓]"
-			case session.TestsStateNotNeeded:
-				testsSuffix = " [T:-]"
-			}
-		}
-
 		// Build model size suffix if set and visible
 		modelSizeSuffix := ""
 		if m.showModelSizeColumn && ball.ModelSize != "" {
@@ -431,27 +418,26 @@ func (m Model) renderBallsPanel(width, height int) string {
 		idPrefix := fmt.Sprintf("[%s] ", idDisplay)
 
 		// Calculate total suffix length for width calculation
-		suffixLen := len(prioritySuffix) + len(tagsSuffix) + len(testsSuffix) + len(modelSizeSuffix) + len(outputMarker) + len(depMarker)
+		suffixLen := len(prioritySuffix) + len(tagsSuffix) + len(modelSizeSuffix) + len(outputMarker) + len(depMarker)
 
 		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
 			// Show blocked reason inline for blocked balls
 			intent := truncate(ball.Title, width-25-len(idPrefix)-suffixLen)
 			reason := truncate(ball.BlockedReason, width-len(intent)-15-len(idPrefix)-suffixLen)
-			line = fmt.Sprintf("%s %s%s [%s]%s%s%s%s%s%s",
+			line = fmt.Sprintf("%s %s%s [%s]%s%s%s%s%s",
 				stateIcon,
 				idPrefix,
 				intent,
 				reason,
 				prioritySuffix,
 				tagsSuffix,
-				testsSuffix,
 				modelSizeSuffix,
 				outputMarker,
 				depMarker,
 			)
 		} else {
 			availWidth := width - 15 - len(idPrefix) - suffixLen
-			line = fmt.Sprintf("%s %s%-*s %s%s%s%s%s%s%s",
+			line = fmt.Sprintf("%s %s%-*s %s%s%s%s%s%s",
 				stateIcon,
 				idPrefix,
 				availWidth,
@@ -459,7 +445,6 @@ func (m Model) renderBallsPanel(width, height int) string {
 				string(ball.State),
 				prioritySuffix,
 				tagsSuffix,
-				testsSuffix,
 				modelSizeSuffix,
 				outputMarker,
 				depMarker,
@@ -644,7 +629,7 @@ func (m Model) buildBallDetailLines(ball *session.Ball, width int) []string {
 	titleValue := truncate(ball.Title, width-50)
 	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", priorityLabel, valueStyle.Render(priorityValue), titleLabel, valueStyle.Render(titleValue)))
 
-	// Row 3: Tags and Tests State
+	// Row 3: Tags
 	tagsLabel := labelStyle.Render("Tags:")
 	tagsValue := "(none)"
 	if len(ball.Tags) > 0 {
@@ -653,12 +638,7 @@ func (m Model) buildBallDetailLines(ball *session.Ball, width int) []string {
 			tagsValue = truncate(tagsValue, 40)
 		}
 	}
-	testsLabel := labelStyle.Render("Tests:")
-	testsValue := "(not set)"
-	if ball.TestsState != "" {
-		testsValue = ball.TestsStateLabel()
-	}
-	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", tagsLabel, valueStyle.Render(tagsValue), testsLabel, valueStyle.Render(testsValue)))
+	lines = append(lines, fmt.Sprintf("  %s %s", tagsLabel, valueStyle.Render(tagsValue)))
 
 	// Row 4: Dependencies (if present)
 	if len(ball.DependsOn) > 0 {

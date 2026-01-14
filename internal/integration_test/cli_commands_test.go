@@ -765,69 +765,6 @@ func TestRalphExportShowsAllAcceptanceCriteria(t *testing.T) {
 	}
 }
 
-// TestUpdateCommandTestsState tests updating ball tests state
-func TestUpdateCommandTestsState(t *testing.T) {
-	env := SetupTestEnv(t)
-	defer CleanupTestEnv(t, env)
-
-	ball := env.CreateBall(t, "Test ball for tests state update", session.PriorityMedium)
-	store := env.GetStore(t)
-
-	// Update tests state to needed
-	ball.SetTestsState(session.TestsStateNeeded)
-	if err := store.UpdateBall(ball); err != nil {
-		t.Fatalf("Failed to update ball: %v", err)
-	}
-
-	retrieved, err := store.GetBallByID(ball.ID)
-	if err != nil {
-		t.Fatalf("Failed to retrieve ball: %v", err)
-	}
-
-	if retrieved.TestsState != session.TestsStateNeeded {
-		t.Errorf("Expected tests state needed, got %s", retrieved.TestsState)
-	}
-
-	// Update tests state to done
-	retrieved.SetTestsState(session.TestsStateDone)
-	if err := store.UpdateBall(retrieved); err != nil {
-		t.Fatalf("Failed to update ball: %v", err)
-	}
-
-	retrieved2, _ := store.GetBallByID(ball.ID)
-	if retrieved2.TestsState != session.TestsStateDone {
-		t.Errorf("Expected tests state done, got %s", retrieved2.TestsState)
-	}
-}
-
-// TestExportIncludesTestsState tests that JSON export includes tests state
-func TestExportIncludesTestsState(t *testing.T) {
-	env := SetupTestEnv(t)
-	defer CleanupTestEnv(t, env)
-
-	ball := env.CreateBall(t, "Export tests state test", session.PriorityMedium)
-	store := env.GetStore(t)
-
-	ball.SetTestsState(session.TestsStateNeeded)
-	store.UpdateBall(ball)
-
-	// Export to JSON
-	balls, _ := store.LoadBalls()
-	jsonData, err := json.MarshalIndent(balls, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal balls to JSON: %v", err)
-	}
-
-	// Verify tests_state is in JSON
-	jsonStr := string(jsonData)
-	if !bytes.Contains([]byte(jsonStr), []byte("tests_state")) {
-		t.Error("JSON export should contain tests_state field")
-	}
-	if !bytes.Contains([]byte(jsonStr), []byte("needed")) {
-		t.Error("JSON export should contain tests state value 'needed'")
-	}
-}
-
 // TestPlanOutputDoesNotRepeatAcceptanceCriteria verifies that the plan command
 // output does not redundantly display acceptance criteria after the user enters them
 func TestPlanOutputDoesNotRepeatAcceptanceCriteria(t *testing.T) {
@@ -901,35 +838,6 @@ func runPlanCommand(t *testing.T, env *TestEnv, intent string, args ...string) s
 	}
 
 	return string(output)
-}
-
-// TestTestsStateTransitions tests all valid tests state transitions
-func TestTestsStateTransitions(t *testing.T) {
-	env := SetupTestEnv(t)
-	defer CleanupTestEnv(t, env)
-
-	ball := env.CreateBall(t, "Tests state transitions", session.PriorityMedium)
-	store := env.GetStore(t)
-
-	// Test all transitions
-	transitions := []session.TestsState{
-		session.TestsStateNeeded,
-		session.TestsStateDone,
-		session.TestsStateNotNeeded,
-		session.TestsStateNeeded, // Can go back to needed
-	}
-
-	for _, state := range transitions {
-		ball.SetTestsState(state)
-		if err := store.UpdateBall(ball); err != nil {
-			t.Fatalf("Failed to transition to %s: %v", state, err)
-		}
-
-		retrieved, _ := store.GetBallByID(ball.ID)
-		if retrieved.TestsState != state {
-			t.Errorf("Expected tests state %s, got %s", state, retrieved.TestsState)
-		}
-	}
 }
 
 // TestSessionAliasForSessionsCommand tests that 'session' works as an alias for 'sessions'
@@ -1289,7 +1197,6 @@ func TestBallOutputWithAllFields(t *testing.T) {
 	ball.SetAcceptanceCriteria([]string{"AC 1", "AC 2"})
 	ball.AddTag("tag1")
 	ball.AddTag("tag2")
-	ball.SetTestsState(session.TestsStateNeeded)
 	ball.AddDependency("fake-dep-1")
 	store.UpdateBall(ball)
 
@@ -1307,7 +1214,6 @@ func TestBallOutputWithAllFields(t *testing.T) {
 		"Title:",
 		"Priority:",
 		"State:",
-		"Tests:",
 		"Tags:",
 		"Depends On:",
 		"Acceptance Criteria:",
@@ -1332,7 +1238,7 @@ func TestBallOutputWithAllFields(t *testing.T) {
 	}
 
 	// Verify JSON has key fields
-	jsonFields := []string{"id", "title", "priority", "state", "tests_state", "tags", "depends_on", "acceptance_criteria"}
+	jsonFields := []string{"id", "title", "priority", "state", "tags", "depends_on", "acceptance_criteria"}
 	for _, field := range jsonFields {
 		if _, ok := result[field]; !ok {
 			t.Errorf("JSON missing field: %s", field)

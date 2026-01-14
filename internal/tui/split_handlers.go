@@ -147,17 +147,6 @@ func (m Model) handleViewColumnKeySequence(key string) (tea.Model, tea.Cmd) {
 			m.message = "Tags column: hidden"
 		}
 		return m, nil
-	case "s":
-		// vs = Toggle tests state column visibility
-		m.showTestsColumn = !m.showTestsColumn
-		if m.showTestsColumn {
-			m.addActivity("Showing tests column")
-			m.message = "Tests column: visible"
-		} else {
-			m.addActivity("Hiding tests column")
-			m.message = "Tests column: hidden"
-		}
-		return m, nil
 	case "m":
 		// vm = Toggle model size column visibility
 		m.showModelSizeColumn = !m.showModelSizeColumn
@@ -171,12 +160,11 @@ func (m Model) handleViewColumnKeySequence(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "a":
 		// va = Toggle all columns visibility
-		allVisible := m.showPriorityColumn && m.showTagsColumn && m.showTestsColumn && m.showModelSizeColumn
+		allVisible := m.showPriorityColumn && m.showTagsColumn && m.showModelSizeColumn
 		if allVisible {
 			// Hide all
 			m.showPriorityColumn = false
 			m.showTagsColumn = false
-			m.showTestsColumn = false
 			m.showModelSizeColumn = false
 			m.addActivity("Hiding all optional columns")
 			m.message = "All columns: hidden"
@@ -184,7 +172,6 @@ func (m Model) handleViewColumnKeySequence(key string) (tea.Model, tea.Cmd) {
 			// Show all
 			m.showPriorityColumn = true
 			m.showTagsColumn = true
-			m.showTestsColumn = true
 			m.showModelSizeColumn = true
 			m.addActivity("Showing all optional columns")
 			m.message = "All columns: visible"
@@ -195,7 +182,7 @@ func (m Model) handleViewColumnKeySequence(key string) (tea.Model, tea.Cmd) {
 		m.message = ""
 		return m, nil
 	default:
-		m.message = "Unknown view column: " + key + " (use p/t/s/m/a)"
+		m.message = "Unknown view column: " + key + " (use p/t/m/a)"
 		return m, nil
 	}
 }

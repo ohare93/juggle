@@ -23,7 +23,7 @@ run
 │ Ball Details                                                                   │                                   ␤
 │  ↑ 1 more lines above                                                          │                                   ␤
 │  Priority:    high    Title:       Long context ball                           │                                   ␤
-│  Tags:        feature, documentation    Tests:       (not set)                 │                                   ␤
+│  Tags:        feature, documentation                                           │                                   ␤
 │  ↓ 1 more lines below (j/k to scroll)                                          │                                   ␤
 │                                                                                │                                   ␤
 ╰────────────────────────────────────────────────────────────────────────────────╯                                   ␤

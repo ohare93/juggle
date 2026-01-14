@@ -23,7 +23,7 @@ run
 │ Ball Details                                                                   │                                   ␤
 │  ID:          juggle-1    State:       in_progress                             │                                   ␤
 │  Priority:    high    Title:       Fix authentication bug                      │                                   ␤
-│  Tags:        bug, authentication    Tests:       (not set)                    │                                   ␤
+│  Tags:        bug, authentication                                              │                                   ␤
 │  ↓ 1 more lines below (j/k to scroll)                                          │                                   ␤
 │                                                                                │                                   ␤
 ╰────────────────────────────────────────────────────────────────────────────────╯                                   ␤
