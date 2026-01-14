@@ -830,6 +830,16 @@ func UpdateProjectAgentProvider(projectDir, provider string) error {
 	return SaveProjectConfig(projectDir, config)
 }
 
+// ClearProjectAgentProvider clears the agent provider from project config
+func ClearProjectAgentProvider(projectDir string) error {
+	config, err := LoadProjectConfig(projectDir)
+	if err != nil {
+		return err
+	}
+	config.ClearAgentProvider()
+	return SaveProjectConfig(projectDir, config)
+}
+
 // GetProjectModelOverrides returns the model overrides from project config
 func GetProjectModelOverrides(projectDir string) (map[string]string, error) {
 	config, err := LoadProjectConfig(projectDir)

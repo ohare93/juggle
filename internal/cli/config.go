@@ -1071,3 +1071,182 @@ func resolveVCS(projectDir, projectVCS, globalVCS string) string {
 	}
 	return autoDetectVCS(projectDir)
 }
+
+// Provider command variables
+var configProviderProjectFlag bool
+
+// configProviderCmd is the parent command for provider settings
+var configProviderCmd = &cobra.Command{
+	Use:   "provider",
+	Short: "Manage agent provider settings",
+	Long: `Manage the agent provider (CLI tool) used for running agents.
+
+By default, juggle uses "claude" (Claude Code CLI).
+You can override this globally or per-project.
+
+Available providers:
+  claude    - Claude Code CLI (default)
+  opencode  - OpenCode CLI
+
+Resolution order (highest to lowest priority):
+  1. CLI flag (--provider on agent commands)
+  2. Project config (.juggle/config.json agent_provider field)
+  3. Global config (~/.juggle/config.json agent_provider field)
+  4. Default: claude
+
+Commands:
+  config provider show              Show current provider settings
+  config provider set <provider>    Set provider (claude or opencode)
+  config provider clear             Clear provider setting
+
+Examples:
+  juggle config provider show
+  juggle config provider set claude           # Use claude globally
+  juggle config provider set opencode         # Use opencode globally
+  juggle config provider set claude --project # Use claude for this project only
+  juggle config provider clear                # Clear global setting
+  juggle config provider clear --project      # Clear project setting`,
+	RunE: runConfigProviderShow,
+}
+
+var configProviderShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Show current provider settings",
+	RunE:  runConfigProviderShow,
+}
+
+var configProviderSetCmd = &cobra.Command{
+	Use:   "set <provider>",
+	Short: "Set agent provider (claude or opencode)",
+	Long: `Set the agent provider.
+
+Valid providers: claude, opencode
+
+Use --project to set for the current project only (stored in .juggle/config.json).
+Without --project, sets the global default (stored in ~/.juggle/config.json).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runConfigProviderSet,
+}
+
+var configProviderClearCmd = &cobra.Command{
+	Use:   "clear",
+	Short: "Clear provider setting (use default)",
+	Long: `Clear the provider setting to use the default (claude).
+
+Use --project to clear the project setting only.
+Without --project, clears the global setting.`,
+	RunE: runConfigProviderClear,
+}
+
+func init() {
+	configProviderSetCmd.Flags().BoolVar(&configProviderProjectFlag, "project", false, "Set for this project only (vs global)")
+	configProviderClearCmd.Flags().BoolVar(&configProviderProjectFlag, "project", false, "Clear for this project only (vs global)")
+
+	configProviderCmd.AddCommand(configProviderShowCmd)
+	configProviderCmd.AddCommand(configProviderSetCmd)
+	configProviderCmd.AddCommand(configProviderClearCmd)
+
+	configCmd.AddCommand(configProviderCmd)
+}
+
+func runConfigProviderShow(cmd *cobra.Command, args []string) error {
+	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+
+	// Get global config
+	globalProvider, err := session.GetGlobalAgentProviderWithOptions(GetConfigOptions())
+	if err != nil {
+		return fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	fmt.Println(labelStyle.Render("Provider Settings:"))
+	fmt.Println()
+
+	// Global setting
+	fmt.Printf("  %s: ", keyStyle.Render("global"))
+	if globalProvider == "" {
+		fmt.Println(dimStyle.Render("(not set)"))
+	} else {
+		fmt.Println(valueStyle.Render(globalProvider))
+	}
+
+	// Try to load project config
+	cwd, err := GetWorkingDir()
+	if err == nil {
+		projectProvider, err := session.GetProjectAgentProvider(cwd)
+		if err == nil {
+			fmt.Printf("  %s: ", keyStyle.Render("project"))
+			if projectProvider == "" {
+				fmt.Println(dimStyle.Render("(not set)"))
+			} else {
+				fmt.Println(valueStyle.Render(projectProvider))
+			}
+
+			// Show effective provider
+			effective := resolveProvider(projectProvider, globalProvider)
+			fmt.Println()
+			fmt.Printf("  %s: ", keyStyle.Render("effective"))
+			fmt.Println(valueStyle.Render(effective))
+		}
+	}
+
+	return nil
+}
+
+func runConfigProviderSet(cmd *cobra.Command, args []string) error {
+	provider := strings.ToLower(strings.TrimSpace(args[0]))
+	if provider != "claude" && provider != "opencode" {
+		return fmt.Errorf("invalid provider: %s (must be 'claude' or 'opencode')", args[0])
+	}
+
+	if configProviderProjectFlag {
+		cwd, err := GetWorkingDir()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		if err := session.UpdateProjectAgentProvider(cwd, provider); err != nil {
+			return fmt.Errorf("failed to set project provider: %w", err)
+		}
+		fmt.Printf("Set project provider to: %s\n", provider)
+	} else {
+		if err := session.UpdateGlobalAgentProviderWithOptions(GetConfigOptions(), provider); err != nil {
+			return fmt.Errorf("failed to set global provider: %w", err)
+		}
+		fmt.Printf("Set global provider to: %s\n", provider)
+	}
+
+	return nil
+}
+
+func runConfigProviderClear(cmd *cobra.Command, args []string) error {
+	if configProviderProjectFlag {
+		cwd, err := GetWorkingDir()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		if err := session.ClearProjectAgentProvider(cwd); err != nil {
+			return fmt.Errorf("failed to clear project provider: %w", err)
+		}
+		fmt.Println("Cleared project provider setting.")
+	} else {
+		if err := session.ClearGlobalAgentProviderWithOptions(GetConfigOptions()); err != nil {
+			return fmt.Errorf("failed to clear global provider: %w", err)
+		}
+		fmt.Println("Cleared global provider setting.")
+	}
+
+	return nil
+}
+
+// resolveProvider determines the effective provider using resolution priority
+func resolveProvider(projectProvider, globalProvider string) string {
+	if projectProvider != "" {
+		return projectProvider
+	}
+	if globalProvider != "" {
+		return globalProvider
+	}
+	return "claude" // default
+}
