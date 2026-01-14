@@ -175,13 +175,67 @@ juggle export --session my-feature --format csv
 juggle export --session my-feature --format agent
 ```
 
+## Configuration
+
+### VCS Settings
+
+Juggle auto-detects version control (`.jj` preferred over `.git`), but you can override:
+
+```bash
+# Show current settings and detection
+juggle config vcs show
+
+# Set globally
+juggle config vcs set jj
+juggle config vcs set git
+
+# Set per-project
+juggle config vcs set jj --project
+
+# Clear to use auto-detection
+juggle config vcs clear
+juggle config vcs clear --project
+```
+
+### Acceptance Criteria (repo-level)
+
+```bash
+# List current criteria
+juggle config ac list
+
+# Add criterion
+juggle config ac add "All tests must pass"
+
+# Edit in $EDITOR
+juggle config ac set --edit
+
+# Clear all
+juggle config ac clear
+```
+
+### Agent Iteration Delay
+
+```bash
+# Show delay settings
+juggle config delay show
+
+# Set 5 minute delay
+juggle config delay set 5
+
+# Set 5 ± 2 minute delay (range: 3-7 min)
+juggle config delay set 5 --fuzz 2
+
+# Clear delay
+juggle config delay clear
+```
+
 ## File Structure
 
 ```
 your-project/
 ├── .juggle/
 │   ├── balls.jsonl           # Active balls
-│   ├── config.json           # Project config
+│   ├── config.json           # Project config (vcs, acceptance criteria)
 │   ├── archive/
 │   │   └── balls.jsonl       # Completed balls
 │   └── sessions/
@@ -191,5 +245,5 @@ your-project/
 │           └── last_output.txt
 
 ~/.juggle/
-├── config.json               # Global config (search paths)
+├── config.json               # Global config (search paths, vcs, delay)
 ```

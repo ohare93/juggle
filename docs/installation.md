@@ -220,7 +220,8 @@ Juggle stores configuration in `~/.juggle/config.json`:
   "search_paths": [
     "/home/user/Development",
     "/home/user/projects"
-  ]
+  ],
+  "vcs": "jj"
 }
 ```
 
@@ -230,6 +231,39 @@ You can edit this file directly or use:
 juggle projects add /new/path
 juggle projects remove /old/path
 ```
+
+### Version Control System (VCS)
+
+Juggle supports both **Git** and **jj (Jujutsu)** for version control operations (committing changes after agent iterations).
+
+**Auto-detection (default):** Juggle automatically detects which VCS to use:
+1. If a `.jj` directory exists → uses jj
+2. If a `.git` directory exists → uses git
+3. Otherwise → defaults to git
+
+**Manual configuration:** You can override auto-detection at the global or project level:
+
+```bash
+# View current VCS settings and detection
+juggle config vcs show
+
+# Set globally (stored in ~/.juggle/config.json)
+juggle config vcs set jj
+juggle config vcs set git
+
+# Set for current project only (stored in .juggle/config.json)
+juggle config vcs set jj --project
+juggle config vcs set git --project
+
+# Clear setting to use auto-detection
+juggle config vcs clear
+juggle config vcs clear --project
+```
+
+**Resolution priority (highest to lowest):**
+1. Project config (`.juggle/config.json` `vcs` field)
+2. Global config (`~/.juggle/config.json` `vcs` field)
+3. Auto-detect: `.jj` directory > `.git` directory > git (default)
 
 ## Uninstallation
 
