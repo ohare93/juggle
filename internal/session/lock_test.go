@@ -40,8 +40,14 @@ func TestAcquireSessionLock_Success(t *testing.T) {
 		t.Error("lock file should exist after acquiring lock")
 	}
 
-	// Verify lock info is written
-	info, err := readLockInfo(lockPath)
+	// Verify lock info file exists
+	lockInfoPath := filepath.Join(tmpDir, ".juggle", "sessions", "test-session", "agent.lock.info")
+	if _, err := os.Stat(lockInfoPath); os.IsNotExist(err) {
+		t.Error("lock info file should exist after acquiring lock")
+	}
+
+	// Verify lock info is written to the info file
+	info, err := readLockInfo(lockInfoPath)
 	if err != nil {
 		t.Fatalf("failed to read lock info: %v", err)
 	}
@@ -288,6 +294,59 @@ func TestConcurrentLockAttempts(t *testing.T) {
 	// (others may succeed after releases, but that's the intended behavior)
 	if successCount == 0 {
 		t.Error("at least one goroutine should have acquired the lock")
+	}
+}
+
+// TestLockFilesCleanedUpOnRelease verifies both lock file and info file are removed
+// This is important for Windows compatibility where the lock file cannot be written
+// to directly while locked, so we use a separate info file.
+func TestLockFilesCleanedUpOnRelease(t *testing.T) {
+	// Create temp directory
+	tmpDir, err := os.MkdirTemp("", "lock-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create session store and session
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	_, err = store.CreateSession("test-session", "Test session")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Acquire lock
+	lock, err := store.AcquireSessionLock("test-session")
+	if err != nil {
+		t.Fatalf("failed to acquire lock: %v", err)
+	}
+
+	// Verify both files exist while locked
+	lockPath := filepath.Join(tmpDir, ".juggle", "sessions", "test-session", "agent.lock")
+	lockInfoPath := filepath.Join(tmpDir, ".juggle", "sessions", "test-session", "agent.lock.info")
+
+	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
+		t.Error("lock file should exist while locked")
+	}
+	if _, err := os.Stat(lockInfoPath); os.IsNotExist(err) {
+		t.Error("lock info file should exist while locked")
+	}
+
+	// Release lock
+	if err := lock.Release(); err != nil {
+		t.Fatalf("failed to release lock: %v", err)
+	}
+
+	// Verify both files are cleaned up
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Error("lock file should be removed after release")
+	}
+	if _, err := os.Stat(lockInfoPath); !os.IsNotExist(err) {
+		t.Error("lock info file should be removed after release")
 	}
 }
 

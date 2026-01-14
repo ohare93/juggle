@@ -11,6 +11,7 @@ import (
 )
 
 const lockFile = "agent.lock"
+const lockInfoFile = "agent.lock.info"
 
 // LockInfo contains information about the current lock holder
 type LockInfo struct {
@@ -21,11 +22,12 @@ type LockInfo struct {
 
 // SessionLock represents a lock on a session to prevent concurrent agent runs
 type SessionLock struct {
-	sessionID  string
-	projectDir string
-	config     StoreConfig
-	lockPath   string
-	fileLock   *flock.Flock
+	sessionID    string
+	projectDir   string
+	config       StoreConfig
+	lockPath     string
+	lockInfoPath string
+	fileLock     *flock.Flock
 }
 
 // AcquireSessionLock attempts to acquire an exclusive lock on the session.
@@ -47,6 +49,7 @@ func (s *SessionStore) AcquireSessionLock(sessionID string) (*SessionLock, error
 	}
 
 	lockPath := filepath.Join(s.sessionPath(sessionID), lockFile)
+	lockInfoPath := filepath.Join(s.sessionPath(sessionID), lockInfoFile)
 
 	// Create the flock
 	fileLock := flock.New(lockPath)
@@ -57,12 +60,14 @@ func (s *SessionStore) AcquireSessionLock(sessionID string) (*SessionLock, error
 		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	if !locked {
-		// Lock is held by another process - read lock info
-		info, _ := readLockInfo(lockPath)
+		// Lock is held by another process - read lock info from separate info file
+		info, _ := readLockInfo(lockInfoPath)
 		return nil, NewSessionLockedError(sessionID, info)
 	}
 
-	// Write lock info to a separate info file
+	// Write lock info to a separate info file (not the lock file itself)
+	// This avoids Windows file locking issues where the flock holds an exclusive
+	// lock on the lock file, preventing writes from even the same process.
 	hostname, _ := os.Hostname()
 	info := LockInfo{
 		PID:       os.Getpid(),
@@ -76,18 +81,19 @@ func (s *SessionStore) AcquireSessionLock(sessionID string) (*SessionLock, error
 		return nil, fmt.Errorf("failed to marshal lock info: %w", err)
 	}
 
-	// Write lock info to the lock file
-	if err := os.WriteFile(lockPath, data, 0644); err != nil {
+	// Write lock info to the separate info file
+	if err := os.WriteFile(lockInfoPath, data, 0644); err != nil {
 		fileLock.Unlock()
 		return nil, fmt.Errorf("failed to write lock info: %w", err)
 	}
 
 	return &SessionLock{
-		sessionID:  sessionID,
-		projectDir: s.projectDir,
-		config:     s.config,
-		lockPath:   lockPath,
-		fileLock:   fileLock,
+		sessionID:    sessionID,
+		projectDir:   s.projectDir,
+		config:       s.config,
+		lockPath:     lockPath,
+		lockInfoPath: lockInfoPath,
+		fileLock:     fileLock,
 	}, nil
 }
 
@@ -102,9 +108,10 @@ func (l *SessionLock) Release() error {
 		return fmt.Errorf("failed to release lock: %w", err)
 	}
 
-	// Remove the lock file (best-effort cleanup - file may already be gone or
+	// Remove the lock files (best-effort cleanup - files may already be gone or
 	// we may lack permissions, but the OS-level lock is already released)
 	_ = os.Remove(l.lockPath)
+	_ = os.Remove(l.lockInfoPath)
 
 	l.fileLock = nil
 	return nil
@@ -113,6 +120,7 @@ func (l *SessionLock) Release() error {
 // IsLocked checks if a session currently has an active lock
 func (s *SessionStore) IsLocked(sessionID string) (bool, *LockInfo) {
 	lockPath := filepath.Join(s.sessionPath(sessionID), lockFile)
+	lockInfoPath := filepath.Join(s.sessionPath(sessionID), lockInfoFile)
 
 	// Check if lock file exists
 	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
@@ -124,13 +132,13 @@ func (s *SessionStore) IsLocked(sessionID string) (bool, *LockInfo) {
 	locked, err := fileLock.TryLock()
 	if err != nil {
 		// Error acquiring lock - assume it's locked
-		info, _ := readLockInfo(lockPath)
+		info, _ := readLockInfo(lockInfoPath)
 		return true, info
 	}
 
 	if !locked {
 		// Lock is held by another process
-		info, _ := readLockInfo(lockPath)
+		info, _ := readLockInfo(lockInfoPath)
 		return true, info
 	}
 
