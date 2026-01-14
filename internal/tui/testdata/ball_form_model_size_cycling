@@ -16,9 +16,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size:  (default)  small medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle right to small
 run
@@ -36,9 +42,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default)  small  medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle right to medium
 run
@@ -56,9 +68,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small  medium  large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle right to large
 run
@@ -76,9 +94,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium  large ␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle right should NOT wrap (stays at large)
 run
@@ -96,9 +120,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium  large ␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle left back to medium
 run
@@ -116,9 +146,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small  medium  large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle left to small
 run
@@ -136,9 +172,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size: (default)  small  medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle left to default
 run
@@ -156,9 +198,15 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size:  (default)  small medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
 # Cycle left should NOT wrap (stays at default)
 run
@@ -176,6 +224,12 @@ Acceptance Criteria: (none - consider adding criteria)␤
 Tags: (none)␤
 Session: (none)␤
 Model Size:  (default)  small medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-Navigation: ↑/↓ fields • Tab next • ←/→ options • Enter next/add AC • Ctrl+S save • Esc cancel␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇

@@ -1,7 +1,7 @@
-# Test: Session selection with arrow keys
-# This tests cycling through session options: (none), backend-work, frontend-tasks, devops
+# Test: Blocking Reason field cycling with arrow keys
+# This tests cycling through blocking reason options: (blank), Human needed, Waiting for dependency, Needs research, (custom)
 
-# Initial view - session field focused with (none) selected
+# Initial view - blocking reason field focused with (blank) selected
 run
 ----
 -- view:
@@ -14,7 +14,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -26,7 +26,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle right to backend-work
+# Cycle right to "Human needed"
 run
 key right
 ----
@@ -40,7 +40,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -52,7 +52,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle right to frontend-tasks
+# Cycle right to "Waiting for dependency"
 run
 key right
 ----
@@ -66,7 +66,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -78,7 +78,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle right to devops
+# Cycle right to "Needs research"
 run
 key right
 ----
@@ -92,7 +92,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -104,7 +104,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle right should NOT wrap (stays at devops)
+# Cycle right to "(custom)"
 run
 key right
 ----
@@ -118,10 +118,10 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
-Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
+Blocking Reason: (custom): > Enter custom blocking reason                                 ␤
 Depends On: (none)␤
 ␤
 ┌────────────┐␤
@@ -130,7 +130,33 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle left back to frontend-tasks
+# Cycle right should NOT wrap (stays at custom)
+run
+key right
+----
+-- view:
+Create New Ball␤
+␤
+Context: (empty)␤
+Title: (empty)␤
+␤
+Acceptance Criteria: (none - consider adding criteria)␤
+  + (add criterion)␤
+␤
+Tags: (none)␤
+Session: (none)␤
+Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (custom): > Enter custom blocking reason                                 ␤
+Depends On: (none)␤
+␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
+
+# Cycle left back to "Needs research"
 run
 key left
 ----
@@ -144,7 +170,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -156,7 +182,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle left to backend-work
+# Cycle left to "Waiting for dependency"
 run
 key left
 ----
@@ -170,7 +196,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -182,7 +208,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle left to (none)
+# Cycle left to "Human needed"
 run
 key left
 ----
@@ -196,7 +222,7 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
@@ -208,7 +234,7 @@ Depends On: (none)␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
 
-# Cycle left should NOT wrap (stays at none)
+# Cycle left to "(blank)"
 run
 key left
 ----
@@ -222,7 +248,33 @@ Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
 ␤
 Tags: (none)␤
-Session:  (none) ␤
+Session: (none)␤
+Model Size: (default) small medium large␤
+Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
+Depends On: (none)␤
+␤
+┌────────────┐␤
+│  [ Save ]  │␤
+└────────────┘␤
+␤
+↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
+
+# Cycle left should NOT wrap (stays at blank)
+run
+key left
+----
+-- view:
+Create New Ball␤
+␤
+Context: (empty)␤
+Title: (empty)␤
+␤
+Acceptance Criteria: (none - consider adding criteria)␤
+  + (add criterion)␤
+␤
+Tags: (none)␤
+Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤

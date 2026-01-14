@@ -8652,7 +8652,7 @@ func TestOpenDependencySelector(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
+		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
 		pendingAcceptanceCriteria: []string{},
 		pendingBallDependsOn:      []string{},
 		textInput:                 ti,
@@ -8843,7 +8843,7 @@ func TestDependencySelectorPreservesExisting(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
+		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
 		pendingBallDependsOn:      []string{"test-1"}, // Pre-existing dependency
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -8937,7 +8937,7 @@ func TestDependencySelectorNoBalls(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      7, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+DependsOn(7)
+		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
 		pendingBallDependsOn:      []string{},
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,

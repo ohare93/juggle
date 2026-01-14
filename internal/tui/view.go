@@ -1211,7 +1211,7 @@ func (m Model) renderUnifiedBallFormView() string {
 	b.WriteString(titleStyled + "\n\n")
 
 	// Field indices are dynamic due to variable AC count
-	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, DependsOn
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, BlockingReason, DependsOn, Save
 	const (
 		fieldContext = 0
 		fieldIntent  = 1 // Title field (was intent)
@@ -1223,7 +1223,8 @@ func (m Model) renderUnifiedBallFormView() string {
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
 	fieldPriority := fieldModelSize + 1
-	fieldDependsOn := fieldPriority + 1
+	fieldBlockingReason := fieldPriority + 1
+	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
 
 	// Build sessions list for display
@@ -1374,8 +1375,14 @@ func (m Model) renderUnifiedBallFormView() string {
 		}
 		b.WriteString("\n")
 	} else {
-		// Show placeholder for adding new AC
-		b.WriteString(optionNormalStyle.Render("  + (add criterion)") + "\n")
+		// Show pending new AC content if exists, otherwise show placeholder
+		if m.pendingNewAC != "" {
+			b.WriteString(acNumberStyle.Render("  + "))
+			b.WriteString(m.pendingNewAC)
+		} else {
+			b.WriteString(optionNormalStyle.Render("  + (add criterion)"))
+		}
+		b.WriteString("\n")
 	}
 	b.WriteString("\n")
 
@@ -1463,6 +1470,41 @@ func (m Model) renderUnifiedBallFormView() string {
 			}
 		} else {
 			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Blocking Reason field ---
+	// Options: 0=(blank), 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=(custom)
+	blockingReasonOptions := []string{"(blank)", "Human needed", "Waiting for dependency", "Needs research", "(custom)"}
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldBlockingReason {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Blocking Reason: "))
+	// Check if custom mode (4) with text input
+	if m.pendingBallFormField == fieldBlockingReason && m.pendingBallBlockingReason == 4 {
+		// Show text input for custom reason
+		b.WriteString(m.textInput.View())
+	} else {
+		for j, opt := range blockingReasonOptions {
+			if j > 0 {
+				b.WriteString(" | ")
+			}
+			if j == m.pendingBallBlockingReason {
+				if m.pendingBallFormField == fieldBlockingReason {
+					b.WriteString(optionSelectedStyle.Render(opt))
+				} else {
+					// Show custom text if custom option selected
+					if j == 4 && m.pendingBallCustomReason != "" {
+						b.WriteString(selectedStyle.Render(m.pendingBallCustomReason))
+					} else {
+						b.WriteString(selectedStyle.Render(opt))
+					}
+				}
+			} else {
+				b.WriteString(optionNormalStyle.Render(opt))
+			}
 		}
 	}
 	b.WriteString("\n")

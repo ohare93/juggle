@@ -1,4 +1,5 @@
-# Test: Using real NewStandaloneBallModel constructor
+# Test: AC placeholder shows content on last line
+# When pendingNewAC has content and user navigates away, it should show the draft content
 
 run
 ----
@@ -6,15 +7,15 @@ run
 Create New Ball␤
 ␤
 Context:␤
-┃ One Two Three Four Five Six Seven Eight Nine Ten          ␤
-┃ Eleven Twelve                                             ␤
-┃                                                           ␤
-Title: Test intent␤
 ␤
-Acceptance Criteria: (none - consider adding criteria)␤
-  + (add criterion)␤
+Title: Test task␤
 ␤
-Tags: (none)␤
+Acceptance Criteria:␤
+  1. First criterion␤
+  2. Second criterion␤
+  + Third criterion (draft)␤
+␤
+Tags:␤
 Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤

@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/knz/catwalk"
 	"github.com/ohare93/juggle/internal/session"
 )
@@ -166,6 +167,21 @@ func TestStandaloneTitlePlaceholderFromContext(t *testing.T) {
 
 	model := NewStandaloneBallModel(store, nil)
 	catwalk.RunModel(t, "testdata/standalone_title_placeholder_from_context", model)
+}
+
+// TestStandaloneBallFormACPlaceholder tests that AC placeholder shows content when on last line.
+// AC1: Should show the content rather than the placeholder
+// AC2: Should be in the ball when completed, even when on the last line
+func TestStandaloneBallFormACPlaceholder(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	model.pendingBallIntent = "Test task"
+	model.pendingAcceptanceCriteria = []string{
+		"First criterion",
+		"Second criterion",
+	}
+	model.pendingNewAC = "Third criterion (draft)"
+	model.pendingBallFormField = 6 // Navigate away from AC field to show that content is preserved
+	catwalk.RunModel(t, "testdata/standalone_ball_form_ac_placeholder", model)
 }
 
 // createTestSplitViewModel creates a Model configured for split view testing.
@@ -1578,6 +1594,158 @@ func TestBallFormModelSizeCycling(t *testing.T) {
 	model.pendingBallFormField = 5
 	model.pendingBallModelSize = 0 // default
 	catwalk.RunModel(t, "testdata/ball_form_model_size_cycling", model)
+}
+
+// TestBallFormBlockingReasonCycling tests blocking reason field cycling with left/right arrow keys.
+func TestBallFormBlockingReasonCycling(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	// Navigate to blocking reason field (field 7: context=0, intent=1, AC=2, tags=3, session=4, modelSize=5, priority=6, blockingReason=7)
+	model.pendingBallFormField = 7
+	model.pendingBallBlockingReason = 0 // (blank)
+	catwalk.RunModel(t, "testdata/ball_form_blocking_reason_cycling", model)
+}
+
+// TestBallFormBlockingReasonHumanNeededAutoTag tests that selecting "Human needed" auto-adds the human-needed tag.
+func TestBallFormBlockingReasonHumanNeededAutoTag(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	// Set up blocking reason as "Human needed" (index 1)
+	model.pendingBallBlockingReason = 1
+	// Navigate to blocking reason field to show it's selected
+	model.pendingBallFormField = 7
+	catwalk.RunModel(t, "testdata/ball_form_blocking_reason_human_needed", model)
+}
+
+// TestBallFormHumanNeededAutoTagBallCreation tests that creating a ball with "Human needed" blocking reason adds the human-needed tag.
+func TestBallFormHumanNeededAutoTagBallCreation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+	ti.Blur()
+
+	ta := textarea.New()
+	ta.CharLimit = 2000
+	ta.SetWidth(60)
+	ta.SetHeight(1)
+	ta.ShowLineNumbers = false
+	ta.Focus()
+
+	model := StandaloneBallModel{
+		store:                     store,
+		textInput:                 ti,
+		contextInput:              ta,
+		pendingBallIntent:         "Test auto-tagging",
+		pendingBallPriority:       1, // medium
+		pendingBallBlockingReason: 1, // Human needed
+		fileAutocomplete:          NewAutocompleteState(store.ProjectDir()),
+		width:                     80,
+		height:                    24,
+	}
+
+	// Simulate Ctrl+S to save the ball
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Load balls from store and verify the tag was added
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	ball := balls[0]
+	hasHumanNeededTag := false
+	for _, tag := range ball.Tags {
+		if tag == "human-needed" {
+			hasHumanNeededTag = true
+			break
+		}
+	}
+
+	if !hasHumanNeededTag {
+		t.Errorf("expected ball to have 'human-needed' tag, got tags: %v", ball.Tags)
+	}
+
+	// Also verify the blocked reason is set
+	if ball.BlockedReason != "Human needed" {
+		t.Errorf("expected ball.BlockedReason to be 'Human needed', got: %s", ball.BlockedReason)
+	}
+}
+
+// TestBallFormHumanNeededAutoTagNoDoubleTags tests that if the user already has human-needed tag, we don't add duplicate.
+func TestBallFormHumanNeededAutoTagNoDoubleTags(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+	ti.Blur()
+
+	ta := textarea.New()
+	ta.CharLimit = 2000
+	ta.SetWidth(60)
+	ta.SetHeight(1)
+	ta.ShowLineNumbers = false
+	ta.Focus()
+
+	model := StandaloneBallModel{
+		store:                     store,
+		textInput:                 ti,
+		contextInput:              ta,
+		pendingBallIntent:         "Test no duplicate tags",
+		pendingBallTags:           "human-needed, other-tag", // Already has the tag
+		pendingBallPriority:       1,                         // medium
+		pendingBallBlockingReason: 1,                         // Human needed
+		fileAutocomplete:          NewAutocompleteState(store.ProjectDir()),
+		width:                     80,
+		height:                    24,
+	}
+
+	// Simulate Ctrl+S to save the ball
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Load balls from store and verify no duplicate tags
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	ball := balls[0]
+	humanNeededCount := 0
+	for _, tag := range ball.Tags {
+		if tag == "human-needed" {
+			humanNeededCount++
+		}
+	}
+
+	if humanNeededCount != 1 {
+		t.Errorf("expected exactly 1 'human-needed' tag, got %d (tags: %v)", humanNeededCount, ball.Tags)
+	}
 }
 
 // TestBallFormSessionSelection tests session selection with left/right arrow keys.

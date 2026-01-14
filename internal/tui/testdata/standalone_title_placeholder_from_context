@@ -20,6 +20,7 @@ Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
 ┌────────────┐␤
@@ -47,6 +48,7 @@ Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
 ┌────────────┐␤
@@ -75,6 +77,7 @@ Tags: (none)␤
 Session: (none)␤
 Model Size: (default) small medium large␤
 Priority: low | medium | high | urgent␤
+Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
 ┌────────────┐␤

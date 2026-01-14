@@ -177,7 +177,9 @@ type Model struct {
 	pendingBallSession         int      // Index in session options (0=none, 1+ = session index)
 	pendingBallModelSize       int      // Index in model size options (0=default, 1=small, 2=medium, 3=large)
 	pendingBallDependsOn       []string // Selected dependency ball IDs
-	pendingBallFormField       int      // Current field in form (0=context, 1=title, 2+=ACs, then tags, session, model_size, depends_on)
+	pendingBallBlockingReason  int      // Index in blocking reason options (0=blank, 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=custom)
+	pendingBallCustomReason    string   // Custom blocking reason text (when pendingBallBlockingReason == 4)
+	pendingBallFormField       int      // Current field in form (0=context, 1=title, 2+=ACs, then tags, session, model_size, priority, blocking_reason, depends_on, save)
 	pendingAcceptanceCriteria  []string // Acceptance criteria being collected
 	pendingACEditIndex         int      // Index of AC being edited (-1 = adding new, >= 0 = editing existing)
 	pendingNewAC               string   // Content of the "new AC" field, preserved during navigation

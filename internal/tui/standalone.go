@@ -29,6 +29,8 @@ type StandaloneBallModel struct {
 	pendingBallSession        int      // Index in session options (0=none, 1+ = session index)
 	pendingBallModelSize      int      // Index in model size options (0=default, 1=small, 2=medium, 3=large)
 	pendingBallDependsOn      []string // Selected dependency ball IDs
+	pendingBallBlockingReason int      // Index in blocking reason options (0=blank, 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=custom)
+	pendingBallCustomReason   string   // Custom blocking reason text (when pendingBallBlockingReason == 4)
 	pendingBallFormField      int      // Current field in form
 	pendingAcceptanceCriteria []string // Acceptance criteria being collected
 	pendingNewAC              string   // Content of the "new AC" field, preserved during navigation
@@ -183,7 +185,7 @@ func (m StandaloneBallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Field indices are dynamic due to variable AC count
-	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, DependsOn, Save
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, BlockingReason, DependsOn, Save
 	const (
 		fieldContext = 0
 		fieldIntent  = 1
@@ -194,11 +196,13 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
 	fieldPriority := fieldModelSize + 1
-	fieldDependsOn := fieldPriority + 1
+	fieldBlockingReason := fieldPriority + 1
+	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
 
 	numModelSizeOptions := 4
 	numPriorityOptions := 4
+	numBlockingReasonOptions := 5
 	numSessionOptions := 1
 	for _, sess := range m.sessions {
 		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
@@ -208,6 +212,10 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	maxFieldIndex := fieldSave
 
 	isTextInputField := func(field int) bool {
+		// Blocking reason field is text input only when custom option (4) is selected
+		if field == fieldBlockingReason && m.pendingBallBlockingReason == 4 {
+			return true
+		}
 		return field == fieldContext || field == fieldIntent || field == fieldTags ||
 			(field >= fieldACStart && field <= fieldACEnd)
 	}
@@ -241,6 +249,9 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			value := strings.TrimSpace(m.textInput.Value())
 			if m.pendingBallFormField == fieldTags {
 				m.pendingBallTags = value
+			} else if m.pendingBallFormField == fieldBlockingReason && m.pendingBallBlockingReason == 4 {
+				// Custom blocking reason text
+				m.pendingBallCustomReason = value
 			} else if isACField(m.pendingBallFormField) {
 				acIndex := m.pendingBallFormField - fieldACStart
 				if acIndex < len(m.pendingAcceptanceCriteria) {
@@ -260,19 +271,20 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 	}
 
-	recalcFieldIndices := func() (int, int, int, int, int, int, int) {
+	recalcFieldIndices := func() (int, int, int, int, int, int, int, int) {
 		newFieldACEnd := fieldACStart + len(m.pendingAcceptanceCriteria)
 		newFieldTags := newFieldACEnd + 1
 		newFieldSession := newFieldTags + 1
 		newFieldModelSize := newFieldSession + 1
 		newFieldPriority := newFieldModelSize + 1
-		newFieldDependsOn := newFieldPriority + 1
+		newFieldBlockingReason := newFieldPriority + 1
+		newFieldDependsOn := newFieldBlockingReason + 1
 		newFieldSave := newFieldDependsOn + 1
-		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldPriority, newFieldDependsOn, newFieldSave
+		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldPriority, newFieldBlockingReason, newFieldDependsOn, newFieldSave
 	}
 
 	loadFieldValue := func(field int) {
-		acEnd, tagsField, _, _, _, _, _ := recalcFieldIndices()
+		acEnd, tagsField, _, _, _, blockingReasonField, _, _ := recalcFieldIndices()
 
 		m.textInput.Reset()
 		switch field {
@@ -291,6 +303,11 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			if field == tagsField {
 				m.textInput.SetValue(m.pendingBallTags)
 				m.textInput.Placeholder = "tag1, tag2, ..."
+				m.textInput.Focus()
+			} else if field == blockingReasonField && m.pendingBallBlockingReason == 4 {
+				// Custom blocking reason - show text input
+				m.textInput.SetValue(m.pendingBallCustomReason)
+				m.textInput.Placeholder = "Enter custom blocking reason"
 				m.textInput.Focus()
 			} else if field >= fieldACStart && field <= acEnd {
 				acIndex := field - fieldACStart
@@ -364,10 +381,10 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			} else {
 				saveCurrentFieldValue()
 				m.pendingBallFormField++
-				newACEnd, _, _, _, _, _, newSave := recalcFieldIndices()
+				newACEnd, _, _, _, _, _, _, newSave := recalcFieldIndices()
 				maxFieldIndex = newSave
 				if m.pendingBallFormField > newACEnd {
-					_, newFieldTags, _, _, _, _, _ := recalcFieldIndices()
+					_, newFieldTags, _, _, _, _, _, _ := recalcFieldIndices()
 					m.pendingBallFormField = newFieldTags
 				}
 				loadFieldValue(m.pendingBallFormField)
@@ -375,7 +392,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		} else {
 			saveCurrentFieldValue()
 			m.pendingBallFormField++
-			_, _, _, _, _, _, newSave := recalcFieldIndices()
+			_, _, _, _, _, _, _, newSave := recalcFieldIndices()
 			maxFieldIndex = newSave
 			if m.pendingBallFormField > maxFieldIndex {
 				m.pendingBallFormField = maxFieldIndex
@@ -391,7 +408,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		saveCurrentFieldValue()
 		m.pendingBallFormField--
-		_, _, _, _, _, _, newSave := recalcFieldIndices()
+		_, _, _, _, _, _, _, newSave := recalcFieldIndices()
 		maxFieldIndex = newSave
 		if m.pendingBallFormField < 0 {
 			m.pendingBallFormField = maxFieldIndex
@@ -406,7 +423,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		}
 		saveCurrentFieldValue()
 		m.pendingBallFormField++
-		_, _, _, _, _, _, newSave := recalcFieldIndices()
+		_, _, _, _, _, _, _, newSave := recalcFieldIndices()
 		maxFieldIndex = newSave
 		if m.pendingBallFormField > maxFieldIndex {
 			m.pendingBallFormField = 0
@@ -433,7 +450,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 		// Tab always moves to next field
 		// For selection fields, also toggle to next option before moving
-		_, _, sessionField, modelSizeField, priorityField, _, _ := recalcFieldIndices()
+		_, _, sessionField, modelSizeField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
 			// Toggle to next session option
 			m.pendingBallSession++
@@ -452,12 +469,18 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			if m.pendingBallPriority >= numPriorityOptions {
 				m.pendingBallPriority = 0
 			}
+		} else if m.pendingBallFormField == blockingReasonField {
+			// Toggle to next blocking reason option
+			m.pendingBallBlockingReason++
+			if m.pendingBallBlockingReason >= numBlockingReasonOptions {
+				m.pendingBallBlockingReason = 0
+			}
 		} else {
 			// For text fields, save current value
 			saveCurrentFieldValue()
 		}
 		// Move to next field
-		newACEnd, newFieldTags, _, _, _, _, newSave := recalcFieldIndices()
+		newACEnd, newFieldTags, _, _, _, _, _, newSave := recalcFieldIndices()
 		if m.pendingBallFormField == newACEnd {
 			m.pendingBallFormField = newFieldTags
 		} else {
@@ -497,6 +520,15 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			} else if msg.String() == "right" && m.pendingBallPriority < numPriorityOptions-1 {
 				m.pendingBallPriority++
 			}
+			return m, nil
+		} else if m.pendingBallFormField == fieldBlockingReason {
+			if msg.String() == "left" && m.pendingBallBlockingReason > 0 {
+				m.pendingBallBlockingReason--
+			} else if msg.String() == "right" && m.pendingBallBlockingReason < numBlockingReasonOptions-1 {
+				m.pendingBallBlockingReason++
+			}
+			// Load text input if switching to/from custom mode
+			loadFieldValue(m.pendingBallFormField)
 			return m, nil
 		}
 	}
@@ -636,6 +668,31 @@ func (m StandaloneBallModel) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle blocking reason
+	// Options: 0=blank, 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=custom
+	var blockedReason string
+	if m.pendingBallBlockingReason == 1 {
+		// "Human needed" auto-adds the human-needed tag
+		blockedReason = "Human needed"
+		// Add human-needed tag if not already present
+		hasHumanNeededTag := false
+		for _, tag := range tags {
+			if tag == "human-needed" {
+				hasHumanNeededTag = true
+				break
+			}
+		}
+		if !hasHumanNeededTag {
+			tags = append(tags, "human-needed")
+		}
+	} else if m.pendingBallBlockingReason == 2 {
+		blockedReason = "Waiting for dependency"
+	} else if m.pendingBallBlockingReason == 3 {
+		blockedReason = "Needs research"
+	} else if m.pendingBallBlockingReason == 4 {
+		blockedReason = m.pendingBallCustomReason
+	}
+
 	ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, priority)
 	if err != nil {
 		m.err = err
@@ -647,6 +704,7 @@ func (m StandaloneBallModel) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	ball.Context = m.pendingBallContext
 	ball.Tags = tags
 	ball.ModelSize = modelSize
+	ball.BlockedReason = blockedReason
 
 	if len(m.pendingAcceptanceCriteria) > 0 {
 		ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
@@ -694,7 +752,8 @@ func (m StandaloneBallModel) renderForm() string {
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
 	fieldPriority := fieldModelSize + 1
-	fieldDependsOn := fieldPriority + 1
+	fieldBlockingReason := fieldPriority + 1
+	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
 
 	sessionOptions := []string{"(none)"}
@@ -826,7 +885,14 @@ func (m StandaloneBallModel) renderForm() string {
 		}
 		b.WriteString("\n")
 	} else {
-		b.WriteString(optionNormalStyle.Render("  + (add criterion)") + "\n")
+		// Show pending new AC content if exists, otherwise show placeholder
+		if m.pendingNewAC != "" {
+			b.WriteString(acNumberStyle.Render("  + "))
+			b.WriteString(m.pendingNewAC)
+		} else {
+			b.WriteString(optionNormalStyle.Render("  + (add criterion)"))
+		}
+		b.WriteString("\n")
 	}
 	b.WriteString("\n")
 
@@ -914,6 +980,47 @@ func (m StandaloneBallModel) renderForm() string {
 			}
 		} else {
 			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
+	// Blocking Reason field
+	blockingReasonOptions := []string{"(blank)", "Human needed", "Waiting for dependency", "Needs research", "(custom)"}
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldBlockingReason {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Blocking Reason: "))
+
+	// Check if we're on the custom option AND focused - show text input
+	if m.pendingBallFormField == fieldBlockingReason && m.pendingBallBlockingReason == 4 {
+		// Show custom text input
+		b.WriteString(optionSelectedStyle.Render("(custom): "))
+		b.WriteString(m.textInput.View())
+	} else {
+		for i, opt := range blockingReasonOptions {
+			if i > 0 {
+				b.WriteString(" | ")
+			}
+			if i == m.pendingBallBlockingReason {
+				if m.pendingBallFormField == fieldBlockingReason {
+					b.WriteString(optionSelectedStyle.Render(opt))
+				} else {
+					// Show selected option with appropriate color when not focused
+					if i == 0 {
+						b.WriteString(optionNormalStyle.Render(opt))
+					} else if i == 4 && m.pendingBallCustomReason != "" {
+						// Show custom reason text when not focused
+						customStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+						b.WriteString(customStyle.Render(m.pendingBallCustomReason))
+					} else {
+						reasonStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+						b.WriteString(reasonStyle.Render(opt))
+					}
+				}
+			} else {
+				b.WriteString(optionNormalStyle.Render(opt))
+			}
 		}
 	}
 	b.WriteString("\n")

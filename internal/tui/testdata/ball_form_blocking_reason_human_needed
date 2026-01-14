@@ -1,15 +1,14 @@
-# Test: Using real NewStandaloneBallModel constructor
+# Test: Blocking Reason "Human needed" option with auto-tagging
+# This tests that selecting "Human needed" shows the option highlighted
 
+# Initial view - blocking reason field focused with "Human needed" selected
 run
 ----
 -- view:
 Create New Ball␤
 ␤
-Context:␤
-┃ One Two Three Four Five Six Seven Eight Nine Ten          ␤
-┃ Eleven Twelve                                             ␤
-┃                                                           ␤
-Title: Test intent␤
+Context: (empty)␤
+Title: (empty)␤
 ␤
 Acceptance Criteria: (none - consider adding criteria)␤
   + (add criterion)␤
