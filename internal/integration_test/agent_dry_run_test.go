@@ -408,16 +408,16 @@ func TestAgentPromptGeneration_ExcludesResearchedBalls(t *testing.T) {
 	}
 }
 
-func TestAgentPromptGeneration_IncludesBlockedBalls(t *testing.T) {
+func TestAgentPromptGeneration_ExcludesBlockedBalls(t *testing.T) {
 	env := SetupTestEnv(t)
 	defer CleanupTestEnv(t, env)
 
 	// Create a session
-	env.CreateSession(t, "test-session", "Test session for blocked ball inclusion")
+	env.CreateSession(t, "test-session", "Test session for blocked ball exclusion")
 
 	store := env.GetStore(t)
 
-	// Create a blocked ball - this should be included (not terminal like complete)
+	// Create a blocked ball - this should be excluded (requires human intervention)
 	blockedBall := env.CreateBall(t, "Blocked work item", session.PriorityHigh)
 	blockedBall.Tags = []string{"test-session"}
 	blockedBall.State = session.StateBlocked
@@ -432,9 +432,9 @@ func TestAgentPromptGeneration_IncludesBlockedBalls(t *testing.T) {
 		t.Fatalf("Failed to generate prompt: %v", err)
 	}
 
-	// Verify blocked ball is included
-	if !strings.Contains(prompt, "Blocked work item") {
-		t.Error("Prompt should contain blocked ball")
+	// Verify blocked ball is excluded (requires human intervention, not for autonomous agents)
+	if strings.Contains(prompt, "Blocked work item") {
+		t.Error("Prompt should NOT contain blocked ball - blocked balls are excluded from autonomous runs")
 	}
 }
 

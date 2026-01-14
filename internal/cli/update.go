@@ -57,7 +57,7 @@ Examples:
 func init() {
 	updateCmd.Flags().StringVar(&updateIntent, "intent", "", "Update the ball intent")
 	updateCmd.Flags().StringVar(&updatePriority, "priority", "", "Update the priority (low|medium|high|urgent)")
-	updateCmd.Flags().StringVar(&updateState, "state", "", "Update the state (pending|in_progress|blocked|complete|researched|on_hold)")
+	updateCmd.Flags().StringVar(&updateState, "state", "", "Update the state (pending|in_progress|blocked|complete|researched)")
 	updateCmd.Flags().StringArrayVar(&updateCriteria, "criteria", nil, "Set acceptance criteria (can be specified multiple times)")
 	updateCmd.Flags().StringVar(&updateTags, "tags", "", "Update tags (comma-separated)")
 	updateCmd.Flags().StringVar(&updateBlockReason, "reason", "", "Blocked reason (required when setting state to blocked)")
@@ -72,7 +72,7 @@ func init() {
 	// Add completion for flags
 	updateCmd.RegisterFlagCompletionFunc("priority", CompletePriorities)
 	updateCmd.RegisterFlagCompletionFunc("state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"pending", "in_progress", "blocked", "complete", "researched", "on_hold"}, cobra.ShellCompDirectiveNoFileComp
+		return []string{"pending", "in_progress", "blocked", "complete", "researched"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	updateCmd.RegisterFlagCompletionFunc("tests-state", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"not_needed", "needed", "done"}, cobra.ShellCompDirectiveNoFileComp
@@ -133,11 +133,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			"blocked":     session.StateBlocked,
 			"complete":    session.StateComplete,
 			"researched":  session.StateResearched,
-			"on_hold":     session.StateOnHold,
 		}
 		newState, ok := stateMap[updateState]
 		if !ok {
-			err := fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete|researched|on_hold)", updateState)
+			err := fmt.Errorf("invalid state: %s (must be pending|in_progress|blocked|complete|researched)", updateState)
 			if updateJSONFlag {
 				return printJSONError(err)
 			}
@@ -375,7 +374,7 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	}
 
 	// Edit state
-	fmt.Printf("State [%s] (pending|in_progress|blocked|complete|researched|on_hold): ", ball.State)
+	fmt.Printf("State [%s] (pending|in_progress|blocked|complete|researched): ", ball.State)
 	input, _ = reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {

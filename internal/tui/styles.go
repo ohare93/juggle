@@ -25,7 +25,6 @@ var (
 	droppedColor    = lipgloss.Color("1")   // Red
 	completeColor   = lipgloss.Color("8")   // Gray
 	researchedColor = lipgloss.Color("12")  // Light blue - for research tasks
-	onHoldColor     = lipgloss.Color("5")   // Magenta - for deferred/on-hold tasks
 
 	// Priority colors
 	urgentColor = lipgloss.Color("9") // Bright red

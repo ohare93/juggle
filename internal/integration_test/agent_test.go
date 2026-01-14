@@ -2642,7 +2642,8 @@ func TestAgentLoop_NoActionableBallsExitsImmediately(t *testing.T) {
 	// Create a session
 	env.CreateSession(t, "test-session", "Test session for empty actionable balls")
 
-	// Create balls in non-actionable states (complete, on_hold, researched)
+	// Create balls in non-actionable states (complete, researched)
+	// Note: blocked balls ARE counted but handled separately by TestAgentLoop_AllBlockedExitsImmediately
 	store := env.GetStore(t)
 
 	ball1 := env.CreateBall(t, "Complete ball", session.PriorityMedium)
@@ -2652,18 +2653,11 @@ func TestAgentLoop_NoActionableBallsExitsImmediately(t *testing.T) {
 		t.Fatalf("Failed to update ball1: %v", err)
 	}
 
-	ball2 := env.CreateBall(t, "On hold ball", session.PriorityLow)
+	ball2 := env.CreateBall(t, "Researched ball", session.PriorityMedium)
 	ball2.Tags = []string{"test-session"}
-	ball2.State = session.StateOnHold
+	ball2.State = session.StateResearched
 	if err := store.UpdateBall(ball2); err != nil {
 		t.Fatalf("Failed to update ball2: %v", err)
-	}
-
-	ball3 := env.CreateBall(t, "Researched ball", session.PriorityMedium)
-	ball3.Tags = []string{"test-session"}
-	ball3.State = session.StateResearched
-	if err := store.UpdateBall(ball3); err != nil {
-		t.Fatalf("Failed to update ball3: %v", err)
 	}
 
 	// Setup mock runner - should NOT be called
@@ -2705,7 +2699,7 @@ func TestAgentLoop_NoActionableBallsExitsImmediately(t *testing.T) {
 	if result.Blocked {
 		t.Error("Expected result.Blocked=false (no blocked balls in actionable set)")
 	}
-	// Total should be 0 because complete/on_hold/researched are excluded
+	// Total should be 0 because complete/researched are excluded from counting
 	if result.BallsTotal != 0 {
 		t.Errorf("Expected BallsTotal=0 (all excluded states), got %d", result.BallsTotal)
 	}

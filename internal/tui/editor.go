@@ -104,7 +104,7 @@ func yamlToBall(yamlContent string, ball *session.Ball) error {
 	if state != "" {
 		s := session.BallState(state)
 		if !session.ValidateBallState(string(s)) {
-			return fmt.Errorf("invalid state: %s (must be pending, in_progress, complete, blocked, researched, or on_hold)", state)
+			return fmt.Errorf("invalid state: %s (must be pending, in_progress, complete, blocked, or researched)", state)
 		}
 		ball.State = s
 	}

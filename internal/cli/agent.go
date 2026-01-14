@@ -302,7 +302,7 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 			result.Blocked = true
 			return result, nil
 		}
-		// No balls at all (all complete/on_hold/researched or truly empty)
+		// No balls at all (all complete/researched or truly empty)
 		fmt.Fprintf(os.Stderr, "✓ No actionable balls in session\n")
 		result.Complete = true
 		return result, nil
@@ -1158,12 +1158,12 @@ func generateAgentPrompt(projectDir, sessionID string, debug bool, ballID string
 		}
 	}
 
-	// Filter out complete balls by default (they clutter the context for no gain)
-	// Exception: when a specific ball is requested, allow it even if complete
+	// Filter out complete and blocked balls by default (they clutter the context for no gain)
+	// Exception: when a specific ball is requested, allow it even if complete/blocked
 	if ballID == "" {
 		filteredBalls := make([]*session.Ball, 0, len(balls))
 		for _, ball := range balls {
-			if ball.State != session.StateComplete && ball.State != session.StateResearched {
+			if ball.State != session.StateComplete && ball.State != session.StateResearched && ball.State != session.StateBlocked {
 				filteredBalls = append(filteredBalls, ball)
 			}
 		}
@@ -1199,7 +1199,7 @@ func generateAgentPrompt(projectDir, sessionID string, debug bool, ballID string
 
 // countWorkableBalls returns counts of balls the agent can work on (pending/in_progress) vs blocked
 // This is used for pre-loop validation to exit early when there's no actionable work
-// Balls in complete/researched/on_hold states are excluded (same as agent export)
+// Balls in complete/researched states are excluded (same as agent export)
 // If ballID is specified, only counts that specific ball
 // If interactive is true, blocked balls are treated as workable (human is present to intervene)
 // "all" is a special meta-session that includes all balls in the repo without filtering by tag
@@ -1252,9 +1252,9 @@ func countWorkableBalls(projectDir, sessionID, ballID string, interactive bool) 
 			}
 
 			// Skip states that are excluded from agent exports
-			// (complete, researched, on_hold are not shown to the agent)
+			// (complete, researched are not shown to the agent)
 			switch ball.State {
-			case session.StateComplete, session.StateResearched, session.StateOnHold:
+			case session.StateComplete, session.StateResearched:
 				continue
 			case session.StatePending, session.StateInProgress:
 				workable++
@@ -1865,12 +1865,12 @@ func loadBallsForModelSelection(projectDir, sessionID, ballID string) ([]*sessio
 		}
 	}
 
-	// Filter out complete balls by default (they clutter the context for no gain)
-	// Exception: when a specific ball is requested, allow it even if complete
+	// Filter out complete and blocked balls by default (they clutter the context for no gain)
+	// Exception: when a specific ball is requested, allow it even if complete/blocked
 	if ballID == "" {
 		filteredBalls := make([]*session.Ball, 0, len(balls))
 		for _, ball := range balls {
-			if ball.State != session.StateComplete && ball.State != session.StateResearched {
+			if ball.State != session.StateComplete && ball.State != session.StateResearched && ball.State != session.StateBlocked {
 				filteredBalls = append(filteredBalls, ball)
 			}
 		}
