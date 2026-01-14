@@ -374,6 +374,40 @@ func TestAgentRefine_AllMetaSession(t *testing.T) {
 	}
 }
 
+// TestAgentRefine_PromptContainsSkillDirective tests that the prompt instructs use of the juggler skill
+func TestAgentRefine_PromptContainsSkillDirective(t *testing.T) {
+	env := SetupTestEnv(t)
+	defer CleanupTestEnv(t, env)
+
+	ball := env.CreateBall(t, "Test ball", session.PriorityMedium)
+	store := env.GetStore(t)
+	if err := store.UpdateBall(ball); err != nil {
+		t.Fatalf("Failed to update ball: %v", err)
+	}
+
+	// Generate refine prompt
+	balls := []*session.Ball{ball}
+	prompt, err := cli.GenerateRefinePromptForTest(env.ProjectDir, "", balls)
+	if err != nil {
+		t.Fatalf("Failed to generate prompt: %v", err)
+	}
+
+	// Verify prompt contains directive to use Skill tool with juggler
+	if !strings.Contains(prompt, "Skill tool") {
+		t.Error("Prompt missing 'Skill tool' reference")
+	}
+	if !strings.Contains(prompt, `skill="juggler"`) {
+		t.Error("Prompt missing 'skill=\"juggler\"' directive")
+	}
+	// Verify the instructions mention juggle CLI commands (not raw JSON editing)
+	if !strings.Contains(prompt, "juggle update") {
+		t.Error("Prompt missing 'juggle update' command reference")
+	}
+	if !strings.Contains(prompt, "juggle plan") {
+		t.Error("Prompt missing 'juggle plan' command reference")
+	}
+}
+
 // TestAgentRefine_AllExcludesCompletedBalls tests that "all" still excludes completed balls
 func TestAgentRefine_AllExcludesCompletedBalls(t *testing.T) {
 	env := SetupTestEnv(t)

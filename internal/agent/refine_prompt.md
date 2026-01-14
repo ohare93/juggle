@@ -1,6 +1,21 @@
 # Ball Refinement Session
 
-You are reviewing and improving work item (ball) definitions for the juggler task manager. Your goal is to ensure each ball is clear, actionable, and ready for autonomous execution by a headless AI agent.
+You are reviewing and improving work item (ball) definitions for the juggle task manager. Your goal is to ensure each ball is clear, actionable, and ready for autonomous execution by a headless AI agent.
+
+## CRITICAL: Use the Juggler Skill First
+
+**Before making ANY changes to balls, you MUST invoke the juggler skill:**
+
+```
+Use the Skill tool with skill="juggler"
+```
+
+This skill provides:
+- Complete CLI reference for juggle commands
+- Proper syntax for updating balls
+- Best practices for acceptance criteria
+
+Do NOT skip this step. Do NOT guess at command syntax. Always use the skill first.
 
 ## Review Guidelines
 
