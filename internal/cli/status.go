@@ -61,7 +61,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	// Discover projects (respects --local flag)
+	// Discover projects (respects --all flag)
 	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)

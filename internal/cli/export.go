@@ -120,7 +120,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	// Discover projects (respects --local flag)
+	// Discover projects (respects --all flag)
 	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)
@@ -332,19 +332,6 @@ func filterByState(balls []*session.Ball, stateStr string) ([]*session.Ball, err
 	}
 
 	return filteredBalls, nil
-}
-
-// stateFilter for filtering balls by state
-type stateFilter struct {
-	state session.BallState
-}
-
-func matchesStateFilter(ball *session.Ball, filter stateFilter) bool {
-	return ball.State == filter.state
-}
-
-func isValidBallState(state string) bool {
-	return session.ValidateBallState(state)
 }
 
 func exportJSON(balls []*session.Ball) ([]byte, error) {

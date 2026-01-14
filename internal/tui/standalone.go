@@ -1166,7 +1166,6 @@ func adjustStandaloneContextHeight(m *StandaloneBallModel) {
 		return
 	}
 
-	lines := strings.Count(content, "\n") + 1
 	wrappedLines := 0
 	for _, line := range strings.Split(content, "\n") {
 		if len(line) > 58 {
@@ -1183,6 +1182,5 @@ func adjustStandaloneContextHeight(m *StandaloneBallModel) {
 	if height > 10 {
 		height = 10
 	}
-	_ = lines // Unused but keeping for potential future use
 	m.contextInput.SetHeight(height)
 }

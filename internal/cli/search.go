@@ -26,11 +26,11 @@ var searchCmd = &cobra.Command{
 
 The query string will be matched against ball intents. Use flags for more specific filtering.
 
-By default, searches across all discovered projects. Use --local to restrict to current project only.
+By default, searches the current project only. Use --all to search across all discovered projects.
 
 Examples:
-  juggle search bug                    # Search all projects for "bug"
-  juggle search --local feature        # Search current project for "feature"
+  juggle search bug                    # Search current project for "bug"
+  juggle search --all feature          # Search all projects for "feature"
   juggle search --tags backend         # Search by tags
   juggle search --state blocked        # Search by state
   juggle search --priority high        # Search by priority`,
@@ -62,7 +62,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	// Discover projects (respects --local flag)
+	// Discover projects (respects --all flag)
 	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)

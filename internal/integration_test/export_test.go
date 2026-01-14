@@ -63,9 +63,9 @@ func TestExportLocal(t *testing.T) {
 		SearchPaths: []string{project1, project2},
 	}
 
-	// Test with --local flag
+	// Test default behavior (local only, no --all flag)
 	t.Run("ExportLocal", func(t *testing.T) {
-		cli.GlobalOpts.LocalOnly = true
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)
@@ -74,7 +74,7 @@ func TestExportLocal(t *testing.T) {
 		}
 
 		if len(projects) != 1 {
-			t.Errorf("Expected 1 project with --local, got %d", len(projects))
+			t.Errorf("Expected 1 project by default (local), got %d", len(projects))
 		}
 
 		allBalls, err := session.LoadAllBalls(projects)
@@ -84,7 +84,7 @@ func TestExportLocal(t *testing.T) {
 
 		// Should only get ball from project1
 		if len(allBalls) != 1 {
-			t.Errorf("Expected 1 ball with --local, got %d", len(allBalls))
+			t.Errorf("Expected 1 ball by default (local), got %d", len(allBalls))
 		}
 		if len(allBalls) > 0 && allBalls[0].ID != "test1-1" {
 			t.Errorf("Expected ball 'test1-1', got '%s'", allBalls[0].ID)
@@ -94,7 +94,6 @@ func TestExportLocal(t *testing.T) {
 	// Test with --all flag for cross-project discovery
 	t.Run("ExportAllProjects", func(t *testing.T) {
 		cli.GlobalOpts.AllProjects = true
-		cli.GlobalOpts.LocalOnly = false
 		defer func() { cli.GlobalOpts.AllProjects = false }()
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)
@@ -1035,7 +1034,6 @@ func TestExportSessionWithAllFlag(t *testing.T) {
 	t.Run("SessionFilterWithAll_FindsBallsFromBothProjects", func(t *testing.T) {
 		// With --all flag, should find balls from both projects with the session tag
 		cli.GlobalOpts.AllProjects = true
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 		defer func() { cli.GlobalOpts.AllProjects = false }()
 
@@ -1092,7 +1090,6 @@ func TestExportSessionWithAllFlag(t *testing.T) {
 	t.Run("SessionFilterWithoutAll_OnlyLocalBalls", func(t *testing.T) {
 		// Without --all, should only find balls from current project
 		cli.GlobalOpts.AllProjects = false
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)

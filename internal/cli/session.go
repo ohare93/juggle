@@ -26,9 +26,6 @@ func init() {
 	// Note: We don't add subcommands here because they're already registered
 	// at root level for convenience. Adding them here would cause duplicate registration.
 	// The help template will show them as both top-level and available via 'juggle session'
-	
-	// Set custom help function (defined in root.go)
-	sessionCmd.SetHelpFunc(customSessionHelpFunc)
 }
 
 

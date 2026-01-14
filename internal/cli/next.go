@@ -17,11 +17,11 @@ Priority algorithm:
 1. Higher priority balls score higher
 2. Balls idle longer score higher
 
-By default, analyzes balls from all discovered projects. Use --local to restrict to current project only.
+By default, analyzes balls from the current project only. Use --all to search across all discovered projects.
 
 Examples:
-  juggle next           # Find next ball across all projects
-  juggle next --local   # Find next ball in current project only`,
+  juggle next           # Find next ball in current project
+  juggle next --all     # Find next ball across all projects`,
 	RunE: runNext,
 }
 
@@ -43,7 +43,7 @@ func runNext(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	// Discover projects (respects --local flag)
+	// Discover projects (respects --all flag)
 	projects, err := DiscoverProjectsForCommand(config, store)
 	if err != nil {
 		return fmt.Errorf("failed to discover projects: %w", err)

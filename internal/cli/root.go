@@ -41,7 +41,6 @@ type GlobalOptions struct {
 	ProjectDir  string // Override for current working directory
 	JuggleDir   string // Override for .juggle directory name
 	AllProjects bool   // Enable cross-project discovery (default is local only)
-	LocalOnly   bool   // DEPRECATED: use AllProjects instead (kept for backward compat)
 	JSONOutput  bool   // Output as JSON
 }
 
@@ -90,9 +89,7 @@ func LoadConfigForCommand() (*session.Config, error) {
 // If --all is set, discovers all projects from config search paths
 func DiscoverProjectsForCommand(config *session.Config, store *session.Store) ([]string, error) {
 	// --all enables cross-project discovery
-	// --local is deprecated but still supported (forces local even if --all is set)
-	if GlobalOpts.AllProjects && !GlobalOpts.LocalOnly {
-		// Cross-project - discover all
+	if GlobalOpts.AllProjects {
 		return session.DiscoverProjects(config)
 	}
 	// Default: local only - return just the current project directory
@@ -187,20 +184,12 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 
 
 
-// customSessionHelpFunc returns a custom help function for session command
-// Currently unused but kept for potential future session command enhancements
-func customSessionHelpFunc(cmd *cobra.Command, args []string) {
-	defaultHelpFunc(cmd, args)
-}
-
 func init() {
 	// Add persistent global flags for testing and path overrides
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.ConfigHome, "config-home", "", "Override ~/.juggle directory (for testing)")
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.ProjectDir, "project-dir", "", "Override working directory (for testing)")
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.JuggleDir, "juggle-dir", ".juggle", "Override .juggle directory name")
 	rootCmd.PersistentFlags().BoolVarP(&GlobalOpts.AllProjects, "all", "a", false, "Search across all discovered projects")
-	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.LocalOnly, "local", false, "DEPRECATED: Local is now the default (this flag is a no-op)")
-	rootCmd.PersistentFlags().MarkHidden("local") // Hide deprecated flag
 	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.JSONOutput, "json", false, "Output as JSON")
 
 	// Set custom help function

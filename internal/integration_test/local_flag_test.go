@@ -7,7 +7,7 @@ import (
 	"github.com/ohare93/juggle/internal/session"
 )
 
-func TestLocalFlag(t *testing.T) {
+func TestLocalOnlyBehavior(t *testing.T) {
 	// Create two test projects
 	project1 := t.TempDir()
 	project2 := t.TempDir()
@@ -54,7 +54,6 @@ func TestLocalFlag(t *testing.T) {
 	t.Run("DiscoverProjectsForCommand_DefaultLocal", func(t *testing.T) {
 		// Default is local only (no --all flag)
 		cli.GlobalOpts.AllProjects = false
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)
@@ -75,7 +74,6 @@ func TestLocalFlag(t *testing.T) {
 	t.Run("DiscoverProjectsForCommand_WithAll", func(t *testing.T) {
 		// Use --all to enable cross-project discovery
 		cli.GlobalOpts.AllProjects = true
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)
@@ -106,8 +104,8 @@ func TestLocalFlag(t *testing.T) {
 		cli.GlobalOpts.AllProjects = false
 	})
 
-	t.Run("RootCommand_WithLocal", func(t *testing.T) {
-		cli.GlobalOpts.LocalOnly = true
+	t.Run("RootCommand_DefaultLocal", func(t *testing.T) {
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		config, err := cli.LoadConfigForCommand()
@@ -124,7 +122,7 @@ func TestLocalFlag(t *testing.T) {
 
 		// Should only return current project
 		if len(projects) != 1 {
-			t.Errorf("Expected 1 project with --local, got %d", len(projects))
+			t.Errorf("Expected 1 project by default (local), got %d", len(projects))
 		}
 
 		if len(projects) > 0 && projects[0] != project1 {
@@ -138,7 +136,7 @@ func TestLocalFlag(t *testing.T) {
 
 		// Should only find ball from project1
 		if len(balls) != 1 {
-			t.Errorf("Expected 1 ball with --local, got %d", len(balls))
+			t.Errorf("Expected 1 ball by default (local), got %d", len(balls))
 		}
 
 		if len(balls) > 0 && balls[0].WorkingDir != project1 {
@@ -146,9 +144,9 @@ func TestLocalFlag(t *testing.T) {
 		}
 	})
 
-	t.Run("StatusCommand_LocalFlag", func(t *testing.T) {
-		// Test with --local flag
-		cli.GlobalOpts.LocalOnly = true
+	t.Run("StatusCommand_DefaultLocal", func(t *testing.T) {
+		// Test by default (local) flag
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		config, err := cli.LoadConfigForCommand()
@@ -164,13 +162,13 @@ func TestLocalFlag(t *testing.T) {
 		}
 
 		if len(projects) != 1 {
-			t.Errorf("Status with --local should only show 1 project, got %d", len(projects))
+			t.Errorf("Status by default (local) should only show 1 project, got %d", len(projects))
 		}
 	})
 
-	t.Run("NextCommand_LocalFlag", func(t *testing.T) {
-		// Test with --local flag
-		cli.GlobalOpts.LocalOnly = true
+	t.Run("NextCommand_DefaultLocal", func(t *testing.T) {
+		// Test by default (local) flag
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		config, err := cli.LoadConfigForCommand()
@@ -192,17 +190,17 @@ func TestLocalFlag(t *testing.T) {
 
 		// Should only find ball from current project
 		if len(balls) != 1 {
-			t.Errorf("Next with --local should find 1 ball, got %d", len(balls))
+			t.Errorf("Next by default (local) should find 1 ball, got %d", len(balls))
 		}
 
 		if len(balls) > 0 && balls[0].WorkingDir != project1 {
-			t.Errorf("Next with --local should find ball from project1, got ball from %s", balls[0].WorkingDir)
+			t.Errorf("Next by default (local) should find ball from project1, got ball from %s", balls[0].WorkingDir)
 		}
 	})
 
-	t.Run("SearchCommand_LocalFlag", func(t *testing.T) {
-		// Test with --local flag
-		cli.GlobalOpts.LocalOnly = true
+	t.Run("SearchCommand_DefaultLocal", func(t *testing.T) {
+		// Test by default (local) flag
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		config, err := cli.LoadConfigForCommand()
@@ -232,18 +230,18 @@ func TestLocalFlag(t *testing.T) {
 
 		// Should only find ball from current project
 		if len(activeBalls) != 1 {
-			t.Errorf("Search with --local should find 1 ball, got %d", len(activeBalls))
+			t.Errorf("Search by default (local) should find 1 ball, got %d", len(activeBalls))
 		}
 
 		if len(activeBalls) > 0 && activeBalls[0].WorkingDir != project1 {
-			t.Errorf("Search with --local should find ball from project1, got ball from %s", activeBalls[0].WorkingDir)
+			t.Errorf("Search by default (local) should find ball from project1, got ball from %s", activeBalls[0].WorkingDir)
 		}
 	})
 
-	t.Run("LocalFlag_NoJuggleDirectory", func(t *testing.T) {
-		// Test with --local when current directory has no .juggle
+	t.Run("DefaultLocal_NoJuggleDirectory", func(t *testing.T) {
+		// Test by default (local) when current directory has no .juggle
 		noJuggleDir := t.TempDir()
-		cli.GlobalOpts.LocalOnly = true
+		cli.GlobalOpts.AllProjects = false
 		cli.GlobalOpts.ProjectDir = noJuggleDir
 
 		config, err := cli.LoadConfigForCommand()
@@ -271,7 +269,6 @@ func TestLocalFlag(t *testing.T) {
 	t.Run("FindBallByID_LocalOnly", func(t *testing.T) {
 		// Reset global opts
 		cli.GlobalOpts.AllProjects = false
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		// When searching for a ball from project2 while in project1 (local only mode),
@@ -328,7 +325,6 @@ func TestLocalFlag(t *testing.T) {
 	t.Run("FindBallByID_WithAll", func(t *testing.T) {
 		// With --all flag, balls from both projects should be discoverable
 		cli.GlobalOpts.AllProjects = true
-		cli.GlobalOpts.LocalOnly = false
 		cli.GlobalOpts.ProjectDir = project1
 
 		projects, err := cli.DiscoverProjectsForCommand(config, store1)
