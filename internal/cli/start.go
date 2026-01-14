@@ -188,7 +188,7 @@ func startSession(store *session.Store, sessionStore *session.SessionStore, cwd 
 	progressPath := sessionStore.ProjectDir() + "/.juggle/sessions/" + juggleSession.ID + "/progress.txt"
 	fmt.Printf("\n  Progress file: %s\n", progressPath)
 
-	// Export session ID for hooks
+	// Export session ID for scripting
 	fmt.Printf("\nexport JUGGLE_SESSION_ID=%s\n", juggleSession.ID)
 
 	return nil
@@ -308,7 +308,7 @@ func createAndStartBall(store *session.Store, cwd, intent string) error {
 	// Ensure project is in search paths for discovery
 	_ = session.EnsureProjectInSearchPaths(cwd)
 
-	// Export ball ID for hooks to use
+	// Export ball ID for scripting
 	fmt.Printf("export JUGGLE_CURRENT_BALL=%s\n", ball.ID)
 	fmt.Printf("\n✓ Started ball: %s\n", ball.ID)
 	fmt.Printf("  Title: %s\n", ball.Title)

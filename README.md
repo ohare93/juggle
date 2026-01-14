@@ -13,10 +13,28 @@ refine tasks without stopping everything.
 Juggle adds the missing structure:
 
 - **Edit while running** - TUI file-watches, agent uses CLI; no conflicts
-- **Manage the queue** - reorder, prioritize, group tasks into sessions
+- **Manage the loop** - reorder, prioritize, group tasks into sessions
 - **Never run dry** - keep feeding refined tasks so the agent always has work
 - **Multiple modes** - headless batch, interactive hand-holding, agent-assisted
   refinement - all in separate terminals, all on the same task list
+
+## Screenshots
+
+**TUI Main View** - Sessions on the left, balls (tasks) on the right, activity log at bottom:
+
+![TUI Main Menu](assets/tui-main-menu.png)
+
+**Ball Creation** - Define context, acceptance criteria, priority, dependencies:
+
+![Create New Ball](assets/tui-create-new-ball.png)
+
+**Parallel Agent Loops** - Multiple agents running simultaneously with live feedback:
+
+![Agent Loops Running](assets/loop-running-with-feedback.png)
+
+**Worktree Management** - Each agent works in its own isolated worktree:
+
+![JJ Commit Log with Worktrees](assets/jj-commit-log-with-3-worktrees.png)
 
 ## Quick Start
 
@@ -41,12 +59,36 @@ juggle agent run                  # Interactive session selector
 juggle agent run my-feature       # Or specify session directly
 ```
 
-### Manage while it runs
-
-Open another terminal:
+### Refine already existing tasks interactively
 
 ```bash
-juggle tui                        # Add/edit/reorder tasks live
+juggle agent refine
+juggle agent refine my-feature
+```
+
+### Manage while it runs
+
+Open the TUI:
+
+```bash
+juggle                            # Add/edit/reorder tasks live
+```
+
+Or just add / edit / view tasks directly in the terminal:
+
+```bash
+juggle plan
+
+juggle update 162b4eb0 --tags bug-fixes,loop-a
+
+juggle update cc58e434 --ac "juggle worktree add <path> registers worktree in main repo config" \
+       --ac "juggle worktree add creates .juggle/link file in worktree pointing to main repo" \
+       --ac "All juggle commands in worktree use main repo's .juggle/ for storage" \
+       --ac "Ball WorkingDir reflects actual worktree path (not main repo)" \
+       --ac "juggle worktree remove <path> unregisters and removes link file" \
+       --ac "juggle worktree list shows registered worktrees" \
+       --ac "Integration tests for worktree registration and ball sharing" \
+       --ac "devbox run test passes"
 ```
 
 ## Roadmap
@@ -57,11 +99,42 @@ juggle tui                        # Add/edit/reorder tasks live
 - **Endless mode** - Agent stays running, polling for new tasks when queue empties
 - **Notifications** - Get notified when tasks complete or need attention
 
+## Built With Itself
+
+<!--
+Commit stats generated with:
+jj log --no-graph -r 'ancestors(@)' -T 'committer.timestamp() ++ "\n"' | cut -d' ' -f1 | sort | uniq -c | sort -k2
+
+Output on 2026-01-14:
+     44 2026-01-10
+      6 2026-01-11
+     92 2026-01-12
+     22 2026-01-13
+     38 2026-01-14
+(plus 7 earlier commits from Oct/Nov 2025 initial setup)
+-->
+
+Juggle was built using juggle - after the first few clunky Ralph Loops with bash scripts and there was something working here.
+
+Here's the commit activity from 5 days of development:
+
+```
+Jan 10  ████████████████████████████████████████████░░░░░░░░  44
+Jan 11  ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   6
+Jan 12  ████████████████████████████████████████████████████  92
+Jan 13  ██████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  22
+Jan 14  ██████████████████████████████████████░░░░░░░░░░░░░░  38
+        ──────────────────────────────────────────────────────
+        202 commits in 5 days
+```
+
+Multiple agents working in parallel on isolated worktrees, each focused on
+different tasks, all managed through the same TUI and a multiplex terminal (Zellij).
+
 ## Documentation
 
 - [Installation Guide](docs/installation.md) - Build from source, configuration
 - [TUI Guide](docs/tui.md) - Keyboard shortcuts, views, workflows
-- [Claude Integration](docs/claude-integration.md) - Agent setup and patterns
 - [Commands Reference](docs/commands.md) - Full CLI documentation
 
 ## License

@@ -4,6 +4,14 @@
 
 The Juggle TUI provides an interactive, full-screen terminal interface for managing balls (work sessions) across all your projects. It's built with the [Charm Bubbletea](https://github.com/charmbracelet/bubbletea) framework and offers a more visual, interactive experience compared to the CLI commands.
 
+**TUI Main View** - Sessions on the left, balls (tasks) on the right, activity log at bottom:
+
+![TUI Main Menu](assets/tui-main-menu.png)
+
+**Ball Creation** - Define context, acceptance criteria, priority, dependencies:
+
+![Create New Ball](assets/tui-create-new-ball.png)
+
 ## Features
 
 ### Current Implementation (MVP)
@@ -14,96 +22,6 @@ The Juggle TUI provides an interactive, full-screen terminal interface for manag
 - **State Filtering**: Filter balls by state (all/ready/juggling/dropped)
 - **Real-time Updates**: Refresh ball data on demand
 - **Help View**: Built-in keyboard reference
-
-### Views
-
-#### 1. List View (Main)
-
-The default view showing all balls:
-
-```
-🎯 Juggle - Task Manager
-
-Total: 42 | Ready: 15 | Juggling: 8 | Dropped: 3 | Filter: all
-
-ID              Intent                                   State                  Priority   Tags
-────────────────────────────────────────────────────────────────────────────────────────────────
-juggle-27      Interactive menu for all these items     juggling:in-air        medium     ui,tui
-juggle-26      Move ball to another project             juggling:needs-caught  medium     cli
-myapp-5         Fix authentication bug                   ready                  high       backend,bug
-...
-```
-
-Features:
-- Color-coded by state (green=ready, yellow=juggling, red=dropped, gray=complete)
-- Shows ID, intent (truncated), state, priority, and tags
-- Selected row highlighted
-- Stats bar at top
-- Filter indicator
-
-#### 2. Detail View
-
-Press Enter on a ball to see full details:
-
-```
-🎯 Ball: juggle-27
-
-Intent: Interactive menu for all these items
-Priority: medium
-State: juggling:in-air
-Working Dir: ~/Development/juggle
-Started: 2 hours ago
-Last Activity: 5 minutes ago
-Tags: ui, tui
-
-Todos:
-  [✓] 1. Add dependencies
-  [✓] 2. Create model structure
-  [ ] 3. Implement update logic
-  [ ] 4. Add view rendering
-  [ ] 5. Test TUI
-
-Press 'b' to go back, 'q' to quit
-```
-
-#### 3. Help View
-
-Press `?` to see all keyboard shortcuts:
-
-```
-🎯 Juggle TUI - Help
-
-Navigation
-  ↑ / k      Move up
-  ↓ / j      Move down
-  Enter      View ball details
-  b / Esc    Back to list (or exit from list)
-
-State Management
-  Tab        Cycle state (ready → juggling → complete → dropped → ready)
-  s          Start ball (ready → juggling:in-air)
-  r          Set ball to ready
-  c          Complete ball
-  d          Drop ball
-
-Ball Operations
-  x          Delete ball (with confirmation)
-  p          Cycle priority (low → medium → high → urgent → low)
-
-Filters (toggleable)
-  1          Show all states
-  2          Toggle ready visibility
-  3          Toggle juggling visibility
-  4          Toggle dropped visibility
-  5          Toggle complete visibility
-
-Other
-  R          Refresh/reload (shift+r)
-  ?          Toggle this help
-  q / Ctrl+C Quit
-
-Press 'b' or '?' to go back
-```
 
 ## Usage
 
@@ -184,6 +102,7 @@ Use number keys to **toggle** filter visibility by state:
 - `5` - Toggle complete ball visibility
 
 **Filter Behavior:**
+
 - Filters are toggleable, not exclusive
 - Multiple states can be visible simultaneously
 - Example: Press `2` then `3` to see both ready and juggling balls
@@ -212,21 +131,25 @@ internal/tui/
 ### Key Components
 
 **Model** (`model.go`):
+
 - Holds application state (balls, current view, filters, cursor position)
 - Implements `tea.Model` interface
 - Manages navigation between views
 
 **Update** (`update.go`):
+
 - Handles keyboard events
 - Manages state transitions
 - Coordinates ball updates via Store
 
 **View** (`view.go`):
+
 - Renders current view based on mode
 - Delegates to specialized renderers (list, detail, help)
 - Shows messages and errors
 
 **Commands** (`commands.go`):
+
 - Async operations using bubbletea Cmd
 - Load balls from all projects
 - Update ball state in store
@@ -267,6 +190,7 @@ devbox run test-all
 ```
 
 Test coverage includes:
+
 - Model initialization
 - String truncation
 - State formatting
@@ -274,127 +198,33 @@ Test coverage includes:
 - Filter application
 - View rendering (structure)
 
-## Future Enhancements
-
-Potential improvements for future versions:
-
-### Enhanced UI
-- [ ] Tab-based views (All / Ready / Juggling / My Project)
-- [ ] Search/filter by intent text
-- [ ] Sort by priority, last activity, or started date
-- [ ] Multi-select for batch operations
-- [ ] Status bar with more context
-
-### Ball Operations
-- [ ] Create new ball from TUI
-- [ ] Edit ball details inline
-- [ ] Add/complete todos from TUI
-- [ ] Add/remove tags interactively
-- [ ] Jump to ball in Zellij
-
-### Advanced Features
-- [ ] Ball timeline view
-- [ ] Statistics dashboard
-- [ ] Project breakdown view
-- [ ] Recent activity log
-- [ ] Custom color themes
-
-### Performance
-- [ ] Virtual scrolling for 100+ balls
-- [ ] Pagination for large lists
-- [ ] Search index for fast filtering
-
-## Development
-
-### Adding a New View
-
-1. Add view mode constant to `model.go`:
-   ```go
-   const (
-       listView viewMode = iota
-       detailView
-       helpView
-       yourNewView  // Add here
-   )
-   ```
-
-2. Create rendering function in `view.go`:
-   ```go
-   func (m Model) renderYourNewView() string {
-       // Return formatted string
-   }
-   ```
-
-3. Add keyboard shortcut in `update.go`:
-   ```go
-   case "x":  // Your shortcut
-       m.mode = yourNewView
-       return m, nil
-   ```
-
-4. Update help text with new shortcut
-
-### Adding a Quick Action
-
-1. Create handler function in `update.go`:
-   ```go
-   func (m *Model) handleYourAction() (tea.Model, tea.Cmd) {
-       ball := m.filteredBalls[m.cursor]
-       // Validate and update ball
-       // Return m, updateBall(store, ball)
-   }
-   ```
-
-2. Add keyboard shortcut:
-   ```go
-   case "x":  // Your key
-       return m.handleYourAction()
-   ```
-
-3. Update help view with documentation
-
-### Styling
-
-All styles are defined in `styles.go` using lipgloss. Key styles:
-
-- `titleStyle`: Section headers
-- `ballStyle`: Normal ball row
-- `selectedBallStyle`: Highlighted ball row
-- `messageStyle`: Success messages
-- `errorStyle`: Error messages
-- State colors: `readyColor`, `jugglingColor`, etc.
-
-To add a new style:
-
-```go
-var myNewStyle = lipgloss.NewStyle().
-    Foreground(lipgloss.Color("6")).
-    Bold(true)
-```
-
 ## Troubleshooting
 
 ### TUI Won't Launch
 
 **Error**: "could not open a new TTY"
+
 - **Cause**: Not running in a proper terminal
 - **Solution**: Ensure you're in an interactive terminal, not a pipe or background process
 
 ### Colors Not Showing
 
 **Issue**: Ball states not color-coded
+
 - **Cause**: Terminal doesn't support colors
 - **Solution**: Use a modern terminal emulator (iTerm2, Alacritty, etc.)
 
 ### Balls Not Loading
 
 **Issue**: "No balls to display" when balls exist
+
 - **Cause**: Discovery or loading error
 - **Solution**: Check `~/.juggle/config.json` search paths are correct
 
 ### Updates Not Persisting
 
 **Issue**: State changes don't save
+
 - **Cause**: Store update failing
 - **Solution**: Check `.juggle/` directory is writable
 
@@ -403,4 +233,3 @@ var myNewStyle = lipgloss.NewStyle().
 - [Bubbletea Documentation](https://github.com/charmbracelet/bubbletea)
 - [Lipgloss Styling](https://github.com/charmbracelet/lipgloss)
 - [Bubbles Components](https://github.com/charmbracelet/bubbles)
-- [Juggle Architecture](../README.md#architecture-overview)

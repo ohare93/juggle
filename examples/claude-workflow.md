@@ -75,7 +75,7 @@ Intent: Add user profile page with avatar upload
 State: juggling:in-air
 Priority: medium
 Started: 2 hours ago
-Last activity: 5 minutes ago (via hook)
+Last activity: 5 minutes ago
 
 Todos: 2/6 complete (33%)
   1. [✓] Design profile page UI mockup

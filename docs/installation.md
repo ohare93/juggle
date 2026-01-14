@@ -4,7 +4,6 @@
 
 - Go 1.21 or later (for building from source)
 - Git
-- (Optional) Zellij for terminal workspace integration
 
 ## Installation Methods
 
@@ -25,6 +24,7 @@ chmod +x install.sh
 ```
 
 The script will:
+
 1. Download the latest release for your platform
 2. Install the binary to `~/.local/bin/juggle`
 3. Add `~/.local/bin` to your PATH if needed
@@ -103,91 +103,6 @@ juggle start "My first work session"
 
 This creates `.juggle/balls.jsonl` in your project directory.
 
-## Claude Code Integration (Optional)
-
-### Recommended Setup with Workflow Enforcement
-
-For projects using Claude Code:
-
-```bash
-cd your-project
-juggle setup-claude --install-hooks
-```
-
-This installs:
-- **Agent instructions** in `.claude/CLAUDE.md`
-- **Workflow enforcement hooks** in `.claude/hooks.json`
-- **Marker file system** for check tracking
-
-**Validation Steps:**
-```bash
-# Verify installation
-ls .claude/
-# Expected: CLAUDE.md  hooks.json
-
-# Check instructions at document start
-head -30 .claude/CLAUDE.md
-# Should see: "🚫 CRITICAL BLOCKING REQUIREMENT"
-
-# Test hook manually
-juggle reminder
-# Should show reminder (first time)
-
-# Test check command
-juggle check
-# Should show current state and guidance
-```
-
-**Important:**
-- Restart Claude Code after installation
-- Instructions appear at top of CLAUDE.md (critical positioning)
-- Hook runs before each interaction (<50ms overhead)
-- See [Workflow Enforcement Guide](./workflow-enforcement.md) for details
-
-### Alternative: Global Installation
-
-For use across all projects:
-
-```bash
-juggle setup-claude --global
-```
-
-Installs to `~/.claude/CLAUDE.md` instead of project-local `.claude/CLAUDE.md`.
-
-**Note:** Hooks are project-specific, so use `--install-hooks` in each project even with global instructions.
-
-## Zellij Integration (Optional)
-
-For automatic tab switching and better context tracking:
-
-### 1. Install Zellij
-
-```bash
-# macOS
-brew install zellij
-
-# Linux (cargo)
-cargo install zellij
-
-# Or download from https://github.com/zellij-org/zellij/releases
-```
-
-### 2. Configure Zellij
-
-Juggle automatically detects Zellij sessions. Start Zellij in your project:
-
-```bash
-cd your-project
-zellij
-```
-
-Now Juggle commands will track which Zellij tab you're in and can automatically switch tabs:
-
-```bash
-juggle jump <ball-id>  # Switches to the ball's tab
-juggle next            # Jumps to highest priority ball
-```
-
 ## Updating
 
 ### Using Install Script
@@ -212,14 +127,11 @@ Juggle stores configuration in `~/.config/juggle/config.json`:
 
 ```json
 {
-  "search_paths": [
-    "/home/user/Development",
-    "/home/user/projects"
-  ]
+  "search_paths": ["/home/user/Development", "/home/user/projects"]
 }
 ```
 
-You can edit this file directly or use:
+Simply running juggle in a directory will add it to the known projects (search_paths). You can edit this file directly or use:
 
 ```bash
 juggle projects add /new/path
@@ -270,20 +182,6 @@ cd your-project
 juggle start "Initial session"
 ```
 
-### Zellij integration not working
-
-Verify Zellij is running:
-
-```bash
-echo $ZELLIJ_SESSION_NAME
-```
-
-If empty, you're not in a Zellij session. Start one:
-
-```bash
-zellij
-```
-
 ### Permission denied
 
 If installing to `/usr/local/bin`, you need sudo:
@@ -307,6 +205,5 @@ mv juggle ~/.local/bin/
 
 ## Next Steps
 
-- Read the [Claude Integration Guide](./claude-integration.md) for AI-assisted workflows
 - Explore commands with `juggle --help`
 - Set up your first project: `juggle start "Description of your work"`
