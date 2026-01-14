@@ -131,9 +131,31 @@ Jan 14  ████████████████████████
 Multiple agents working in parallel on isolated worktrees, each focused on
 different tasks, all managed through the same TUI and a multiplex terminal (Zellij).
 
+## Parallel Agents with Worktrees
+
+Each agent can work in its own isolated worktree, allowing multiple agents to run
+simultaneously without stepping on each other. All worktrees share the same ball
+state from the main repo's `.juggle/` directory.
+
+```bash
+# Terminal 1: Run agent in main repo
+cd ~/Development/my-project
+juggle agent run session-a
+
+# Terminal 2: Run agent in worktree
+cd ~/Development/my-project-worktree
+juggle agent run session-b
+```
+
+**Important:** The TUI is for managing tasks, not running agents. Run `juggle agent run`
+from separate terminals while using the TUI to add, edit, and monitor tasks.
+
+See [Worktrees (Parallel Agent Loops)](docs/installation.md#worktrees-parallel-agent-loops)
+in the installation guide for setup instructions.
+
 ## Documentation
 
-- [Installation Guide](docs/installation.md) - Build from source, configuration
+- [Installation Guide](docs/installation.md) - Build from source, worktrees, configuration
 - [TUI Guide](docs/tui.md) - Keyboard shortcuts, views, workflows
 - [Commands Reference](docs/commands.md) - Full CLI documentation
 
