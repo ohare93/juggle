@@ -56,5 +56,10 @@ jobs:
       - name: Build
         run: go build -o juggle${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/juggle
 
-      - name: Verify binary runs
-        run: ./juggle${{ matrix.os == 'windows-latest' && '.exe' || '' }} --version
+      - name: Verify binary runs (Unix)
+        if: matrix.os != 'windows-latest'
+        run: ./juggle --version
+
+      - name: Verify binary runs (Windows)
+        if: matrix.os == 'windows-latest'
+        run: .\juggle.exe --version
