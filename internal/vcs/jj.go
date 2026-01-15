@@ -1,6 +1,7 @@
 package vcs
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -93,6 +94,56 @@ func (j *JJBackend) GetLastCommitHash(projectDir string) (string, error) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// DescribeWorkingCopy updates the working copy description with the given message.
+func (j *JJBackend) DescribeWorkingCopy(projectDir, message string) error {
+	cmd := exec.Command("jj", "desc", "-m", message)
+	cmd.Dir = projectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("jj desc failed: %s: %w", strings.TrimSpace(string(output)), err)
+	}
+	return nil
+}
+
+// IsolateAndReset creates a new working copy from a target revision, leaving current changes isolated.
+// If targetRevision is empty, uses @- (parent of current).
+// Returns the change_id of the isolated revision (the current work before reset).
+func (j *JJBackend) IsolateAndReset(projectDir, targetRevision string) (string, error) {
+	// Get the current change_id before creating new revision
+	changeID, err := j.GetCurrentRevision(projectDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current revision: %w", err)
+	}
+
+	// Use parent (@-) if no target specified
+	target := targetRevision
+	if target == "" {
+		target = "@-"
+	}
+
+	// Create a new change from the target, leaving current work in place
+	cmd := exec.Command("jj", "new", target)
+	cmd.Dir = projectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("jj new %s failed: %s: %w", target, strings.TrimSpace(string(output)), err)
+	}
+
+	// Return the change_id of what is now the isolated revision
+	return changeID, nil
+}
+
+// GetCurrentRevision returns the change_id of the working copy.
+func (j *JJBackend) GetCurrentRevision(projectDir string) (string, error) {
+	cmd := exec.Command("jj", "log", "-r", "@", "--no-graph", "-T", "change_id.short()")
+	cmd.Dir = projectDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("jj log failed: %s: %w", strings.TrimSpace(string(output)), err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }

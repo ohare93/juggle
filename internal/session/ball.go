@@ -90,6 +90,8 @@ type Ball struct {
 	Tags               []string    `json:"tags,omitempty"`
 	CompletionNote     string      `json:"completion_note,omitempty"`
 	ModelSize          ModelSize   `json:"model_size,omitempty"`
+	StartingRevision   string      `json:"starting_revision,omitempty"` // VCS revision/change ID when ball was started
+	RevisionID         string      `json:"revision_id,omitempty"`       // VCS revision/change ID when ball was blocked or completed
 }
 
 // NewBall creates a new ball with the given parameters in pending state

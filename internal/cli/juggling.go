@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/vcs"
 	"github.com/spf13/cobra"
 )
 
@@ -607,6 +608,24 @@ func activateBall(ball *session.Ball, store *session.Store) error {
 
 	ball.Start()
 
+	// Get VCS backend for this ball
+	backend := getVCSBackendForBall(ball)
+
+	// Store the starting revision so we can return here if blocked
+	startingRev, err := backend.GetCurrentRevision(ball.WorkingDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to get starting revision: %v\n", err)
+	} else {
+		ball.StartingRevision = startingRev
+	}
+
+	// Describe the working copy with ball info when starting
+	descMessage := fmt.Sprintf("%s: %s", ball.ID, ball.Title)
+	if err := backend.DescribeWorkingCopy(ball.WorkingDir, descMessage); err != nil {
+		// Log warning but don't fail the start operation
+		fmt.Fprintf(os.Stderr, "Warning: failed to describe working copy: %v\n", err)
+	}
+
 	if err := store.Save(ball); err != nil {
 		return fmt.Errorf("failed to save ball: %w", err)
 	}
@@ -642,6 +661,17 @@ func setBallComplete(ball *session.Ball, args []string, store *session.Store) er
 	if len(args) > 0 {
 		note = strings.Join(args, " ")
 	}
+
+	// Get VCS backend and store the current revision before completing
+	backend := getVCSBackendForBall(ball)
+	revisionID, err := backend.GetCurrentRevision(ball.WorkingDir)
+	if err != nil {
+		// Log warning but continue
+		fmt.Fprintf(os.Stderr, "Warning: failed to get current revision: %v\n", err)
+	} else {
+		ball.RevisionID = revisionID
+	}
+
 	ball.MarkComplete(note)
 
 	if err := store.Save(ball); err != nil {
@@ -651,6 +681,9 @@ func setBallComplete(ball *session.Ball, args []string, store *session.Store) er
 	fmt.Printf("✓ Ball %s → complete\n", ball.ShortID())
 	if note != "" {
 		fmt.Printf("  Note: %s\n", note)
+	}
+	if ball.RevisionID != "" {
+		fmt.Printf("  Revision: %s\n", ball.RevisionID)
 	}
 
 	// Archive completed ball
@@ -672,6 +705,36 @@ func setBallBlocked(ball *session.Ball, args []string, store *session.Store) err
 		return fmt.Errorf("blocked reason required: juggle <ball-id> blocked <reason>")
 	}
 
+	// Get VCS backend for the ball's project
+	backend := getVCSBackendForBall(ball)
+
+	// Describe the working copy with BLOCKED: prefix before isolating
+	descMessage := fmt.Sprintf("BLOCKED: %s - %s", ball.ID, reason)
+	if err := backend.DescribeWorkingCopy(ball.WorkingDir, descMessage); err != nil {
+		// Log warning but don't fail the block operation
+		fmt.Fprintf(os.Stderr, "Warning: failed to describe working copy: %v\n", err)
+	}
+
+	// Get the current revision before isolating (for RevisionID)
+	revisionID, err := backend.GetCurrentRevision(ball.WorkingDir)
+	if err != nil {
+		// Log warning but continue
+		fmt.Fprintf(os.Stderr, "Warning: failed to get current revision: %v\n", err)
+	} else {
+		ball.RevisionID = revisionID
+	}
+
+	// Isolate current work and reset to the starting revision (where the ball began)
+	// This prevents ball pileup by returning to a clean state
+	isolatedRev, err := backend.IsolateAndReset(ball.WorkingDir, ball.StartingRevision)
+	if err != nil {
+		// Log warning but don't fail the block operation
+		fmt.Fprintf(os.Stderr, "Warning: failed to isolate work: %v\n", err)
+	} else if isolatedRev != "" {
+		// Update revision ID to the isolated revision if different
+		ball.RevisionID = isolatedRev
+	}
+
 	if err := ball.SetBlocked(reason); err != nil {
 		return err
 	}
@@ -682,7 +745,17 @@ func setBallBlocked(ball *session.Ball, args []string, store *session.Store) err
 
 	fmt.Printf("✓ Ball %s → blocked\n", ball.ShortID())
 	fmt.Printf("  Reason: %s\n", reason)
+	if ball.RevisionID != "" {
+		fmt.Printf("  Revision: %s\n", ball.RevisionID)
+	}
 	return nil
+}
+
+// getVCSBackendForBall returns the VCS backend for a ball's working directory
+func getVCSBackendForBall(ball *session.Ball) vcs.VCS {
+	globalVCS, _ := session.GetGlobalVCSWithOptions(GetConfigOptions())
+	projectVCS, _ := session.GetProjectVCS(ball.WorkingDir)
+	return vcs.GetBackendForProject(ball.WorkingDir, vcs.VCSType(projectVCS), vcs.VCSType(globalVCS))
 }
 
 // handleBallTag handles tag operations for a ball

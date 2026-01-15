@@ -43,6 +43,24 @@ type VCS interface {
 
 	// GetLastCommitHash returns the short hash of the last commit
 	GetLastCommitHash(projectDir string) (string, error)
+
+	// DescribeWorkingCopy updates the working copy description with the given message.
+	// For jj: runs "jj desc -m <message>"
+	// For git: this is a no-op (git doesn't have working copy descriptions)
+	DescribeWorkingCopy(projectDir, message string) error
+
+	// IsolateAndReset creates a new working copy based on a target revision,
+	// leaving the current changes in a separate revision.
+	// For jj: runs "jj new <targetRevision>" to create a new change from the target
+	// For git: creates a branch for the current work and checks out the target revision
+	// If targetRevision is empty, uses a sensible default (parent for jj, main/master for git).
+	// Returns the revision ID of the isolated changes.
+	IsolateAndReset(projectDir, targetRevision string) (string, error)
+
+	// GetCurrentRevision returns the current working copy revision/change ID.
+	// For jj: returns the change_id of the working copy
+	// For git: returns the current commit hash or branch name
+	GetCurrentRevision(projectDir string) (string, error)
 }
 
 // GetBackend returns the appropriate VCS backend for the given type.
