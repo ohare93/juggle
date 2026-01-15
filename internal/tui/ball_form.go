@@ -179,7 +179,7 @@ func (m *Model) clearPendingBallState() {
 	m.pendingBallTags = ""
 	m.pendingBallSession = 0
 	m.pendingBallDependsOn = nil
-	m.pendingBallBlockingReason = 0  // Reset to blank
+	m.pendingBallBlockingReason = 0 // Reset to blank
 	m.pendingBallCustomReason = ""
 	m.pendingBallFormField = 0
 	m.pendingACEditIndex = -1
@@ -280,8 +280,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	fieldSave := fieldDependsOn + 1
 
 	// Number of options for selection fields
-	numModelSizeOptions := 4    // (default), small, medium, large
-	numPriorityOptions := 4     // low, medium, high, urgent
+	numModelSizeOptions := 4      // (default), small, medium, large
+	numPriorityOptions := 4       // low, medium, high, urgent
 	numBlockingReasonOptions := 5 // (blank), Human needed, Waiting for dependency, Needs research, (custom)
 
 	// Count real sessions (excluding pseudo-sessions)
@@ -669,6 +669,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.pendingBallSession < 0 {
 				m.pendingBallSession = numSessionOptions - 1
 			}
+			// Reload ACs when session changes
+			m.loadACTemplatesAndRepoACs()
 		} else if m.pendingBallFormField == modelSizeField {
 			m.pendingBallModelSize--
 			if m.pendingBallModelSize < 0 {
@@ -698,6 +700,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.pendingBallSession >= numSessionOptions {
 				m.pendingBallSession = 0
 			}
+			// Reload ACs when session changes
+			m.loadACTemplatesAndRepoACs()
 		} else if m.pendingBallFormField == modelSizeField {
 			m.pendingBallModelSize++
 			if m.pendingBallModelSize >= numModelSizeOptions {
@@ -783,6 +787,8 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.pendingBallSession >= numSessionOptions {
 				m.pendingBallSession = 0
 			}
+			// Reload ACs when session changes
+			m.loadACTemplatesAndRepoACs()
 		} else if m.pendingBallFormField == modelSizeField {
 			// Toggle to next model size option
 			m.pendingBallModelSize++

@@ -593,28 +593,28 @@ func TestAddActivityLimit(t *testing.T) {
 // Test panel navigation
 func TestPanelCycling(t *testing.T) {
 	tests := []struct {
-		name           string
-		startPanel     Panel
-		expectedNext   Panel
-		expectedPrev   Panel
+		name         string
+		startPanel   Panel
+		expectedNext Panel
+		expectedPrev Panel
 	}{
 		{
-			name:           "sessions panel",
-			startPanel:     SessionsPanel,
-			expectedNext:   BallsPanel,
-			expectedPrev:   ActivityPanel,
+			name:         "sessions panel",
+			startPanel:   SessionsPanel,
+			expectedNext: BallsPanel,
+			expectedPrev: ActivityPanel,
 		},
 		{
-			name:           "balls panel",
-			startPanel:     BallsPanel,
-			expectedNext:   ActivityPanel,
-			expectedPrev:   SessionsPanel,
+			name:         "balls panel",
+			startPanel:   BallsPanel,
+			expectedNext: ActivityPanel,
+			expectedPrev: SessionsPanel,
 		},
 		{
-			name:           "activity panel",
-			startPanel:     ActivityPanel,
-			expectedNext:   SessionsPanel,
-			expectedPrev:   BallsPanel,
+			name:         "activity panel",
+			startPanel:   ActivityPanel,
+			expectedNext: SessionsPanel,
+			expectedPrev: BallsPanel,
 		},
 	}
 
@@ -899,10 +899,10 @@ func TestCountBallsForSessionExcludesCompleted(t *testing.T) {
 		{ID: "1", Tags: []string{"mysession"}, State: session.StatePending},
 		{ID: "2", Tags: []string{"mysession"}, State: session.StateInProgress},
 		{ID: "3", Tags: []string{"mysession"}, State: session.StateBlocked},
-		{ID: "4", Tags: []string{"mysession"}, State: session.StateComplete},     // Should NOT be counted
-		{ID: "5", Tags: []string{"mysession"}, State: session.StateResearched},   // Should NOT be counted
-		{ID: "6", Tags: []string{"other"}, State: session.StatePending},          // Different session
-		{ID: "7", Tags: []string{"other"}, State: session.StateComplete},         // Different session + complete
+		{ID: "4", Tags: []string{"mysession"}, State: session.StateComplete},   // Should NOT be counted
+		{ID: "5", Tags: []string{"mysession"}, State: session.StateResearched}, // Should NOT be counted
+		{ID: "6", Tags: []string{"other"}, State: session.StatePending},        // Different session
+		{ID: "7", Tags: []string{"other"}, State: session.StateComplete},       // Different session + complete
 	}
 
 	model := Model{
@@ -934,7 +934,7 @@ func TestCountBallsForSessionExcludesCompleted(t *testing.T) {
 	// Test PseudoSessionUntagged with untagged balls
 	untaggedBalls := []*session.Ball{
 		{ID: "u1", Tags: []string{}, State: session.StatePending},
-		{ID: "u2", Tags: []string{}, State: session.StateComplete},          // Should NOT be counted
+		{ID: "u2", Tags: []string{}, State: session.StateComplete},           // Should NOT be counted
 		{ID: "u3", Tags: []string{"mysession"}, State: session.StatePending}, // Has session tag
 	}
 	model.filteredBalls = untaggedBalls
@@ -1879,7 +1879,7 @@ func TestCompareBallIDs(t *testing.T) {
 		{"juggle-10", "juggle-2", 1},  // Numeric comparison, 10 > 2
 		{"juggle-1", "juggle-10", -1}, // Numeric comparison, 1 < 10
 		{"project-99", "project-100", -1},
-		{"aaa-1", "zzz-1", -1}, // Falls back to string comparison for same number
+		{"aaa-1", "zzz-1", -1},  // Falls back to string comparison for same number
 		{"noid", "juggle-1", 1}, // No numeric part falls back to string comparison
 	}
 
@@ -2136,8 +2136,8 @@ func TestBallsPanelScrollingDown(t *testing.T) {
 	balls := make([]*session.Ball, 20)
 	for i := 0; i < 20; i++ {
 		balls[i] = &session.Ball{
-			ID:     fmt.Sprintf("test-%d", i),
-			State:  session.StatePending,
+			ID:    fmt.Sprintf("test-%d", i),
+			State: session.StatePending,
 			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
@@ -2183,8 +2183,8 @@ func TestBallsPanelScrollingUp(t *testing.T) {
 	balls := make([]*session.Ball, 20)
 	for i := 0; i < 20; i++ {
 		balls[i] = &session.Ball{
-			ID:     fmt.Sprintf("test-%d", i),
-			State:  session.StatePending,
+			ID:    fmt.Sprintf("test-%d", i),
+			State: session.StatePending,
 			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
@@ -2449,8 +2449,8 @@ func TestBallsPanelLastItemVisible(t *testing.T) {
 	balls := make([]*session.Ball, 15)
 	for i := 0; i < 15; i++ {
 		balls[i] = &session.Ball{
-			ID:     fmt.Sprintf("test-%d", i),
-			State:  session.StatePending,
+			ID:    fmt.Sprintf("test-%d", i),
+			State: session.StatePending,
 			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
@@ -2520,8 +2520,8 @@ func TestBallsPanelNoBottomIndicatorAtEnd(t *testing.T) {
 	balls := make([]*session.Ball, 12)
 	for i := 0; i < 12; i++ {
 		balls[i] = &session.Ball{
-			ID:     fmt.Sprintf("test-%d", i),
-			State:  session.StatePending,
+			ID:    fmt.Sprintf("test-%d", i),
+			State: session.StatePending,
 			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
@@ -2574,8 +2574,8 @@ func TestBallsPanelNoIndicatorsWhenAllFit(t *testing.T) {
 	balls := make([]*session.Ball, 3)
 	for i := 0; i < 3; i++ {
 		balls[i] = &session.Ball{
-			ID:     fmt.Sprintf("test-%d", i),
-			State:  session.StatePending,
+			ID:    fmt.Sprintf("test-%d", i),
+			State: session.StatePending,
 			Title: fmt.Sprintf("Ball %d", i),
 		}
 	}
@@ -3371,12 +3371,12 @@ func TestHelpViewContainsBallsStateBindings(t *testing.T) {
 	// Check balls panel state change keybinds (using two-key sequences now)
 	// State changes are now sc=complete, ss=start, sb=block
 	ballsBindings := []string{
-		"Start ball",     // ss
-		"Complete ball",  // sc
-		"Block ball",     // sb (prompts for reason)
-		"Edit ball",      // e key
-		"Delete ball",    // d key
-		"Archive",        // sa key
+		"Start ball",    // ss
+		"Complete ball", // sc
+		"Block ball",    // sb (prompts for reason)
+		"Edit ball",     // e key
+		"Delete ball",   // d key
+		"Archive",       // sa key
 	}
 
 	for _, binding := range ballsBindings {
@@ -3614,7 +3614,8 @@ func TestEnterOnSessionMovesFocusToBallsPanel(t *testing.T) {
 
 // TestEnterOnSessionWithDifferentCursor verifies Enter works with non-zero cursor position
 // Note: filterSessions() prepends PseudoSessionAll and PseudoSessionUntagged, so:
-//   cursor 0 = __all__, cursor 1 = __untagged__, cursor 2+ = real sessions
+//
+//	cursor 0 = __all__, cursor 1 = __untagged__, cursor 2+ = real sessions
 func TestEnterOnSessionWithDifferentCursor(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -3728,7 +3729,8 @@ func TestSpaceKeyOnlyWorksInBallsPanel(t *testing.T) {
 
 // TestBracketLeftSwitchesToPrevSession verifies [ key switches to previous session in BallsPanel
 // Note: filterSessions() prepends __all__ and __untagged__, so indices are:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
 func TestBracketLeftSwitchesToPrevSession(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -3774,7 +3776,8 @@ func TestBracketLeftSwitchesToPrevSession(t *testing.T) {
 
 // TestBracketRightSwitchesToNextSession verifies ] key switches to next session in BallsPanel
 // Note: filterSessions() prepends __all__ and __untagged__, so indices are:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
 func TestBracketRightSwitchesToNextSession(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -3858,7 +3861,8 @@ func TestBracketLeftAtBoundary(t *testing.T) {
 
 // TestBracketRightAtBoundary verifies ] key at last session doesn't overflow
 // Note: filterSessions() prepends __all__ and __untagged__, so:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2 (last)
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2 (last)
 func TestBracketRightAtBoundary(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -3898,7 +3902,8 @@ func TestBracketRightAtBoundary(t *testing.T) {
 
 // TestSessionSwitchResetsBallCursor verifies cursor resets when switching sessions
 // Note: filterSessions() prepends __all__ and __untagged__, so:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
 func TestSessionSwitchResetsBallCursor(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -3936,7 +3941,8 @@ func TestSessionSwitchResetsBallCursor(t *testing.T) {
 
 // TestSessionSwitchUpdatesActivity verifies activity log entry is added on session switch
 // Note: filterSessions() prepends __all__ and __untagged__, so:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
 func TestSessionSwitchUpdatesActivity(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -4050,7 +4056,8 @@ func TestEnterResetsBallCursorAndScrollOffset(t *testing.T) {
 
 // TestCompleteEnterSpaceWorkflow tests the full Enter-to-balls, Space-to-sessions workflow
 // Note: filterSessions() prepends __all__ and __untagged__, so:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
 func TestCompleteEnterSpaceWorkflow(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -4102,7 +4109,8 @@ func TestCompleteEnterSpaceWorkflow(t *testing.T) {
 
 // TestCompleteSessionSwitchWorkflow tests full session switching workflow with []
 // Note: filterSessions() prepends __all__ and __untagged__, so:
-//   0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
+//
+//	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2, 4 = session3
 func TestCompleteSessionSwitchWorkflow(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
@@ -4168,7 +4176,7 @@ func TestCompleteSessionSwitchWorkflow(t *testing.T) {
 func TestBallDetailPanelShowsAllAcceptanceCriteria(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Title:   "Test ball",
+		Title:    "Test ball",
 		State:    session.StateInProgress,
 		Priority: session.PriorityMedium,
 		AcceptanceCriteria: []string{
@@ -4271,7 +4279,7 @@ func TestBallDetailPanelUpdatesWithNavigation(t *testing.T) {
 func TestBallDetailPanelShowsAllProperties(t *testing.T) {
 	ball := &session.Ball{
 		ID:            "test-1",
-		Title:        "Test ball intent",
+		Title:         "Test ball intent",
 		State:         session.StateBlocked,
 		Priority:      session.PriorityHigh,
 		BlockedReason: "Waiting for API",
@@ -4325,7 +4333,7 @@ func TestBallDetailPanelShowsAllProperties(t *testing.T) {
 func TestBottomPaneSplitModeRendering(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Title:   "Test ball",
+		Title:    "Test ball",
 		State:    session.StateInProgress,
 		Priority: session.PriorityMedium,
 		AcceptanceCriteria: []string{
@@ -4446,8 +4454,8 @@ func TestDetailPaneGoToTopBottom(t *testing.T) {
 // TestStatusBarShowsBottomPaneMode verifies status bar shows current mode
 func TestStatusBarShowsBottomPaneMode(t *testing.T) {
 	tests := []struct {
-		name           string
-		mode           BottomPaneMode
+		name              string
+		mode              BottomPaneMode
 		expectedIndicator string
 	}{
 		{"Activity mode", BottomPaneActivity, "[Act]"},
@@ -4495,7 +4503,7 @@ func TestDetailScrollOffsetResetOnToggle(t *testing.T) {
 func TestBallDetailPanelShowsOutput(t *testing.T) {
 	ball := &session.Ball{
 		ID:       "test-1",
-		Title:   "Research task",
+		Title:    "Research task",
 		State:    session.StateResearched,
 		Priority: session.PriorityMedium,
 		Output:   "Research findings:\nLine 1\nLine 2",
@@ -4725,14 +4733,14 @@ func TestBallsPanelDisplaysStats(t *testing.T) {
 	}
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		cursor:      0,
-		balls:       balls,
-		filteredBalls: balls,
+		mode:            splitView,
+		activePanel:     BallsPanel,
+		cursor:          0,
+		balls:           balls,
+		filteredBalls:   balls,
 		selectedSession: &session.JuggleSession{ID: "test-session"},
-		width:       120,
-		height:      40,
+		width:           120,
+		height:          40,
 		filterStates: map[string]bool{
 			"pending":     true,
 			"in_progress": true,
@@ -4796,14 +4804,14 @@ func TestStatsPanelPosition(t *testing.T) {
 	}
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		cursor:      0,
-		balls:       balls,
-		filteredBalls: balls,
+		mode:            splitView,
+		activePanel:     BallsPanel,
+		cursor:          0,
+		balls:           balls,
+		filteredBalls:   balls,
 		selectedSession: &session.JuggleSession{ID: "test-session"},
-		width:       120,
-		height:      40,
+		width:           120,
+		height:          40,
 		filterStates: map[string]bool{
 			"pending":     true,
 			"in_progress": true,
@@ -6727,8 +6735,8 @@ func TestHandleToggleKeySequence_AllKeys(t *testing.T) {
 		filterName   string
 		toggleResult bool // expected result after toggle from true
 	}{
-		{"c", "complete", true},  // starts false, toggles to true
-		{"b", "blocked", false},  // starts true, toggles to false
+		{"c", "complete", true}, // starts false, toggles to true
+		{"b", "blocked", false}, // starts true, toggles to false
 		{"i", "in_progress", false},
 		{"p", "pending", false},
 	}
@@ -6986,7 +6994,7 @@ func TestHandleSplitArchiveBall_NonCompleteBall(t *testing.T) {
 	// Create a ball that is not complete
 	ball := &session.Ball{
 		ID:         "test-1",
-		Title:     "Test ball",
+		Title:      "Test ball",
 		State:      session.StatePending,
 		WorkingDir: "/tmp/test",
 	}
@@ -7450,7 +7458,7 @@ func TestUnifiedBallFormNavigation(t *testing.T) {
 		pendingBallPriority:       1,
 		pendingBallTags:           "",
 		pendingBallSession:        0,
-		pendingBallFormField:      1, // Start at title
+		pendingBallFormField:      1,          // Start at title
 		pendingAcceptanceCriteria: []string{}, // Empty ACs - so field 2 is "new AC" field
 		textInput:                 ti,
 		sessions:                  []*session.JuggleSession{},
@@ -7978,7 +7986,6 @@ func TestUnifiedBallFormRequiresTitle(t *testing.T) {
 	// since the primary path is through ctrl+enter which is hard to simulate
 }
 
-
 // Test add ball from split view goes to unified form
 func TestAddBallGoesToUnifiedForm(t *testing.T) {
 	ti := textinput.New()
@@ -8137,8 +8144,8 @@ func TestDependencySelectorToggle(t *testing.T) {
 // Test confirming selection in dependency selector
 func TestDependencySelectorConfirm(t *testing.T) {
 	model := Model{
-		mode:                   dependencySelectorView,
-		dependencySelectIndex:  0,
+		mode:                  dependencySelectorView,
+		dependencySelectIndex: 0,
 		dependencySelectActive: map[string]bool{
 			"test-1": true,
 			"test-2": true,
@@ -8175,8 +8182,8 @@ func TestDependencySelectorConfirm(t *testing.T) {
 // Test cancelling dependency selector
 func TestDependencySelectorCancel(t *testing.T) {
 	model := Model{
-		mode:                   dependencySelectorView,
-		dependencySelectIndex:  0,
+		mode:                  dependencySelectorView,
+		dependencySelectIndex: 0,
 		dependencySelectActive: map[string]bool{
 			"test-1": true,
 		},
@@ -8210,7 +8217,7 @@ func TestDependencySelectorPreservesExisting(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
+		pendingBallFormField:      8,                  // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
 		pendingBallDependsOn:      []string{"test-1"}, // Pre-existing dependency
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -8360,8 +8367,8 @@ func TestRenderUnifiedBallFormDependsOnField(t *testing.T) {
 // Test rendering dependency selector view
 func TestRenderDependencySelectorView(t *testing.T) {
 	model := Model{
-		mode:                   dependencySelectorView,
-		dependencySelectIndex:  1,
+		mode:                  dependencySelectorView,
+		dependencySelectIndex: 1,
 		dependencySelectActive: map[string]bool{
 			"test-1": true,
 		},
@@ -8390,12 +8397,12 @@ func TestRenderDependencySelectorView(t *testing.T) {
 // Test clearPendingBallState clears dependency state
 func TestClearPendingBallStateClearsDependencies(t *testing.T) {
 	model := Model{
-		pendingBallIntent:          "Test",
-		pendingBallPriority:        2,
-		pendingBallDependsOn:       []string{"dep-1"},
-		dependencySelectBalls:     []*session.Ball{{ID: "test-1"}},
-		dependencySelectIndex:      1,
-		dependencySelectActive:     map[string]bool{"test-1": true},
+		pendingBallIntent:      "Test",
+		pendingBallPriority:    2,
+		pendingBallDependsOn:   []string{"dep-1"},
+		dependencySelectBalls:  []*session.Ball{{ID: "test-1"}},
+		dependencySelectIndex:  1,
+		dependencySelectActive: map[string]bool{"test-1": true},
 	}
 
 	model.clearPendingBallState()
@@ -8656,7 +8663,7 @@ func TestClearPendingBallStateClearsModelSize(t *testing.T) {
 func TestEditBallFormPrepopulatesFields(t *testing.T) {
 	ball := &session.Ball{
 		ID:                 "test-1",
-		Title:             "Original intent",
+		Title:              "Original intent",
 		Priority:           session.PriorityHigh,
 		State:              session.StateInProgress,
 		Tags:               []string{"tag1", "tag2"},
@@ -8667,10 +8674,10 @@ func TestEditBallFormPrepopulatesFields(t *testing.T) {
 	}
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		cursor:      0,
-		balls:       []*session.Ball{ball},
+		mode:          splitView,
+		activePanel:   BallsPanel,
+		cursor:        0,
+		balls:         []*session.Ball{ball},
 		filteredBalls: []*session.Ball{ball},
 		filterStates: map[string]bool{
 			"pending":     true,
@@ -8813,12 +8820,12 @@ func TestWrapText(t *testing.T) {
 // TestContextFieldMultilineDisplay tests that long context is displayed across multiple lines
 func TestContextFieldMultilineDisplay(t *testing.T) {
 	model := Model{
-		mode:               unifiedBallFormView,
-		pendingBallContext: "This is a very long context that should definitely span multiple lines when displayed in the form because it exceeds the maximum width of 60 characters",
-		pendingBallIntent:  "Test intent",
+		mode:                 unifiedBallFormView,
+		pendingBallContext:   "This is a very long context that should definitely span multiple lines when displayed in the form because it exceeds the maximum width of 60 characters",
+		pendingBallIntent:    "Test intent",
 		pendingBallFormField: 1, // Not on context field
-		textInput:           textinput.New(),
-		contextInput:        newContextTextarea(),
+		textInput:            textinput.New(),
+		contextInput:         newContextTextarea(),
 	}
 
 	view := model.renderUnifiedBallFormView()
@@ -9195,15 +9202,15 @@ func TestAddFollowupBallPreFillsDependsOn(t *testing.T) {
 	}
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		textInput:   ti,
-		contextInput: newContextTextarea(),
-		sessions:    []*session.JuggleSession{},
-		balls: []*session.Ball{parentBall},
+		mode:          splitView,
+		activePanel:   BallsPanel,
+		textInput:     ti,
+		contextInput:  newContextTextarea(),
+		sessions:      []*session.JuggleSession{},
+		balls:         []*session.Ball{parentBall},
 		filteredBalls: []*session.Ball{parentBall},
-		cursor:      0,
-		activityLog: make([]ActivityEntry, 0),
+		cursor:        0,
+		activityLog:   make([]ActivityEntry, 0),
 		filterStates: map[string]bool{
 			"pending":     true,
 			"in_progress": true,
@@ -9264,16 +9271,16 @@ func TestAddFollowupBallInheritsSession(t *testing.T) {
 	}
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		textInput:   ti,
-		contextInput: newContextTextarea(),
-		sessions:    []*session.JuggleSession{selectedSess},
+		mode:            splitView,
+		activePanel:     BallsPanel,
+		textInput:       ti,
+		contextInput:    newContextTextarea(),
+		sessions:        []*session.JuggleSession{selectedSess},
 		selectedSession: selectedSess,
-		balls: []*session.Ball{parentBall},
-		filteredBalls: []*session.Ball{parentBall},
-		cursor:      0,
-		activityLog: make([]ActivityEntry, 0),
+		balls:           []*session.Ball{parentBall},
+		filteredBalls:   []*session.Ball{parentBall},
+		cursor:          0,
+		activityLog:     make([]ActivityEntry, 0),
 		filterStates: map[string]bool{
 			"pending":     true,
 			"in_progress": true,
@@ -9298,15 +9305,15 @@ func TestAddFollowupBallNoBallSelected(t *testing.T) {
 	ti.Width = 40
 
 	model := Model{
-		mode:        splitView,
-		activePanel: BallsPanel,
-		textInput:   ti,
-		contextInput: newContextTextarea(),
-		sessions:    []*session.JuggleSession{},
-		balls:       []*session.Ball{},
+		mode:          splitView,
+		activePanel:   BallsPanel,
+		textInput:     ti,
+		contextInput:  newContextTextarea(),
+		sessions:      []*session.JuggleSession{},
+		balls:         []*session.Ball{},
 		filteredBalls: []*session.Ball{},
-		cursor:      0,
-		activityLog: make([]ActivityEntry, 0),
+		cursor:        0,
+		activityLog:   make([]ActivityEntry, 0),
 		filterStates: map[string]bool{
 			"pending":     true,
 			"in_progress": true,
@@ -9325,5 +9332,265 @@ func TestAddFollowupBallNoBallSelected(t *testing.T) {
 
 	if m.message != "No ball selected" {
 		t.Errorf("Expected message 'No ball selected', got '%s'", m.message)
+	}
+}
+
+// Tests for Session and Repo ACs feature
+
+// TestACSystem_RepoACsShowOnAllBalls tests that repo-level ACs show on all ball creations
+func TestACSystem_RepoACsShowOnAllBalls(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-ac-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	// Create store and session
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Set repo-level ACs
+	repoACs := []string{"Repo AC 1", "Repo AC 2"}
+	if err := session.UpdateProjectAcceptanceCriteria(tmpDir, repoACs); err != nil {
+		t.Fatalf("failed to set repo ACs: %v", err)
+	}
+
+	// Create a session
+	sessionStore, err := session.NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create session store: %v", err)
+	}
+	sess, err := sessionStore.CreateSession("test-session", "Test")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	// Set session acceptance criteria
+	if err := sessionStore.UpdateSessionAcceptanceCriteria(sess.ID, []string{"Session AC 1"}); err != nil {
+		t.Fatalf("failed to set session ACs: %v", err)
+	}
+	sess.AcceptanceCriteria = []string{"Session AC 1"} // Update local copy
+
+	// Create model with repo-level ACs
+	model := Model{
+		store:           store,
+		mode:            unifiedBallFormView,
+		sessions:        []*session.JuggleSession{sess},
+		selectedSession: nil, // Not selecting any session
+		repoLevelACs:    repoACs,
+		sessionLevelACs: nil,
+	}
+
+	// Verify repo ACs are loaded
+	if len(model.repoLevelACs) != 2 {
+		t.Errorf("expected 2 repo ACs, got %d", len(model.repoLevelACs))
+	}
+	if model.repoLevelACs[0] != "Repo AC 1" {
+		t.Errorf("expected 'Repo AC 1', got '%s'", model.repoLevelACs[0])
+	}
+}
+
+// TestACSystem_SessionACsOnlyInSelectedSession tests that session ACs only show when session selected
+func TestACSystem_SessionACsOnlyInSelectedSession(t *testing.T) {
+	// Create two sessions with different ACs
+	session1 := &session.JuggleSession{
+		ID:                 "session1",
+		AcceptanceCriteria: []string{"Session1 AC1", "Session1 AC2"},
+	}
+	session2 := &session.JuggleSession{
+		ID:                 "session2",
+		AcceptanceCriteria: []string{"Session2 AC1"},
+	}
+
+	// Test 1: No session selected - no session ACs shown
+	model1 := Model{
+		sessions:        []*session.JuggleSession{session1, session2},
+		selectedSession: nil,
+		sessionLevelACs: nil,
+	}
+	if len(model1.sessionLevelACs) != 0 {
+		t.Errorf("expected 0 session ACs when none selected, got %d", len(model1.sessionLevelACs))
+	}
+
+	// Test 2: Session1 selected - Session1 ACs shown
+	model1.selectedSession = session1
+	model1.sessionLevelACs = session1.AcceptanceCriteria
+	if len(model1.sessionLevelACs) != 2 {
+		t.Errorf("expected 2 session ACs for session1, got %d", len(model1.sessionLevelACs))
+	}
+
+	// Test 3: Session2 selected - Session2 ACs shown (different from session1)
+	model2 := Model{
+		sessions:        []*session.JuggleSession{session1, session2},
+		selectedSession: session2,
+		sessionLevelACs: session2.AcceptanceCriteria,
+	}
+	if len(model2.sessionLevelACs) != 1 {
+		t.Errorf("expected 1 session AC for session2, got %d", len(model2.sessionLevelACs))
+	}
+	if model2.sessionLevelACs[0] != "Session2 AC1" {
+		t.Errorf("expected 'Session2 AC1', got '%s'", model2.sessionLevelACs[0])
+	}
+}
+
+// TestACSystem_ChangingSessionUpdatesACs tests that ACs change when session selection changes
+func TestACSystem_ChangingSessionUpdatesACs(t *testing.T) {
+	session1 := &session.JuggleSession{
+		ID:                 "sess1",
+		AcceptanceCriteria: []string{"Session1 AC"},
+	}
+	session2 := &session.JuggleSession{
+		ID:                 "sess2",
+		AcceptanceCriteria: []string{"Session2 AC"},
+	}
+
+	model := Model{
+		sessions:        []*session.JuggleSession{session1, session2},
+		selectedSession: session1,
+	}
+
+	// Initially with session1
+	initialSessionACs := session1.AcceptanceCriteria
+	if initialSessionACs[0] != "Session1 AC" {
+		t.Errorf("expected 'Session1 AC' initially, got '%s'", initialSessionACs[0])
+	}
+
+	// Switch to session2
+	model.selectedSession = session2
+	newSessionACs := session2.AcceptanceCriteria
+	if newSessionACs[0] != "Session2 AC" {
+		t.Errorf("expected 'Session2 AC' after switch, got '%s'", newSessionACs[0])
+	}
+
+	// Verify ACs are different
+	if initialSessionACs[0] == newSessionACs[0] {
+		t.Error("expected ACs to change when session changed")
+	}
+}
+
+// TestACSystem_PseudoSessionsHaveNoSessionACs tests that pseudo-sessions don't have session ACs
+func TestACSystem_PseudoSessionsHaveNoSessionACs(t *testing.T) {
+	pseudoSessionAll := &session.JuggleSession{
+		ID:                 PseudoSessionAll,
+		AcceptanceCriteria: []string{"Should not display"},
+	}
+	pseudoSessionUntagged := &session.JuggleSession{
+		ID:                 PseudoSessionUntagged,
+		AcceptanceCriteria: []string{"Should not display"},
+	}
+
+	// When pseudo-session is selected, session ACs should not be shown
+	model1 := Model{
+		selectedSession: pseudoSessionAll,
+		sessionLevelACs: nil, // Should remain nil
+	}
+	if len(model1.sessionLevelACs) != 0 {
+		t.Errorf("expected 0 session ACs for pseudo-session __all__, got %d", len(model1.sessionLevelACs))
+	}
+
+	model2 := Model{
+		selectedSession: pseudoSessionUntagged,
+		sessionLevelACs: nil, // Should remain nil
+	}
+	if len(model2.sessionLevelACs) != 0 {
+		t.Errorf("expected 0 session ACs for pseudo-session __untagged__, got %d", len(model2.sessionLevelACs))
+	}
+}
+
+// Tests for TUI Panel Navigation
+
+// TestPanelNavigation_RightFromSessions tests right arrow from Sessions goes to Balls
+func TestPanelNavigation_RightFromSessions(t *testing.T) {
+	model := Model{
+		activePanel: SessionsPanel,
+	}
+
+	// Right from Sessions should go to Balls
+	if model.activePanel != SessionsPanel {
+		t.Errorf("expected to start at SessionsPanel, got %v", model.activePanel)
+	}
+
+	model.activePanel = BallsPanel // Simulate right arrow press
+	if model.activePanel != BallsPanel {
+		t.Errorf("expected to be at BallsPanel after right arrow from Sessions, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_LeftFromBalls tests left arrow from Balls goes to Sessions
+func TestPanelNavigation_LeftFromBalls(t *testing.T) {
+	model := Model{
+		activePanel: BallsPanel,
+	}
+
+	// Left from Balls should go to Sessions
+	model.activePanel = SessionsPanel // Simulate left arrow press
+	if model.activePanel != SessionsPanel {
+		t.Errorf("expected to be at SessionsPanel after left arrow from Balls, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_DownFromBalls tests down arrow from Balls goes to Activity
+func TestPanelNavigation_DownFromBalls(t *testing.T) {
+	model := Model{
+		activePanel: BallsPanel,
+	}
+
+	// Down from Balls should go to Activity
+	model.activePanel = ActivityPanel // Simulate down arrow press
+	if model.activePanel != ActivityPanel {
+		t.Errorf("expected to be at ActivityPanel after down arrow from Balls, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_UpFromActivity tests up arrow from Activity goes to Balls
+func TestPanelNavigation_UpFromActivity(t *testing.T) {
+	model := Model{
+		activePanel: ActivityPanel,
+	}
+
+	// Up from Activity should go to Balls
+	model.activePanel = BallsPanel // Simulate up arrow press
+	if model.activePanel != BallsPanel {
+		t.Errorf("expected to be at BallsPanel after up arrow from Activity, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_RightFromBalls tests right arrow from Balls goes to Activity
+func TestPanelNavigation_RightFromBalls(t *testing.T) {
+	model := Model{
+		activePanel: BallsPanel,
+	}
+
+	// Right from Balls should go to Activity
+	model.activePanel = ActivityPanel // Simulate right arrow press
+	if model.activePanel != ActivityPanel {
+		t.Errorf("expected to be at ActivityPanel after right arrow from Balls, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_LeftFromActivity tests left arrow from Activity goes to Balls
+func TestPanelNavigation_LeftFromActivity(t *testing.T) {
+	model := Model{
+		activePanel: ActivityPanel,
+	}
+
+	// Left from Activity should go to Balls
+	model.activePanel = BallsPanel // Simulate left arrow press
+	if model.activePanel != BallsPanel {
+		t.Errorf("expected to be at BallsPanel after left arrow from Activity, got %v", model.activePanel)
+	}
+}
+
+// TestPanelNavigation_DownFromSessions tests down arrow from Sessions goes to Activity
+func TestPanelNavigation_DownFromSessions(t *testing.T) {
+	model := Model{
+		activePanel: SessionsPanel,
+	}
+
+	// Down from Sessions should go to Activity
+	model.activePanel = ActivityPanel // Simulate down arrow press
+	if model.activePanel != ActivityPanel {
+		t.Errorf("expected to be at ActivityPanel after down arrow from Sessions, got %v", model.activePanel)
 	}
 }

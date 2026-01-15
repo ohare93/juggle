@@ -48,7 +48,7 @@ type StandaloneBallModel struct {
 	width   int
 	height  int
 	message string
-	done    bool     // True when form is completed (either save or cancel)
+	done    bool          // True when form is completed (either save or cancel)
 	result  *session.Ball // The created ball (nil if cancelled)
 	err     error
 }
@@ -335,8 +335,9 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	case "ctrl+enter", "ctrl+s":
 		// Create the ball (ctrl+s is more reliable across terminals)
 		saveCurrentFieldValue()
-		if m.pendingBallIntent == "" {
-			m.message = "Title is required"
+		// Title can be empty if context has content (will auto-generate placeholder)
+		if m.pendingBallIntent == "" && m.pendingBallContext == "" {
+			m.message = "Title is required (or add context to auto-generate)"
 			return m, nil
 		}
 		return m.finalizeBallCreation()
@@ -352,8 +353,9 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		} else if m.pendingBallFormField == fieldSave {
 			// Save button - finalize ball creation
 			saveCurrentFieldValue()
-			if m.pendingBallIntent == "" {
-				m.message = "Title is required"
+			// Title can be empty if context has content (will auto-generate placeholder)
+			if m.pendingBallIntent == "" && m.pendingBallContext == "" {
+				m.message = "Title is required (or add context to auto-generate)"
 				return m, nil
 			}
 			return m.finalizeBallCreation()
@@ -366,8 +368,9 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			if acIndex == len(m.pendingAcceptanceCriteria) {
 				if value == "" {
 					saveCurrentFieldValue()
-					if m.pendingBallIntent == "" {
-						m.message = "Title is required"
+					// Title can be empty if context has content (will auto-generate placeholder)
+					if m.pendingBallIntent == "" && m.pendingBallContext == "" {
+						m.message = "Title is required (or add context to auto-generate)"
 						return m, nil
 					}
 					return m.finalizeBallCreation()

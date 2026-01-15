@@ -372,8 +372,37 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case "left":
+		// Left arrow: Sessions <- Balls, Balls <- Activity
+		m.message = ""
+		switch m.activePanel {
+		case BallsPanel:
+			m.activePanel = SessionsPanel
+		case ActivityPanel:
+			m.activePanel = BallsPanel
+			// From SessionsPanel, left does nothing (left edge)
+		}
+		return m, nil
+
+	case "right":
+		// Right arrow: Sessions -> Balls, Balls -> Activity
+		m.message = ""
+		switch m.activePanel {
+		case SessionsPanel:
+			m.activePanel = BallsPanel
+		case BallsPanel:
+			m.activePanel = ActivityPanel
+			// From ActivityPanel, right does nothing (right edge)
+		}
+		return m, nil
+
 	case "up", "k":
 		m.message = ""
+		// Up arrow: cycle from Activity back to Balls
+		if m.activePanel == ActivityPanel && !m.agentOutputVisible {
+			m.activePanel = BallsPanel
+			return m, nil
+		}
 		// Route to agent output panel if visible
 		if m.agentOutputVisible {
 			return m.handleAgentOutputScrollUp()
@@ -382,6 +411,11 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "down", "j":
 		m.message = ""
+		// Down arrow: cycle from Sessions/Balls to Activity (unless scrolling in Activity)
+		if m.activePanel != ActivityPanel && !m.agentOutputVisible {
+			m.activePanel = ActivityPanel
+			return m, nil
+		}
 		// Route to agent output panel if visible
 		if m.agentOutputVisible {
 			return m.handleAgentOutputScrollDown()
@@ -592,11 +626,6 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
-
-
-
-
-
 
 // handleSplitDeletePrompt shows delete confirmation
 func (m Model) handleSplitDeletePrompt() (tea.Model, tea.Cmd) {

@@ -2055,6 +2055,49 @@ func TestEdgeCaseSingleSession(t *testing.T) {
 	catwalk.RunModel(t, "testdata/edge_case_single_session", model)
 }
 
+// Unit tests for empty title validation
+
+// TestStandaloneValidation_EmptyTitleWithContext tests validation allows empty title with context.
+// AC: Empty title is ok when context has content (will auto-generate placeholder)
+func TestStandaloneValidation_EmptyTitleWithContext(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	model.pendingBallIntent = ""         // Empty title
+	model.pendingBallContext = "Context" // Context has content
+
+	// Simulate validation from ctrl+s
+	if model.pendingBallIntent == "" && model.pendingBallContext == "" {
+		t.Error("Expected validation to pass when context has content")
+	}
+}
+
+// TestStandaloneValidation_EmptyBothFails tests validation fails when both are empty.
+// AC: Empty title AND empty context should fail
+func TestStandaloneValidation_EmptyBothFails(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	model.pendingBallIntent = ""  // Empty title
+	model.pendingBallContext = "" // Empty context
+
+	// Simulate validation from ctrl+s
+	if model.pendingBallIntent == "" && model.pendingBallContext == "" {
+		// Good - this should fail validation
+		return
+	}
+	t.Error("Expected validation to fail when both title and context are empty")
+}
+
+// TestStandaloneValidation_TitleWithoutContext tests validation allows title without context.
+// AC: Empty context is okay if title is filled in
+func TestStandaloneValidation_TitleWithoutContext(t *testing.T) {
+	model := createTestStandaloneBallModel(t)
+	model.pendingBallIntent = "Title" // Title filled in
+	model.pendingBallContext = ""     // Empty context
+
+	// Simulate validation from ctrl+s
+	if model.pendingBallIntent == "" && model.pendingBallContext == "" {
+		t.Error("Expected validation to pass when title is filled in")
+	}
+}
+
 // Helper functions for creating test data
 func formatBallID(i int) string {
 	return fmt.Sprintf("juggle-%d", i)

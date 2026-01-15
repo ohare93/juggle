@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -441,7 +442,7 @@ func TestConfigDelaySet(t *testing.T) {
 
 	// Verify via session package
 	opts := session.ConfigOptions{
-		ConfigHome:     tmpDir,
+		ConfigHome:    tmpDir,
 		JuggleDirName: ".juggle",
 	}
 	delayMinutes, fuzz, err := session.GetGlobalIterationDelayWithOptions(opts)
@@ -471,7 +472,7 @@ func TestConfigDelaySet_WithFuzz(t *testing.T) {
 
 	// Verify via session package
 	opts := session.ConfigOptions{
-		ConfigHome:     tmpDir,
+		ConfigHome:    tmpDir,
 		JuggleDirName: ".juggle",
 	}
 	delayMinutes, fuzz, err := session.GetGlobalIterationDelayWithOptions(opts)
@@ -497,7 +498,7 @@ func TestConfigDelayClear(t *testing.T) {
 
 	// First set a delay
 	opts := session.ConfigOptions{
-		ConfigHome:     tmpDir,
+		ConfigHome:    tmpDir,
 		JuggleDirName: ".juggle",
 	}
 	if err := session.UpdateGlobalIterationDelayWithOptions(opts, 5, 1); err != nil {
@@ -549,7 +550,7 @@ func TestConfigDelayShow_WithValues(t *testing.T) {
 
 	// Set a delay
 	opts := session.ConfigOptions{
-		ConfigHome:     tmpDir,
+		ConfigHome:    tmpDir,
 		JuggleDirName: ".juggle",
 	}
 	if err := session.UpdateGlobalIterationDelayWithOptions(opts, 5, 2); err != nil {
@@ -610,5 +611,251 @@ func TestCalculateFuzzyDelay_Zero(t *testing.T) {
 	delay := CalculateFuzzyDelayForTest(0, 0)
 	if delay != 0 {
 		t.Errorf("expected 0 delay for 0 base, got %v", delay)
+	}
+}
+
+// Test provider configuration
+
+// TestConfigProviderShow_Empty tests showing provider when no provider configured
+func TestConfigProviderShow_Empty(t *testing.T) {
+	_, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Run show command - should not error
+	err := runConfigProviderShow(configProviderShowCmd, []string{})
+	if err != nil {
+		t.Errorf("expected no error with no provider configured, got: %v", err)
+	}
+}
+
+// TestConfigProviderShow_GlobalSet tests showing global provider
+func TestConfigProviderShow_GlobalSet(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Set global provider
+	opts := session.ConfigOptions{
+		ConfigHome:    tmpDir,
+		JuggleDirName: ".juggle",
+	}
+	if err := session.UpdateGlobalAgentProviderWithOptions(opts, "claude"); err != nil {
+		t.Fatalf("failed to set global provider: %v", err)
+	}
+
+	// Run show command - should not error
+	err := runConfigProviderShow(configProviderShowCmd, []string{})
+	if err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+// TestConfigProviderShow_ProjectSet tests showing project provider
+func TestConfigProviderShow_ProjectSet(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Set project provider
+	if err := session.UpdateProjectAgentProvider(tmpDir, "opencode"); err != nil {
+		t.Fatalf("failed to set project provider: %v", err)
+	}
+
+	// Run show command - should not error
+	err := runConfigProviderShow(configProviderShowCmd, []string{})
+	if err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+// TestConfigProviderShow_BothSet tests effective resolution (project > global)
+func TestConfigProviderShow_BothSet(t *testing.T) {
+	// Need separate directories for global and project configs to test resolution
+	globalDir := t.TempDir()
+	projectDir := t.TempDir()
+
+	// Create .juggle directories
+	if err := os.MkdirAll(filepath.Join(globalDir, ".juggle"), 0755); err != nil {
+		t.Fatalf("failed to create global .juggle dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projectDir, ".juggle"), 0755); err != nil {
+		t.Fatalf("failed to create project .juggle dir: %v", err)
+	}
+
+	// Save and restore global options
+	origConfigHome := GlobalOpts.ConfigHome
+	origProjectDir := GlobalOpts.ProjectDir
+	GlobalOpts.ConfigHome = globalDir
+	GlobalOpts.ProjectDir = projectDir
+	defer func() {
+		GlobalOpts.ConfigHome = origConfigHome
+		GlobalOpts.ProjectDir = origProjectDir
+	}()
+
+	// Set global provider (using globalDir as config home)
+	globalOpts := session.ConfigOptions{
+		ConfigHome:    globalDir,
+		JuggleDirName: ".juggle",
+	}
+	if err := session.UpdateGlobalAgentProviderWithOptions(globalOpts, "claude"); err != nil {
+		t.Fatalf("failed to set global provider: %v", err)
+	}
+
+	// Set project provider (using separate projectDir)
+	if err := session.UpdateProjectAgentProvider(projectDir, "opencode"); err != nil {
+		t.Fatalf("failed to set project provider: %v", err)
+	}
+
+	// Verify providers are set correctly
+	projectProvider, err := session.GetProjectAgentProvider(projectDir)
+	if err != nil {
+		t.Fatalf("failed to get project provider: %v", err)
+	}
+
+	globalProvider, err := session.GetGlobalAgentProviderWithOptions(globalOpts)
+	if err != nil {
+		t.Fatalf("failed to get global provider: %v", err)
+	}
+
+	// Should have different values now
+	if projectProvider != "opencode" {
+		t.Errorf("expected project provider 'opencode', got '%s'", projectProvider)
+	}
+	if globalProvider != "claude" {
+		t.Errorf("expected global provider 'claude', got '%s'", globalProvider)
+	}
+
+	// Run show command - should not error
+	err = runConfigProviderShow(configProviderShowCmd, []string{})
+	if err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+// TestConfigProviderSet_Global tests setting global provider
+func TestConfigProviderSet_Global(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Set global provider
+	configProviderProjectFlag = false
+	err := runConfigProviderSet(configProviderSetCmd, []string{"claude"})
+	if err != nil {
+		t.Fatalf("failed to set global provider: %v", err)
+	}
+
+	// Verify it was set
+	opts := session.ConfigOptions{
+		ConfigHome:    tmpDir,
+		JuggleDirName: ".juggle",
+	}
+	provider, err := session.GetGlobalAgentProviderWithOptions(opts)
+	if err != nil {
+		t.Fatalf("failed to get global provider: %v", err)
+	}
+
+	if provider != "claude" {
+		t.Errorf("expected provider 'claude', got '%s'", provider)
+	}
+}
+
+// TestConfigProviderSet_Project tests setting project provider
+func TestConfigProviderSet_Project(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Set project provider with flag
+	configProviderProjectFlag = true
+	err := runConfigProviderSet(configProviderSetCmd, []string{"opencode"})
+	if err != nil {
+		t.Fatalf("failed to set project provider: %v", err)
+	}
+	configProviderProjectFlag = false
+
+	// Verify it was set
+	provider, err := session.GetProjectAgentProvider(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to get project provider: %v", err)
+	}
+
+	if provider != "opencode" {
+		t.Errorf("expected provider 'opencode', got '%s'", provider)
+	}
+}
+
+// TestConfigProviderSet_Invalid tests invalid provider rejection
+func TestConfigProviderSet_Invalid(t *testing.T) {
+	_, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// Try to set invalid provider
+	configProviderProjectFlag = false
+	err := runConfigProviderSet(configProviderSetCmd, []string{"invalid-provider"})
+	if err == nil {
+		t.Error("expected error for invalid provider, got nil")
+	}
+
+	// Check error message mentions the provider
+	if !strings.Contains(err.Error(), "invalid provider") {
+		t.Errorf("expected 'invalid provider' error message, got: %v", err)
+	}
+}
+
+// TestConfigProviderClear_Global tests clearing global setting
+func TestConfigProviderClear_Global(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// First set a global provider
+	opts := session.ConfigOptions{
+		ConfigHome:    tmpDir,
+		JuggleDirName: ".juggle",
+	}
+	if err := session.UpdateGlobalAgentProviderWithOptions(opts, "claude"); err != nil {
+		t.Fatalf("failed to set global provider: %v", err)
+	}
+
+	// Clear it
+	configProviderProjectFlag = false
+	err := runConfigProviderClear(configProviderClearCmd, []string{})
+	if err != nil {
+		t.Fatalf("failed to clear global provider: %v", err)
+	}
+
+	// Verify it was cleared
+	provider, err := session.GetGlobalAgentProviderWithOptions(opts)
+	if err != nil {
+		t.Fatalf("failed to get global provider: %v", err)
+	}
+
+	if provider != "" {
+		t.Errorf("expected empty provider after clear, got '%s'", provider)
+	}
+}
+
+// TestConfigProviderClear_Project tests clearing project setting
+func TestConfigProviderClear_Project(t *testing.T) {
+	tmpDir, cleanup := setupTestProject(t)
+	defer cleanup()
+
+	// First set a project provider
+	if err := session.UpdateProjectAgentProvider(tmpDir, "opencode"); err != nil {
+		t.Fatalf("failed to set project provider: %v", err)
+	}
+
+	// Clear it with flag
+	configProviderProjectFlag = true
+	err := runConfigProviderClear(configProviderClearCmd, []string{})
+	if err != nil {
+		t.Fatalf("failed to clear project provider: %v", err)
+	}
+	configProviderProjectFlag = false
+
+	// Verify it was cleared
+	provider, err := session.GetProjectAgentProvider(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to get project provider: %v", err)
+	}
+
+	if provider != "" {
+		t.Errorf("expected empty provider after clear, got '%s'", provider)
 	}
 }
