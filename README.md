@@ -179,6 +179,17 @@ from separate terminals while using the TUI to add, edit, and monitor tasks.
 See [Worktrees (Parallel Agent Loops)](docs/installation.md#worktrees-parallel-agent-loops)
 in the installation guide for setup instructions.
 
+## Agent Skill
+
+Juggle includes a skill that teaches AI agents how to manage tasks. Install it so your agent knows the CLI commands, state transitions, and best practices.
+
+**Claude Code:**
+```bash
+claude plugin add github:ohare93/juggle
+```
+
+See [Agent Skill Setup](docs/installation.md#agent-skill) for other agents and details.
+
 ## Documentation
 
 - [Installation Guide](docs/installation.md) - Build from source, worktrees, configuration

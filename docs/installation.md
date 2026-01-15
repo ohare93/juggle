@@ -108,6 +108,30 @@ juggle plan --session my-feature --title "First task"
 
 This creates the `.juggle/` directory in your project with your session and ball.
 
+## Agent Skill
+
+Juggle includes a skill (`skills/juggle/SKILL.md`) that teaches AI agents how to manage tasks during agent loops. The skill is agent-agnostic - any agent supporting skills can use it.
+
+### What the Skill Provides
+
+The skill teaches agents:
+- **CLI commands**: `juggle plan`, `juggle update`, `juggle progress append`
+- **Ball states**: pending → in_progress → complete/blocked/researched
+- **Session management**: Grouping balls, adding context, logging progress
+- **Best practices**: Writing verifiable acceptance criteria, handling in-progress balls
+
+### Claude Code
+
+```bash
+claude plugin add github:ohare93/juggle
+```
+
+The skill activates automatically when Claude detects a `.juggle/` directory or when you mention juggle, balls, or sessions.
+
+### Other Agents
+
+For agents that support skills but use different installation methods, point them to `skills/juggle/SKILL.md` in this repository. The skill content is standard markdown with YAML frontmatter.
+
 ## Worktrees (Parallel Agent Loops)
 
 Run multiple agent loops simultaneously using VCS worktrees. Each worktree gets its own agent while sharing the same ball state from the main repo.

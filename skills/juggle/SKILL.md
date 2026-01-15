@@ -1,11 +1,11 @@
 ---
 name: juggle
-description: Manage tasks via CLI commands during agent loops. Use when working on a project with a .juggle/ directory, when user mentions juggle balls/tasks, or when you need to update task state or log progress.
+description: Task management via CLI for agent loops. Balls are tasks with acceptance criteria; sessions group related balls. Use when working on a project with a .juggle/ directory, when user mentions juggle/balls/sessions, when planning tasks before agent loops, or when updating task state and logging progress during execution.
 ---
 
-# Juggler
+# Juggle
 
-Juggler runs autonomous AI agent loops with good UX for the developer. This skill teaches you (the agent) how to use CLI commands to manage tasks - updating state, logging progress, and checking acceptance criteria as you work.
+Juggle runs autonomous AI agent loops with good UX for the developer. This skill teaches you (the agent) how to use CLI commands to manage tasks - updating state, logging progress, and checking acceptance criteria as you work.
 
 ## Core Concepts
 
@@ -239,7 +239,7 @@ Dependency IDs support:
 
 ### Circular Dependency Detection
 
-Juggler automatically detects and rejects circular dependencies:
+Juggle automatically detects and rejects circular dependencies:
 
 ```bash
 # This will fail if ball-A depends on ball-B and ball-B depends on ball-A
