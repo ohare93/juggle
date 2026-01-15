@@ -6,11 +6,29 @@ Thank you for your interest in contributing to Juggle! This document provides gu
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
+
+   **Using jj (Recommended):**
+   ```bash
+   jj git clone https://github.com/YOUR_USERNAME/juggle.git
+   cd juggle
+   ```
+
+   **Using git (Alternative):**
    ```bash
    git clone https://github.com/YOUR_USERNAME/juggle.git
    cd juggle
    ```
+
+   *Note: This project uses [jj (Jujutsu)](https://github.com/martinvonz/jj) internally for development, but we accept pull requests via git.*
+
 3. **Create a branch** for your changes:
+
+   **Using jj (Recommended):**
+   ```bash
+   jj new -m "Add your feature description"
+   ```
+
+   **Using git (Alternative):**
    ```bash
    git checkout -b feature/your-feature-name
    ```
