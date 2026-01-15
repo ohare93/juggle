@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -22,9 +25,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Run tests
         run: go test -v ./...
+
+      - name: Run tests with race detection
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -v -race ./...
 
   build:
     name: Build (${{ matrix.os }})
@@ -41,6 +50,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Build
         run: go build -o juggle${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/juggle
