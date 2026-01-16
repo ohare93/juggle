@@ -414,6 +414,20 @@ func RunAgentLoop(config AgentLoopConfig) (*AgentResult, error) {
 			return nil, fmt.Errorf("failed to load balls for model selection: %w", err)
 		}
 
+		// Check for ball-level AgentProvider override when working on a single ball
+		activeBalls := filterActiveBalls(balls)
+		if len(activeBalls) == 1 && activeBalls[0].AgentProvider != "" && config.Provider == "" {
+			// Ball has an AgentProvider override and CLI didn't explicitly set one
+			ballProvider := activeBalls[0].AgentProvider
+			if provider.IsAvailable(provider.Type(ballProvider)) {
+				agentProv := provider.Get(provider.Type(ballProvider))
+				agent.SetProvider(agentProv)
+				fmt.Printf("🔧 Provider: %s (ball %s has agent_provider override)\n", ballProvider, activeBalls[0].ShortID())
+			} else {
+				fmt.Fprintf(os.Stderr, "⚠️  Ball %s has agent_provider=%q but it's not available, using default\n", activeBalls[0].ShortID(), ballProvider)
+			}
+		}
+
 		// Get session default model
 		var sessionDefaultModel session.ModelSize
 		if juggleSession != nil {
@@ -2056,9 +2070,10 @@ type ModelSelection struct {
 // selectModelForIteration analyzes remaining balls and chooses the optimal model.
 // Priority order:
 // 1. If config.Model is explicitly set (via --model flag), use it
-// 2. Use session.DefaultModel if available
-// 3. Choose based on ball model preferences (prioritize matching balls)
-// 4. Default to "opus" (largest/most capable model)
+// 2. If working on a single ball with ModelOverride set, use that override
+// 3. Use session.DefaultModel if available
+// 4. Choose based on ball model preferences (prioritize matching balls)
+// 5. Default to "opus" (largest/most capable model)
 //
 // The function returns the model to use and reason for selection.
 func selectModelForIteration(config AgentLoopConfig, balls []*session.Ball, defaultSessionModel session.ModelSize) *ModelSelection {
@@ -2076,6 +2091,15 @@ func selectModelForIteration(config AgentLoopConfig, balls []*session.Ball, defa
 		return &ModelSelection{
 			Model:  "opus",
 			Reason: "no active balls",
+		}
+	}
+
+	// If working on a single ball with ModelOverride, use that
+	if len(activeBalls) == 1 && activeBalls[0].ModelOverride != "" {
+		return &ModelSelection{
+			Model:      activeBalls[0].ModelOverride,
+			Reason:     fmt.Sprintf("ball %s has model_override set", activeBalls[0].ShortID()),
+			BallsCount: 1,
 		}
 	}
 

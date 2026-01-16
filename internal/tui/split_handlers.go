@@ -1137,6 +1137,28 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 			m.pendingBallModelSize = 0 // Default
 		}
 
+		// Convert agent provider to index (blank=0, claude=1, opencode=2)
+		switch ball.AgentProvider {
+		case "claude":
+			m.pendingBallAgentProvider = 1
+		case "opencode":
+			m.pendingBallAgentProvider = 2
+		default:
+			m.pendingBallAgentProvider = 0 // Default
+		}
+
+		// Convert model override to index (blank=0, opus=1, sonnet=2, haiku=3)
+		switch ball.ModelOverride {
+		case "opus":
+			m.pendingBallModelOverride = 1
+		case "sonnet":
+			m.pendingBallModelOverride = 2
+		case "haiku":
+			m.pendingBallModelOverride = 3
+		default:
+			m.pendingBallModelOverride = 0 // Default
+		}
+
 		// Find session index from tags (first tag that matches a session)
 		m.pendingBallSession = 0 // Default to (none)
 		for _, tag := range ball.Tags {

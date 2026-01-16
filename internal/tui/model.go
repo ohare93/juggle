@@ -169,6 +169,8 @@ type Model struct {
 	pendingBallTags            string   // Comma-separated tags
 	pendingBallSession         int      // Index in session options (0=none, 1+ = session index)
 	pendingBallModelSize       int      // Index in model size options (0=default, 1=small, 2=medium, 3=large)
+	pendingBallAgentProvider   int      // Index in agent provider options (0=default, 1=claude, 2=opencode)
+	pendingBallModelOverride   int      // Index in model override options (0=default, 1=opus, 2=sonnet, 3=haiku)
 	pendingBallDependsOn       []string // Selected dependency ball IDs
 	pendingBallBlockingReason  int      // Index in blocking reason options (0=blank, 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=custom)
 	pendingBallCustomReason    string   // Custom blocking reason text (when pendingBallBlockingReason == 4)

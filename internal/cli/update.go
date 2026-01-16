@@ -12,18 +12,20 @@ import (
 )
 
 var (
-	updateIntent      string
-	updatePriority    string
-	updateState       string
-	updateCriteria    []string
-	updateTags        string
-	updateBlockReason string
-	updateOutput      string
-	updateModelSize   string
-	updateJSONFlag    bool
-	updateAddDep      []string
-	updateRemoveDep   []string
-	updateSetDeps     []string
+	updateIntent        string
+	updatePriority      string
+	updateState         string
+	updateCriteria      []string
+	updateTags          string
+	updateBlockReason   string
+	updateOutput        string
+	updateModelSize     string
+	updateAgentProvider string
+	updateModelOverride string
+	updateJSONFlag      bool
+	updateAddDep        []string
+	updateRemoveDep     []string
+	updateSetDeps       []string
 )
 
 var updateCmd = &cobra.Command{
@@ -44,6 +46,8 @@ Examples:
   juggle update my-app-1 --tags bug-fix,security
   juggle update my-app-1 --output "Research findings: ..."
   juggle update my-app-1 --model-size small
+  juggle update my-app-1 --agent-provider opencode
+  juggle update my-app-1 --model-override sonnet
   juggle update my-app-1 --add-dep other-ball-5
   juggle update my-app-1 --remove-dep other-ball-3
   juggle update my-app-1 --set-deps ball-1,ball-2`,
@@ -61,6 +65,8 @@ func init() {
 	updateCmd.Flags().StringVar(&updateBlockReason, "reason", "", "Blocked reason (required when setting state to blocked)")
 	updateCmd.Flags().StringVar(&updateOutput, "output", "", "Set research output/results")
 	updateCmd.Flags().StringVar(&updateModelSize, "model-size", "", "Set preferred model size (small|medium|large)")
+	updateCmd.Flags().StringVar(&updateAgentProvider, "agent-provider", "", "Set agent provider override (claude|opencode, empty to clear)")
+	updateCmd.Flags().StringVar(&updateModelOverride, "model-override", "", "Set model override (opus|sonnet|haiku, empty to clear)")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Output updated ball as JSON")
 	updateCmd.Flags().StringSliceVar(&updateAddDep, "add-dep", nil, "Add dependency (ball ID, can be specified multiple times)")
 	updateCmd.Flags().StringSliceVar(&updateRemoveDep, "remove-dep", nil, "Remove dependency (ball ID, can be specified multiple times)")
@@ -73,6 +79,12 @@ func init() {
 	})
 	updateCmd.RegisterFlagCompletionFunc("model-size", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"small", "medium", "large"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	updateCmd.RegisterFlagCompletionFunc("agent-provider", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"claude", "opencode"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	updateCmd.RegisterFlagCompletionFunc("model-override", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"opus", "sonnet", "haiku"}, cobra.ShellCompDirectiveNoFileComp
 	})
 }
 
@@ -89,7 +101,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	// If no flags provided (except --json), enter interactive mode
-	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateOutput == "" && updateModelSize == "" && updateAddDep == nil && updateRemoveDep == nil && updateSetDeps == nil && !updateJSONFlag {
+	if updateIntent == "" && updatePriority == "" && updateState == "" && updateCriteria == nil && updateTags == "" && updateOutput == "" && updateModelSize == "" && updateAgentProvider == "" && updateModelOverride == "" && updateAddDep == nil && updateRemoveDep == nil && updateSetDeps == nil && !updateJSONFlag {
 		return runInteractiveUpdate(foundBall, foundStore)
 	}
 
@@ -209,6 +221,44 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		modified = true
 		if !updateJSONFlag {
 			fmt.Printf("✓ Updated model size: %s\n", updateModelSize)
+		}
+	}
+
+	if cmd.Flags().Changed("agent-provider") {
+		if updateAgentProvider != "" && !session.ValidateAgentProvider(updateAgentProvider) {
+			err := fmt.Errorf("invalid agent provider: %s (must be claude|opencode)", updateAgentProvider)
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return err
+		}
+		foundBall.SetAgentProvider(updateAgentProvider)
+		modified = true
+		if !updateJSONFlag {
+			if updateAgentProvider == "" {
+				fmt.Printf("✓ Cleared agent provider override\n")
+			} else {
+				fmt.Printf("✓ Updated agent provider: %s\n", updateAgentProvider)
+			}
+		}
+	}
+
+	if cmd.Flags().Changed("model-override") {
+		if updateModelOverride != "" && !session.ValidateModelOverride(updateModelOverride) {
+			err := fmt.Errorf("invalid model override: %s (must be opus|sonnet|haiku)", updateModelOverride)
+			if updateJSONFlag {
+				return printJSONError(err)
+			}
+			return err
+		}
+		foundBall.SetModelOverride(updateModelOverride)
+		modified = true
+		if !updateJSONFlag {
+			if updateModelOverride == "" {
+				fmt.Printf("✓ Cleared model override\n")
+			} else {
+				fmt.Printf("✓ Updated model override: %s\n", updateModelOverride)
+			}
 		}
 	}
 
@@ -471,6 +521,44 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 		ball.SetModelSize(session.ModelSize(input))
 	}
 
+	// Edit agent provider override
+	currentAgentProvider := ball.AgentProvider
+	if currentAgentProvider == "" {
+		currentAgentProvider = "unset"
+	}
+	fmt.Printf("Agent Provider [%s] (claude|opencode, 'clear' to remove): ", currentAgentProvider)
+	input, _ = reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" && input != "-" {
+		if input == "clear" {
+			ball.SetAgentProvider("")
+		} else {
+			if !session.ValidateAgentProvider(input) {
+				return fmt.Errorf("invalid agent provider: %s", input)
+			}
+			ball.SetAgentProvider(input)
+		}
+	}
+
+	// Edit model override
+	currentModelOverride := ball.ModelOverride
+	if currentModelOverride == "" {
+		currentModelOverride = "unset"
+	}
+	fmt.Printf("Model Override [%s] (opus|sonnet|haiku, 'clear' to remove): ", currentModelOverride)
+	input, _ = reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input != "" && input != "-" {
+		if input == "clear" {
+			ball.SetModelOverride("")
+		} else {
+			if !session.ValidateModelOverride(input) {
+				return fmt.Errorf("invalid model override: %s", input)
+			}
+			ball.SetModelOverride(input)
+		}
+	}
+
 	// Save changes
 	ball.UpdateActivity()
 	if err := store.UpdateBall(ball); err != nil {
@@ -496,6 +584,12 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	}
 	if ball.ModelSize != "" {
 		fmt.Printf("  Model Size: %s\n", ball.ModelSize)
+	}
+	if ball.AgentProvider != "" {
+		fmt.Printf("  Agent Provider: %s\n", ball.AgentProvider)
+	}
+	if ball.ModelOverride != "" {
+		fmt.Printf("  Model Override: %s\n", ball.ModelOverride)
 	}
 
 	return nil

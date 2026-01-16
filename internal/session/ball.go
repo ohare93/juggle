@@ -63,7 +63,7 @@ const (
 //   - Description: title, context, and acceptance criteria
 //   - Lifecycle: state, timestamps, and completion info
 //   - Organization: priority, tags, and dependencies
-//   - Agent hints: model size preference
+//   - Agent hints: model size preference and overrides
 //
 // Balls progress through states: pending → in_progress → complete/researched (or blocked).
 // The "researched" state is for investigation tasks that produce findings (stored in Output)
@@ -90,6 +90,8 @@ type Ball struct {
 	Tags               []string    `json:"tags,omitempty"`
 	CompletionNote     string      `json:"completion_note,omitempty"`
 	ModelSize          ModelSize   `json:"model_size,omitempty"`
+	AgentProvider      string      `json:"agent_provider,omitempty"`  // Override: which agent provider to use (e.g., "claude", "opencode")
+	ModelOverride      string      `json:"model_override,omitempty"` // Override: specific model to use (e.g., "opus", "sonnet", "haiku")
 	StartingRevision   string      `json:"starting_revision,omitempty"` // VCS revision/change ID when ball was started
 	RevisionID         string      `json:"revision_id,omitempty"`       // VCS revision/change ID when ball was blocked or completed
 }
@@ -549,6 +551,47 @@ func ValidateModelSize(s string) bool {
 func (b *Ball) SetModelSize(size ModelSize) {
 	b.ModelSize = size
 	b.UpdateActivity()
+}
+
+// ValidateAgentProvider checks if an agent provider string is valid.
+// Valid providers are: "" (blank/unset), "claude", "opencode"
+func ValidateAgentProvider(s string) bool {
+	switch s {
+	case "", "claude", "opencode":
+		return true
+	default:
+		return false
+	}
+}
+
+// SetAgentProvider sets the agent provider override for the ball.
+// Use empty string to clear the override.
+func (b *Ball) SetAgentProvider(provider string) {
+	b.AgentProvider = provider
+	b.UpdateActivity()
+}
+
+// ValidateModelOverride checks if a model override string is valid.
+// Valid models are: "" (blank/unset), "opus", "sonnet", "haiku"
+func ValidateModelOverride(s string) bool {
+	switch s {
+	case "", "opus", "sonnet", "haiku":
+		return true
+	default:
+		return false
+	}
+}
+
+// SetModelOverride sets the model override for the ball.
+// Use empty string to clear the override.
+func (b *Ball) SetModelOverride(model string) {
+	b.ModelOverride = model
+	b.UpdateActivity()
+}
+
+// HasAgentOverrides returns true if the ball has any agent-related overrides
+func (b *Ball) HasAgentOverrides() bool {
+	return b.AgentProvider != "" || b.ModelOverride != ""
 }
 
 // HasDependencies returns true if the ball has dependencies

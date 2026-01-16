@@ -30,6 +30,14 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 	modelSizes := []session.ModelSize{session.ModelSizeBlank, session.ModelSizeSmall, session.ModelSizeMedium, session.ModelSizeLarge}
 	modelSize := modelSizes[m.pendingBallModelSize]
 
+	// Map agent provider index to string
+	agentProviders := []string{"", "claude", "opencode"}
+	agentProvider := agentProviders[m.pendingBallAgentProvider]
+
+	// Map model override index to string
+	modelOverrides := []string{"", "opus", "sonnet", "haiku"}
+	modelOverride := modelOverrides[m.pendingBallModelOverride]
+
 	// Build tags list
 	var tags []string
 	if m.pendingBallTags != "" {
@@ -90,6 +98,8 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		ball.Priority = priority
 		ball.Tags = tags
 		ball.ModelSize = modelSize
+		ball.AgentProvider = agentProvider
+		ball.ModelOverride = modelOverride
 		ball.BlockedReason = blockedReason
 
 		// Update state based on blocking reason changes:
@@ -145,6 +155,8 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		ball.Context = m.pendingBallContext // Set context from form
 		ball.Tags = tags
 		ball.ModelSize = modelSize
+		ball.AgentProvider = agentProvider
+		ball.ModelOverride = modelOverride
 		ball.BlockedReason = blockedReason
 
 		// Set acceptance criteria if any were collected
@@ -184,8 +196,10 @@ func (m *Model) clearPendingBallState() {
 	m.pendingBallIntent = ""
 	m.pendingAcceptanceCriteria = nil
 	m.pendingNewAC = ""
-	m.pendingBallPriority = 1  // Reset to default (medium)
-	m.pendingBallModelSize = 0 // Reset to default
+	m.pendingBallPriority = 1       // Reset to default (medium)
+	m.pendingBallModelSize = 0      // Reset to default
+	m.pendingBallAgentProvider = 0  // Reset to default
+	m.pendingBallModelOverride = 0  // Reset to default
 	m.pendingBallTags = ""
 	m.pendingBallSession = 0
 	m.pendingBallDependsOn = nil
@@ -270,10 +284,10 @@ func adjustContextTextareaHeight(m *Model) {
 }
 
 // handleUnifiedBallFormKey handles keyboard input for the unified ball creation form
-// Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Priority, Blocking Reason, Depends On, Save
+// Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Agent Provider, Model Override, Priority, Blocking Reason, Depends On, Save
 func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Field indices are dynamic due to variable AC count
-	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, BlockingReason, DependsOn, Save
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, AgentProvider, ModelOverride, Priority, BlockingReason, DependsOn, Save
 	const (
 		fieldContext = 0
 		fieldIntent  = 1 // Title field (was intent)
@@ -284,15 +298,19 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	fieldTags := fieldACEnd + 1
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
-	fieldPriority := fieldModelSize + 1
+	fieldAgentProvider := fieldModelSize + 1
+	fieldModelOverride := fieldAgentProvider + 1
+	fieldPriority := fieldModelOverride + 1
 	fieldBlockingReason := fieldPriority + 1
 	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
 
 	// Number of options for selection fields
-	numModelSizeOptions := 4      // (default), small, medium, large
-	numPriorityOptions := 4       // low, medium, high, urgent
-	numBlockingReasonOptions := 5 // (blank), Human needed, Waiting for dependency, Needs research, (custom)
+	numModelSizeOptions := 4       // (default), small, medium, large
+	numAgentProviderOptions := 3   // (default), claude, opencode
+	numModelOverrideOptions := 4   // (default), opus, sonnet, haiku
+	numPriorityOptions := 4        // low, medium, high, urgent
+	numBlockingReasonOptions := 5  // (blank), Human needed, Waiting for dependency, Needs research, (custom)
 
 	// Count real sessions (excluding pseudo-sessions)
 	numSessionOptions := 1 // Start with "(none)"
@@ -377,22 +395,24 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Helper to recalculate dynamic field indices after AC changes
-	recalcFieldIndices := func() (int, int, int, int, int, int, int, int) {
+	recalcFieldIndices := func() (int, int, int, int, int, int, int, int, int, int) {
 		newFieldACEnd := fieldACStart + len(m.pendingAcceptanceCriteria)
 		newFieldTags := newFieldACEnd + 1
 		newFieldSession := newFieldTags + 1
 		newFieldModelSize := newFieldSession + 1
-		newFieldPriority := newFieldModelSize + 1
+		newFieldAgentProvider := newFieldModelSize + 1
+		newFieldModelOverride := newFieldAgentProvider + 1
+		newFieldPriority := newFieldModelOverride + 1
 		newFieldBlockingReason := newFieldPriority + 1
 		newFieldDependsOn := newFieldBlockingReason + 1
 		newFieldSave := newFieldDependsOn + 1
-		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldPriority, newFieldBlockingReason, newFieldDependsOn, newFieldSave
+		return newFieldACEnd, newFieldTags, newFieldSession, newFieldModelSize, newFieldAgentProvider, newFieldModelOverride, newFieldPriority, newFieldBlockingReason, newFieldDependsOn, newFieldSave
 	}
 
 	// Helper to load field value into text input when entering field
 	loadFieldValue := func(field int) {
 		// Recalculate indices since ACs may have changed
-		acEnd, tagsField, _, _, _, blockingReasonField, _, _ := recalcFieldIndices()
+		acEnd, tagsField, _, _, _, _, _, blockingReasonField, _, _ := recalcFieldIndices()
 
 		m.textInput.Reset()
 		switch field {
@@ -542,12 +562,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				saveCurrentFieldValue()
 				m.pendingBallFormField++
 				// Recalculate indices after potential removal
-				newACEnd, _, _, _, _, _, _, newSave := recalcFieldIndices()
+				newACEnd, _, _, _, _, _, _, _, _, newSave := recalcFieldIndices()
 				maxFieldIndex = newSave
 				// Clamp to valid range
 				if m.pendingBallFormField > newACEnd {
 					// If we went past AC section, jump to Tags
-					_, newFieldTags, _, _, _, _, _, _ := recalcFieldIndices()
+					_, newFieldTags, _, _, _, _, _, _, _, _ := recalcFieldIndices()
 					m.pendingBallFormField = newFieldTags
 				}
 				loadFieldValue(m.pendingBallFormField)
@@ -557,7 +577,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			saveCurrentFieldValue()
 			m.pendingBallFormField++
 			// Recalculate after potential changes
-			_, _, _, _, _, _, _, newSave := recalcFieldIndices()
+			_, _, _, _, _, _, _, _, _, newSave := recalcFieldIndices()
 			maxFieldIndex = newSave
 			if m.pendingBallFormField > maxFieldIndex {
 				m.pendingBallFormField = maxFieldIndex
@@ -586,7 +606,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		saveCurrentFieldValue()
 		m.pendingBallFormField--
 		// Recalculate after potential removal
-		_, _, _, _, _, _, _, newSave := recalcFieldIndices()
+		_, _, _, _, _, _, _, _, _, newSave := recalcFieldIndices()
 		maxFieldIndex = newSave
 		if m.pendingBallFormField < 0 {
 			m.pendingBallFormField = maxFieldIndex
@@ -601,7 +621,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Check if we're navigating AC templates
-		newACEnd, newFieldTags, _, _, _, _, _, newSave := recalcFieldIndices()
+		newACEnd, newFieldTags, _, _, _, _, _, _, _, newSave := recalcFieldIndices()
 		if m.acTemplateCursor >= 0 && len(m.acTemplates) > 0 {
 			// We're in template navigation mode
 			m.acTemplateCursor++
@@ -673,7 +693,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "left":
 		// Arrow key left only cycles selection left for selection fields
-		_, _, sessionField, modelSizeField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
+		_, _, sessionField, modelSizeField, agentProviderField, modelOverrideField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
 			m.pendingBallSession--
 			if m.pendingBallSession < 0 {
@@ -685,6 +705,16 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingBallModelSize--
 			if m.pendingBallModelSize < 0 {
 				m.pendingBallModelSize = numModelSizeOptions - 1
+			}
+		} else if m.pendingBallFormField == agentProviderField {
+			m.pendingBallAgentProvider--
+			if m.pendingBallAgentProvider < 0 {
+				m.pendingBallAgentProvider = numAgentProviderOptions - 1
+			}
+		} else if m.pendingBallFormField == modelOverrideField {
+			m.pendingBallModelOverride--
+			if m.pendingBallModelOverride < 0 {
+				m.pendingBallModelOverride = numModelOverrideOptions - 1
 			}
 		} else if m.pendingBallFormField == priorityField {
 			m.pendingBallPriority--
@@ -704,7 +734,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "right":
 		// Arrow key right only cycles selection right for selection fields
-		_, _, sessionField, modelSizeField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
+		_, _, sessionField, modelSizeField, agentProviderField, modelOverrideField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
 			m.pendingBallSession++
 			if m.pendingBallSession >= numSessionOptions {
@@ -716,6 +746,16 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingBallModelSize++
 			if m.pendingBallModelSize >= numModelSizeOptions {
 				m.pendingBallModelSize = 0
+			}
+		} else if m.pendingBallFormField == agentProviderField {
+			m.pendingBallAgentProvider++
+			if m.pendingBallAgentProvider >= numAgentProviderOptions {
+				m.pendingBallAgentProvider = 0
+			}
+		} else if m.pendingBallFormField == modelOverrideField {
+			m.pendingBallModelOverride++
+			if m.pendingBallModelOverride >= numModelOverrideOptions {
+				m.pendingBallModelOverride = 0
 			}
 		} else if m.pendingBallFormField == priorityField {
 			m.pendingBallPriority++
@@ -790,7 +830,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		// Tab always moves to next field
 		// For selection fields, also toggle to next option before moving
-		_, _, sessionField, modelSizeField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
+		_, _, sessionField, modelSizeField, agentProviderField, modelOverrideField, priorityField, blockingReasonField, _, _ := recalcFieldIndices()
 		if m.pendingBallFormField == sessionField {
 			// Toggle to next session option
 			m.pendingBallSession++
@@ -804,6 +844,18 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingBallModelSize++
 			if m.pendingBallModelSize >= numModelSizeOptions {
 				m.pendingBallModelSize = 0
+			}
+		} else if m.pendingBallFormField == agentProviderField {
+			// Toggle to next agent provider option
+			m.pendingBallAgentProvider++
+			if m.pendingBallAgentProvider >= numAgentProviderOptions {
+				m.pendingBallAgentProvider = 0
+			}
+		} else if m.pendingBallFormField == modelOverrideField {
+			// Toggle to next model override option
+			m.pendingBallModelOverride++
+			if m.pendingBallModelOverride >= numModelOverrideOptions {
+				m.pendingBallModelOverride = 0
 			}
 		} else if m.pendingBallFormField == priorityField {
 			// Toggle to next priority option
@@ -822,7 +874,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			saveCurrentFieldValue()
 		}
 		// Move to next field
-		newACEnd, newFieldTags, _, _, _, _, _, newSave := recalcFieldIndices()
+		newACEnd, newFieldTags, _, _, _, _, _, _, _, newSave := recalcFieldIndices()
 		if m.pendingBallFormField == newACEnd {
 			m.pendingBallFormField = newFieldTags
 		} else {

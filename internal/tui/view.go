@@ -1013,7 +1013,7 @@ func (m Model) renderAutocompletePopup() string {
 }
 
 // renderUnifiedBallFormView renders the unified ball creation/editing form with all fields visible
-// Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Depends On
+// Field order: Context, Title, Acceptance Criteria, Tags, Session, Model Size, Agent Provider, Model Override, Priority, Blocking Reason, Depends On, Save
 func (m Model) renderUnifiedBallFormView() string {
 	var b strings.Builder
 
@@ -1029,7 +1029,7 @@ func (m Model) renderUnifiedBallFormView() string {
 	b.WriteString(titleStyled + "\n\n")
 
 	// Field indices are dynamic due to variable AC count
-	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, Priority, BlockingReason, DependsOn, Save
+	// Order: Context(0), Title(1), ACs(2 to 2+len(ACs)), Tags, Session, ModelSize, AgentProvider, ModelOverride, Priority, BlockingReason, DependsOn, Save
 	const (
 		fieldContext = 0
 		fieldIntent  = 1 // Title field (was intent)
@@ -1040,7 +1040,9 @@ func (m Model) renderUnifiedBallFormView() string {
 	fieldTags := fieldACEnd + 1
 	fieldSession := fieldTags + 1
 	fieldModelSize := fieldSession + 1
-	fieldPriority := fieldModelSize + 1
+	fieldAgentProvider := fieldModelSize + 1
+	fieldModelOverride := fieldAgentProvider + 1
+	fieldPriority := fieldModelOverride + 1
 	fieldBlockingReason := fieldPriority + 1
 	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
@@ -1295,6 +1297,52 @@ func (m Model) renderUnifiedBallFormView() string {
 		}
 		if j == m.pendingBallModelSize {
 			if m.pendingBallFormField == fieldModelSize {
+				b.WriteString(optionSelectedStyle.Render(opt))
+			} else {
+				b.WriteString(selectedStyle.Render(opt))
+			}
+		} else {
+			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Agent Provider field ---
+	agentProviders := []string{"(default)", "claude", "opencode"}
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldAgentProvider {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Agent Provider: "))
+	for j, opt := range agentProviders {
+		if j > 0 {
+			b.WriteString(" | ")
+		}
+		if j == m.pendingBallAgentProvider {
+			if m.pendingBallFormField == fieldAgentProvider {
+				b.WriteString(optionSelectedStyle.Render(opt))
+			} else {
+				b.WriteString(selectedStyle.Render(opt))
+			}
+		} else {
+			b.WriteString(optionNormalStyle.Render(opt))
+		}
+	}
+	b.WriteString("\n")
+
+	// --- Model Override field ---
+	modelOverrides := []string{"(default)", "opus", "sonnet", "haiku"}
+	labelStyle = normalStyle
+	if m.pendingBallFormField == fieldModelOverride {
+		labelStyle = activeFieldStyle
+	}
+	b.WriteString(labelStyle.Render("Model Override: "))
+	for j, opt := range modelOverrides {
+		if j > 0 {
+			b.WriteString(" | ")
+		}
+		if j == m.pendingBallModelOverride {
+			if m.pendingBallFormField == fieldModelOverride {
 				b.WriteString(optionSelectedStyle.Render(opt))
 			} else {
 				b.WriteString(selectedStyle.Render(opt))
