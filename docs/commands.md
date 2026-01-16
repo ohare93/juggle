@@ -386,7 +386,52 @@ juggle worktree status
 juggle worktree forget ../my-feature-worktree
 ```
 
-**Note:** The `workspace` alias works for all worktree commands (e.g., `juggle workspace add`).
+### Run Commands Across Workspaces
+
+Run any command in the main repo and all registered worktrees:
+
+```bash
+# Build in all workspaces
+juggle worktree run "devbox run build"
+
+# Run tests everywhere
+juggle worktree run "go test ./..."
+
+# Check VCS status across all
+juggle worktree run "jj status"
+```
+
+| Flag | Description |
+|------|-------------|
+| `--continue-on-error` | Don't stop on first failure |
+
+### Sync Settings Across Workspaces
+
+Detect mismatches in `.claude/settings.local.json` and optionally symlink them to the main repo:
+
+```bash
+# Check for drift (dry run)
+juggle worktree sync --dry-run
+
+# Interactive sync with prompts
+juggle worktree sync
+
+# Auto-confirm all symlinks
+juggle worktree sync --yes
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Show what would be done without making changes |
+| `-y, --yes` | Auto-confirm all symlink operations |
+
+The sync command:
+- Compares files between main repo and worktrees
+- Shows status: `✓ symlinked`, `✓ identical`, `⚠ differs`, `- missing`
+- Backs up existing files before replacing (with timestamp if `.bak` exists)
+- Prompts for each differing file (y/n/all/quit)
+
+**Note:** The `workspace` alias works for all worktree commands (e.g., `juggle workspace run`).
 
 See [Installation Guide - Worktrees](./installation.md#worktrees-parallel-agent-loops) for full setup instructions.
 

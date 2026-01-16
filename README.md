@@ -142,6 +142,12 @@ In juggle we just need to link the two repos to the same juggle project, then th
 See [Worktrees (Parallel Agent Loops)](docs/installation.md#worktrees-parallel-agent-loops)
 in the installation guide for setup instructions.
 
+**Workspace management:**
+```bash
+juggle worktree run "devbox run build"  # Build in all workspaces
+juggle worktree sync                     # Sync local files (e.g. .claude/settings.local.json)
+```
+
 ![JJ Commit Log with Worktrees](assets/jj-commit-log-with-3-worktrees.png)
 
 ## Built With Itself
