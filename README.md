@@ -1,10 +1,12 @@
 # Juggle - CLI Ralph Loops with Good UX
 
-Run Ralph Loops while throwing in further tasks; no need to stop the loop or editing json.
+Run Ralph Loops while throwing in further tasks; no need to stop the loop or edit JSON.
 
 - Define tasks with acceptance criteria, priority, model size, ...
 - Let agents execute autonomously
 - Manage work via TUI while they run.
+
+**See also:** [Agent Skill](#agent-skill) for teaching your AI the Juggle CLI | [Worktrees](#parallel-agents-with-worktrees) for parallel loops | [Full docs](docs/)
 
 ## Why Juggle?
 
@@ -38,13 +40,12 @@ Juggle adds the missing structure:
 The feedback from the Agent running in the loop is a bit raw, but it gets the job done.
 Further work will be done to improve it from this early version.
 
-The important part it that it _works_.
+The important part is that it _works_.
 
-- Craft tasks (balls) in 5 different repos and run the loop. Update and append tasks into all of the projects at once.
-- Yet for each Ralph loop your tasks remain isolated - and you can update and edit the tasks at the same time as the loop without issues.
+- Tasks remain isolated per repo - edit and update them while the loop runs without conflicts.
 - Quick shortcuts to run loops, run refinement for your tasks, run interactive sessions for hand-holding the Agent.
 
-After you're running a loop in 4 different repos and a double loop using workspaces in your main repo... then you're truly succeeding at Agentic Development.
+After you're running multiple loops using worktrees in your main repo... then you're truly succeeding at Agentic Development.
 
 ## Built With Itself
 
@@ -52,18 +53,20 @@ After you're running a loop in 4 different repos and a double loop using workspa
 Commit stats generated with:
 jj log --no-graph -r 'ancestors(@)' -T 'committer.timestamp() ++ "\n"' | cut -d' ' -f1 | sort | uniq -c | sort -k2
 
-Output on 2026-01-14:
+Output on 2026-01-16:
      44 2026-01-10
       6 2026-01-11
      92 2026-01-12
      22 2026-01-13
      66 2026-01-14
+     10 2026-01-15
+     25 2026-01-16
 (plus 7 earlier commits from Oct/Nov 2025 initial setup)
 -->
 
-Juggle was built using juggle - after the first few clunky Ralph Loops with bash scripts and there was something working here.
+Juggle was built using juggle - after the first few clunky Ralph Loops with bash scripts, there was something working enough to bootstrap itself.
 
-Here's the commit activity from the first 5 days of development:
+Here's the commit activity from the first week of development:
 
 ```
 Jan 10  ████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  44
@@ -71,8 +74,10 @@ Jan 11  ███░░░░░░░░░░░░░░░░░░░░░
 Jan 12  ████████████████████████████████████████████████████  92
 Jan 13  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  22
 Jan 14  █████████████████████████████████████░░░░░░░░░░░░░░░  66
+Jan 15  █████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  10
+Jan 16  ██████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  25
         ──────────────────────────────────────────────────────
-        230 commits in 5 days
+        265 commits in 7 days
 ```
 
 The workflow was simple:
@@ -127,6 +132,8 @@ go install github.com/ohare93/juggle/cmd/juggle@latest
 See [Installation Guide](docs/installation.md) for building from source and additional options.
 
 ## Quick Start
+
+> **Prerequisite:** You need [Claude Code](https://claude.ai/code) or [OpenCode](https://opencode.ai/) already set up and authenticated. This is what Juggle will be running, with flags.
 
 ### Create a session and add tasks
 
@@ -210,8 +217,11 @@ Juggle includes a skill that teaches AI agents how to manage tasks. Install it s
 **Claude Code:**
 
 ```bash
-claude plugin add github:ohare93/juggle
+/plugin marketplace add ohare93/juggle
+/plugin install juggle
 ```
+
+Or use `/plugin` for interactive installation.
 
 See [Agent Skill Setup](docs/installation.md#agent-skill) for other agents and details.
 

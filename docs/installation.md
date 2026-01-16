@@ -1,15 +1,22 @@
 # Installation Guide
 
-## Prerequisites
-
-- Go 1.21 or later (for building from source)
-- Git
-
 ## Installation Methods
 
-### Method 1: Install Script (Recommended)
+### macOS (Homebrew)
 
-The quickest way to install Juggle:
+```bash
+brew tap ohare93/tap && brew install juggle
+```
+
+### Windows (Scoop)
+
+```bash
+scoop bucket add ohare93 https://github.com/ohare93/scoop && scoop install juggle
+```
+
+### Linux (Install Script)
+
+The quickest way to install Juggle on Linux:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/ohare93/juggle/main/install.sh | bash
@@ -29,23 +36,7 @@ The script will:
 2. Install the binary to `~/.local/bin/juggle`
 3. Add `~/.local/bin` to your PATH if needed
 
-### Method 2: Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/ohare93/juggle.git
-cd juggle
-
-# Build the binary
-go build -o juggle ./cmd/juggle
-
-# Install to your PATH
-sudo mv juggle /usr/local/bin/
-# or
-mv juggle ~/.local/bin/
-```
-
-### Method 3: Go Install
+### Go Install
 
 If you have Go installed:
 
@@ -55,7 +46,7 @@ go install github.com/ohare93/juggle/cmd/juggle@latest
 
 Make sure `$GOPATH/bin` (usually `~/go/bin`) is in your PATH.
 
-### Method 4: Download Pre-built Binary
+### Download Pre-built Binary
 
 1. Go to the [Releases page](https://github.com/ohare93/juggle/releases)
 2. Download the binary for your platform
@@ -68,6 +59,17 @@ sudo mv juggle /usr/local/bin/
 
 # Or install to user directory
 mkdir -p ~/.local/bin
+mv juggle ~/.local/bin/
+```
+
+### Build from Source
+
+Requires Go 1.21 or later:
+
+```bash
+git clone https://github.com/ohare93/juggle.git
+cd juggle
+go build -o juggle ./cmd/juggle
 mv juggle ~/.local/bin/
 ```
 
@@ -123,8 +125,11 @@ The skill teaches agents:
 ### Claude Code
 
 ```bash
-claude plugin add github:ohare93/juggle
+/plugin marketplace add ohare93/juggle
+/plugin install juggle
 ```
+
+Or use `/plugin` for interactive installation.
 
 The skill activates automatically when Claude detects a `.juggle/` directory or when you mention juggle, balls, or sessions.
 
