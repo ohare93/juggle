@@ -20,16 +20,16 @@ go install ./cmd/juggle
 ### Testing
 
 ```bash
-# Run integration tests (quiet - shows pass/fail summary only)
+# Run all tests (quiet - shows pass/fail summary only)
 devbox run test-quiet
 
-# Run integration tests (verbose - full output)
-devbox run test-verbose
-# or: go test -v ./internal/integration_test/...
-
-# Run all tests
-devbox run test-all
+# Run all tests (verbose - full output)
+devbox run test
 # or: go test -v ./...
+
+# Run only integration tests
+devbox run test-integration
+# or: go test -v ./internal/integration_test/...
 
 # Generate coverage report
 devbox run test-coverage

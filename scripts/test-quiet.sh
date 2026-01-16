@@ -7,7 +7,7 @@
 TMPFILE=$(mktemp)
 trap "rm -f $TMPFILE" EXIT
 
-go test -json ./internal/integration_test/... > "$TMPFILE" 2>&1
+go test -json ./... > "$TMPFILE" 2>&1
 TEST_EXIT_CODE=$?
 
 # Count pass/fail from JSON output using grep
@@ -31,6 +31,6 @@ else
     # Extract failed test names - look for lines with "fail" action and non-empty Test field
     grep '"Action":"fail"' "$TMPFILE" | grep '"Test":"[^"]\+"' | sed 's/.*"Test":"\([^"]*\)".*/  \1/' | sort -u
     echo ""
-    echo "Run 'devbox run test-verbose' for full output"
+    echo "Run 'devbox run test' for full output"
     exit 1
 fi

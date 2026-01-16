@@ -20,8 +20,8 @@ Priority: low | medium | high | urgent␤
 Blocking Reason: (blank) | Human needed | Waiting for dependency | Needs research | (custom)␤
 Depends On: (none)␤
 ␤
-┌────────────┐␤
-│  [ Save ]  │␤
-└────────────┘␤
+┌────────────┐  ┌───────────────┐␤
+│  [ Save ]  │  │  [ Run now ]  │␤
+└────────────┘  └───────────────┘␤
 ␤
 ↑/↓ = navigate | Tab = next | ←/→ = cycle options | Enter = next/add | Ctrl+S = save | Esc = cancel🛇
