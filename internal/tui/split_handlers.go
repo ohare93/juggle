@@ -392,23 +392,41 @@ func (m Model) handleToggleLocalOnly() (tea.Model, tea.Cmd) {
 	)
 }
 
-// handleToggleSortOrder cycles through sort orders for balls
+// handleToggleSortOrder cycles through sort orders for balls.
+// Each sort method has Desc then Asc before moving to the next method.
+// Order: ID Desc → ID Asc → Priority Desc → Priority Asc → Activity Desc → Activity Asc → Created Desc → Created Asc → (loop)
 func (m Model) handleToggleSortOrder() (tea.Model, tea.Cmd) {
-	// Cycle through sort orders
+	// Cycle through sort orders: each method has Desc then Asc
 	switch m.sortOrder {
 	case SortByIDASC:
 		m.sortOrder = SortByIDDESC
 		m.addActivity("Sort: ID descending")
 		m.message = "Sort: ID descending"
 	case SortByIDDESC:
-		m.sortOrder = SortByPriority
-		m.addActivity("Sort: Priority")
-		m.message = "Sort: Priority (urgent first)"
-	case SortByPriority:
-		m.sortOrder = SortByLastActivity
-		m.addActivity("Sort: Last activity")
-		m.message = "Sort: Last activity (recent first)"
-	case SortByLastActivity:
+		m.sortOrder = SortByPriorityDESC
+		m.addActivity("Sort: Priority descending")
+		m.message = "Sort: Priority descending (urgent first)"
+	case SortByPriorityDESC:
+		m.sortOrder = SortByPriorityASC
+		m.addActivity("Sort: Priority ascending")
+		m.message = "Sort: Priority ascending (low first)"
+	case SortByPriorityASC:
+		m.sortOrder = SortByLastActivityDESC
+		m.addActivity("Sort: Activity descending")
+		m.message = "Sort: Activity descending (recent first)"
+	case SortByLastActivityDESC:
+		m.sortOrder = SortByLastActivityASC
+		m.addActivity("Sort: Activity ascending")
+		m.message = "Sort: Activity ascending (oldest first)"
+	case SortByLastActivityASC:
+		m.sortOrder = SortByCreatedAtDESC
+		m.addActivity("Sort: Created descending")
+		m.message = "Sort: Created descending (newest first)"
+	case SortByCreatedAtDESC:
+		m.sortOrder = SortByCreatedAtASC
+		m.addActivity("Sort: Created ascending")
+		m.message = "Sort: Created ascending (oldest first)"
+	case SortByCreatedAtASC:
 		m.sortOrder = SortByIDASC
 		m.addActivity("Sort: ID ascending")
 		m.message = "Sort: ID ascending"

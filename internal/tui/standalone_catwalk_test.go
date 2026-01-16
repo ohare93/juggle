@@ -510,7 +510,7 @@ func TestBallsPanelSortByID(t *testing.T) {
 func TestBallsPanelSortByPriority(t *testing.T) {
 	model := createTestSplitViewModel(t)
 	model.activePanel = BallsPanel
-	model.sortOrder = SortByPriority
+	model.sortOrder = SortByPriorityDESC
 	model.showPriorityColumn = true
 	model.balls = []*session.Ball{
 		{ID: "juggle-1", Title: "Low priority", State: session.StatePending, Priority: session.PriorityLow},

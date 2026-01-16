@@ -69,10 +69,14 @@ const (
 type SortOrder int
 
 const (
-	SortByIDASC      SortOrder = iota // Sort by ID ascending (default)
-	SortByIDDESC                      // Sort by ID descending
-	SortByPriority                    // Sort by priority (urgent first)
-	SortByLastActivity                // Sort by last activity (most recent first)
+	SortByIDASC           SortOrder = iota // Sort by ID ascending (default)
+	SortByIDDESC                           // Sort by ID descending
+	SortByPriorityDESC                     // Sort by priority descending (urgent first)
+	SortByPriorityASC                      // Sort by priority ascending (low first)
+	SortByLastActivityDESC                 // Sort by last activity descending (most recent first)
+	SortByLastActivityASC                  // Sort by last activity ascending (oldest activity first)
+	SortByCreatedAtDESC                    // Sort by creation time descending (newest first)
+	SortByCreatedAtASC                     // Sort by creation time ascending (oldest first)
 )
 
 // Special pseudo-session IDs

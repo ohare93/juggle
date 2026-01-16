@@ -1934,20 +1934,44 @@ func TestToggleSortOrder(t *testing.T) {
 			expectedMessage: "Sort: ID descending",
 		},
 		{
-			name:            "ID descending to priority",
+			name:            "ID descending to priority descending",
 			startSortOrder:  SortByIDDESC,
-			expectedOrder:   SortByPriority,
-			expectedMessage: "Sort: Priority (urgent first)",
+			expectedOrder:   SortByPriorityDESC,
+			expectedMessage: "Sort: Priority descending (urgent first)",
 		},
 		{
-			name:            "Priority to last activity",
-			startSortOrder:  SortByPriority,
-			expectedOrder:   SortByLastActivity,
-			expectedMessage: "Sort: Last activity (recent first)",
+			name:            "Priority descending to priority ascending",
+			startSortOrder:  SortByPriorityDESC,
+			expectedOrder:   SortByPriorityASC,
+			expectedMessage: "Sort: Priority ascending (low first)",
 		},
 		{
-			name:            "Last activity to ID ascending",
-			startSortOrder:  SortByLastActivity,
+			name:            "Priority ascending to activity descending",
+			startSortOrder:  SortByPriorityASC,
+			expectedOrder:   SortByLastActivityDESC,
+			expectedMessage: "Sort: Activity descending (recent first)",
+		},
+		{
+			name:            "Activity descending to activity ascending",
+			startSortOrder:  SortByLastActivityDESC,
+			expectedOrder:   SortByLastActivityASC,
+			expectedMessage: "Sort: Activity ascending (oldest first)",
+		},
+		{
+			name:            "Activity ascending to created descending",
+			startSortOrder:  SortByLastActivityASC,
+			expectedOrder:   SortByCreatedAtDESC,
+			expectedMessage: "Sort: Created descending (newest first)",
+		},
+		{
+			name:            "Created descending to created ascending",
+			startSortOrder:  SortByCreatedAtDESC,
+			expectedOrder:   SortByCreatedAtASC,
+			expectedMessage: "Sort: Created ascending (oldest first)",
+		},
+		{
+			name:            "Created ascending to ID ascending (cycle complete)",
+			startSortOrder:  SortByCreatedAtASC,
 			expectedOrder:   SortByIDASC,
 			expectedMessage: "Sort: ID ascending",
 		},
@@ -2019,8 +2043,8 @@ func TestSortBallsByIDDescending(t *testing.T) {
 	}
 }
 
-// Test sorting balls by priority
-func TestSortBallsByPriority(t *testing.T) {
+// Test sorting balls by priority descending
+func TestSortBallsByPriorityDesc(t *testing.T) {
 	balls := []*session.Ball{
 		{ID: "juggle-1", Priority: session.PriorityLow},
 		{ID: "juggle-2", Priority: session.PriorityUrgent},
@@ -2029,12 +2053,12 @@ func TestSortBallsByPriority(t *testing.T) {
 	}
 
 	model := Model{
-		sortOrder: SortByPriority,
+		sortOrder: SortByPriorityDESC,
 	}
 
 	model.sortBalls(balls)
 
-	// Should be sorted by priority: urgent, high, medium, low
+	// Should be sorted by priority descending: urgent, high, medium, low
 	expectedOrder := []string{"juggle-2", "juggle-4", "juggle-3", "juggle-1"}
 	for i, ball := range balls {
 		if ball.ID != expectedOrder[i] {
@@ -2052,7 +2076,7 @@ func TestSortBallsByPriorityThenID(t *testing.T) {
 	}
 
 	model := Model{
-		sortOrder: SortByPriority,
+		sortOrder: SortByPriorityDESC,
 	}
 
 	model.sortBalls(balls)
@@ -2062,6 +2086,126 @@ func TestSortBallsByPriorityThenID(t *testing.T) {
 	for i, ball := range balls {
 		if ball.ID != expected[i] {
 			t.Errorf("Expected ball at index %d to be %q, got %q", i, expected[i], ball.ID)
+		}
+	}
+}
+
+// Test sorting balls by priority ascending
+func TestSortBallsByPriorityAsc(t *testing.T) {
+	balls := []*session.Ball{
+		{ID: "juggle-1", Priority: session.PriorityLow},
+		{ID: "juggle-2", Priority: session.PriorityUrgent},
+		{ID: "juggle-3", Priority: session.PriorityMedium},
+		{ID: "juggle-4", Priority: session.PriorityHigh},
+	}
+
+	model := Model{
+		sortOrder: SortByPriorityASC,
+	}
+
+	model.sortBalls(balls)
+
+	// Should be sorted by priority ascending: low, medium, high, urgent
+	expectedOrder := []string{"juggle-1", "juggle-3", "juggle-4", "juggle-2"}
+	for i, ball := range balls {
+		if ball.ID != expectedOrder[i] {
+			t.Errorf("Expected ball at index %d to be %q, got %q", i, expectedOrder[i], ball.ID)
+		}
+	}
+}
+
+// Test sorting balls by creation time descending
+func TestSortBallsByCreatedAtDesc(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	balls := []*session.Ball{
+		{ID: "juggle-1", StartedAt: baseTime.Add(1 * time.Hour)},  // oldest
+		{ID: "juggle-2", StartedAt: baseTime.Add(3 * time.Hour)},  // newest
+		{ID: "juggle-3", StartedAt: baseTime.Add(2 * time.Hour)},  // middle
+	}
+
+	model := Model{
+		sortOrder: SortByCreatedAtDESC,
+	}
+
+	model.sortBalls(balls)
+
+	// Should be sorted by creation time descending (newest first)
+	expectedOrder := []string{"juggle-2", "juggle-3", "juggle-1"}
+	for i, ball := range balls {
+		if ball.ID != expectedOrder[i] {
+			t.Errorf("Expected ball at index %d to be %q, got %q", i, expectedOrder[i], ball.ID)
+		}
+	}
+}
+
+// Test sorting balls by creation time ascending
+func TestSortBallsByCreatedAtAsc(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	balls := []*session.Ball{
+		{ID: "juggle-1", StartedAt: baseTime.Add(1 * time.Hour)},  // oldest
+		{ID: "juggle-2", StartedAt: baseTime.Add(3 * time.Hour)},  // newest
+		{ID: "juggle-3", StartedAt: baseTime.Add(2 * time.Hour)},  // middle
+	}
+
+	model := Model{
+		sortOrder: SortByCreatedAtASC,
+	}
+
+	model.sortBalls(balls)
+
+	// Should be sorted by creation time ascending (oldest first)
+	expectedOrder := []string{"juggle-1", "juggle-3", "juggle-2"}
+	for i, ball := range balls {
+		if ball.ID != expectedOrder[i] {
+			t.Errorf("Expected ball at index %d to be %q, got %q", i, expectedOrder[i], ball.ID)
+		}
+	}
+}
+
+// Test sorting balls by activity time descending
+func TestSortBallsByLastActivityDesc(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	balls := []*session.Ball{
+		{ID: "juggle-1", LastActivity: baseTime.Add(1 * time.Hour)},  // oldest
+		{ID: "juggle-2", LastActivity: baseTime.Add(3 * time.Hour)},  // newest
+		{ID: "juggle-3", LastActivity: baseTime.Add(2 * time.Hour)},  // middle
+	}
+
+	model := Model{
+		sortOrder: SortByLastActivityDESC,
+	}
+
+	model.sortBalls(balls)
+
+	// Should be sorted by last activity descending (recent first)
+	expectedOrder := []string{"juggle-2", "juggle-3", "juggle-1"}
+	for i, ball := range balls {
+		if ball.ID != expectedOrder[i] {
+			t.Errorf("Expected ball at index %d to be %q, got %q", i, expectedOrder[i], ball.ID)
+		}
+	}
+}
+
+// Test sorting balls by activity time ascending
+func TestSortBallsByLastActivityAsc(t *testing.T) {
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	balls := []*session.Ball{
+		{ID: "juggle-1", LastActivity: baseTime.Add(1 * time.Hour)},  // oldest
+		{ID: "juggle-2", LastActivity: baseTime.Add(3 * time.Hour)},  // newest
+		{ID: "juggle-3", LastActivity: baseTime.Add(2 * time.Hour)},  // middle
+	}
+
+	model := Model{
+		sortOrder: SortByLastActivityASC,
+	}
+
+	model.sortBalls(balls)
+
+	// Should be sorted by last activity ascending (oldest first)
+	expectedOrder := []string{"juggle-1", "juggle-3", "juggle-2"}
+	for i, ball := range balls {
+		if ball.ID != expectedOrder[i] {
+			t.Errorf("Expected ball at index %d to be %q, got %q", i, expectedOrder[i], ball.ID)
 		}
 	}
 }

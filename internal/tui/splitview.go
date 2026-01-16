@@ -280,10 +280,18 @@ func (m Model) renderBallsPanel(width, height int) string {
 		sortIndicator = " [↑ID]"
 	case SortByIDDESC:
 		sortIndicator = " [↓ID]"
-	case SortByPriority:
-		sortIndicator = " [Pri]"
-	case SortByLastActivity:
-		sortIndicator = " [Act]"
+	case SortByPriorityDESC:
+		sortIndicator = " [↓Pri]"
+	case SortByPriorityASC:
+		sortIndicator = " [↑Pri]"
+	case SortByLastActivityDESC:
+		sortIndicator = " [↓Act]"
+	case SortByLastActivityASC:
+		sortIndicator = " [↑Act]"
+	case SortByCreatedAtDESC:
+		sortIndicator = " [↓New]"
+	case SortByCreatedAtASC:
+		sortIndicator = " [↑New]"
 	}
 	title += sortIndicator
 	if m.panelSearchActive && m.activePanel == BallsPanel {

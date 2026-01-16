@@ -921,7 +921,7 @@ func (m *Model) sortBalls(balls []*session.Ball) {
 		sort.Slice(balls, func(i, j int) bool {
 			return compareBallIDs(balls[i].ID, balls[j].ID) > 0
 		})
-	case SortByPriority:
+	case SortByPriorityDESC:
 		sort.Slice(balls, func(i, j int) bool {
 			// Higher priority first
 			if balls[i].PriorityWeight() != balls[j].PriorityWeight() {
@@ -930,10 +930,34 @@ func (m *Model) sortBalls(balls []*session.Ball) {
 			// Then by ID ascending
 			return compareBallIDs(balls[i].ID, balls[j].ID) < 0
 		})
-	case SortByLastActivity:
+	case SortByPriorityASC:
+		sort.Slice(balls, func(i, j int) bool {
+			// Lower priority first
+			if balls[i].PriorityWeight() != balls[j].PriorityWeight() {
+				return balls[i].PriorityWeight() < balls[j].PriorityWeight()
+			}
+			// Then by ID ascending
+			return compareBallIDs(balls[i].ID, balls[j].ID) < 0
+		})
+	case SortByLastActivityDESC:
 		sort.Slice(balls, func(i, j int) bool {
 			// More recent first
 			return balls[i].LastActivity.After(balls[j].LastActivity)
+		})
+	case SortByLastActivityASC:
+		sort.Slice(balls, func(i, j int) bool {
+			// Older activity first
+			return balls[i].LastActivity.Before(balls[j].LastActivity)
+		})
+	case SortByCreatedAtDESC:
+		sort.Slice(balls, func(i, j int) bool {
+			// Newer creation time first (StartedAt is set at creation time)
+			return balls[i].StartedAt.After(balls[j].StartedAt)
+		})
+	case SortByCreatedAtASC:
+		sort.Slice(balls, func(i, j int) bool {
+			// Older creation time first
+			return balls[i].StartedAt.Before(balls[j].StartedAt)
 		})
 	}
 }
