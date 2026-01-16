@@ -818,6 +818,179 @@ func TestSessionStore_LoadProgress_AllMetaSession_Empty(t *testing.T) {
 	}
 }
 
+// TestSessionStore_ClearProgress tests clearing session progress
+func TestSessionStore_ClearProgress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create session
+	_, err = store.CreateSession("my-session", "desc")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Append progress
+	err = store.AppendProgress("my-session", "First line\n")
+	if err != nil {
+		t.Fatalf("failed to append progress: %v", err)
+	}
+	err = store.AppendProgress("my-session", "Second line\n")
+	if err != nil {
+		t.Fatalf("failed to append progress: %v", err)
+	}
+
+	// Verify progress exists
+	progress, err := store.LoadProgress("my-session")
+	if err != nil {
+		t.Fatalf("failed to load progress: %v", err)
+	}
+	if progress == "" {
+		t.Error("expected progress to exist before clear")
+	}
+
+	// Clear progress
+	err = store.ClearProgress("my-session")
+	if err != nil {
+		t.Fatalf("failed to clear progress: %v", err)
+	}
+
+	// Verify progress is empty
+	progress, err = store.LoadProgress("my-session")
+	if err != nil {
+		t.Fatalf("failed to load progress after clear: %v", err)
+	}
+	if progress != "" {
+		t.Errorf("expected empty progress after clear, got '%s'", progress)
+	}
+}
+
+// TestSessionStore_ClearProgress_Empty tests clearing already-empty progress
+func TestSessionStore_ClearProgress_Empty(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create session (creates empty progress file)
+	_, err = store.CreateSession("my-session", "desc")
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
+	// Clear empty progress should succeed
+	err = store.ClearProgress("my-session")
+	if err != nil {
+		t.Fatalf("clearing empty progress should not error: %v", err)
+	}
+
+	// Progress should still be empty
+	progress, err := store.LoadProgress("my-session")
+	if err != nil {
+		t.Fatalf("failed to load progress: %v", err)
+	}
+	if progress != "" {
+		t.Errorf("expected empty progress, got '%s'", progress)
+	}
+}
+
+// TestSessionStore_ClearProgress_SessionNotFound tests clearing non-existent session
+func TestSessionStore_ClearProgress_SessionNotFound(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Try to clear non-existent session
+	err = store.ClearProgress("nonexistent")
+	if err == nil {
+		t.Error("expected error clearing progress for non-existent session")
+	}
+}
+
+// TestSessionStore_ClearProgress_AllMetaSession tests clearing the _all virtual session
+func TestSessionStore_ClearProgress_AllMetaSession(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Append progress to "_all"
+	err = store.AppendProgress("_all", "Progress entry\n")
+	if err != nil {
+		t.Fatalf("failed to append progress to _all: %v", err)
+	}
+
+	// Verify progress exists
+	progress, err := store.LoadProgress("_all")
+	if err != nil {
+		t.Fatalf("failed to load progress from _all: %v", err)
+	}
+	if progress == "" {
+		t.Error("expected progress to exist before clear")
+	}
+
+	// Clear _all progress
+	err = store.ClearProgress("_all")
+	if err != nil {
+		t.Fatalf("failed to clear _all progress: %v", err)
+	}
+
+	// Verify progress is empty
+	progress, err = store.LoadProgress("_all")
+	if err != nil {
+		t.Fatalf("failed to load progress after clear: %v", err)
+	}
+	if progress != "" {
+		t.Errorf("expected empty progress after clear, got '%s'", progress)
+	}
+}
+
+// TestSessionStore_ClearProgress_AllMetaSession_NotExists tests clearing non-existent _all
+func TestSessionStore_ClearProgress_AllMetaSession_NotExists(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	store, err := NewSessionStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Clear _all that doesn't exist should succeed (nothing to clear)
+	err = store.ClearProgress("_all")
+	if err != nil {
+		t.Fatalf("clearing non-existent _all should not error: %v", err)
+	}
+}
+
 // TestJuggleSession_SetAcceptanceCriteria tests setting session acceptance criteria
 func TestJuggleSession_SetAcceptanceCriteria(t *testing.T) {
 	session := NewJuggleSession("test", "desc")

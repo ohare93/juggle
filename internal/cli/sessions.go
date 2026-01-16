@@ -30,6 +30,7 @@ Commands:
   sessions edit <id>                     Edit session properties (opens in editor)
   sessions context <id> [--edit]         View or edit session context
   sessions progress <id>                 View session progress log
+  sessions progress clear <id>           Clear session progress log
   sessions delete <id>                   Delete a session
 
 Alias: 'session' can be used instead of 'sessions'`,
@@ -108,6 +109,19 @@ Shows timestamped entries that track the session's history and agent activity.`,
 	RunE: runSessionsProgress,
 }
 
+var sessionsProgressClearCmd = &cobra.Command{
+	Use:   "clear <id>",
+	Short: "Clear session progress log",
+	Long: `Clear the progress log (progress.txt) for a session.
+
+This truncates the progress file to empty, removing all logged history.
+Use --yes (-y) to skip the confirmation prompt (for headless/automated use).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsProgressClear,
+}
+
+var sessionProgressClearYesFlag bool
+
 var sessionsEditCmd = &cobra.Command{
 	Use:   "edit <id>",
 	Short: "Edit a session's properties",
@@ -144,6 +158,7 @@ func init() {
 	sessionsContextCmd.Flags().BoolVar(&sessionEditFlag, "edit", false, "Open context in $EDITOR")
 	sessionsContextCmd.Flags().StringVar(&sessionSetFlag, "set", "", "Set context directly (agent-friendly)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
+	sessionsProgressClearCmd.Flags().BoolVarP(&sessionProgressClearYesFlag, "yes", "y", false, "Skip confirmation prompt (for headless mode)")
 
 	// Add flags for edit command
 	sessionsEditCmd.Flags().StringVarP(&sessionEditDescriptionFlag, "message", "m", "", "Update session description")
@@ -161,6 +176,9 @@ func init() {
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsProgressCmd)
 	sessionsCmd.AddCommand(sessionsEditCmd)
+
+	// Add progress subcommands
+	sessionsProgressCmd.AddCommand(sessionsProgressClearCmd)
 }
 
 func runSessionsCreate(cmd *cobra.Command, args []string) error {
@@ -596,6 +614,52 @@ func runSessionsProgress(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Print(progress)
+	return nil
+}
+
+func runSessionsProgressClear(cmd *cobra.Command, args []string) error {
+	id := args[0]
+
+	cwd, err := GetWorkingDir()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	store, err := session.NewSessionStoreWithConfig(cwd, GetStoreConfig())
+	if err != nil {
+		return fmt.Errorf("failed to initialize session store: %w", err)
+	}
+
+	// Verify session exists (skip for _all virtual session)
+	if id != "_all" && id != "all" {
+		if _, err := store.LoadSession(id); err != nil {
+			return fmt.Errorf("session not found: %s", id)
+		}
+	}
+
+	// Normalize "all" to "_all" for consistency
+	clearID := id
+	if id == "all" {
+		clearID = "_all"
+	}
+
+	// Confirm clearing (skip with --yes flag)
+	if !sessionProgressClearYesFlag {
+		confirmed, err := ConfirmSingleKey(fmt.Sprintf("Clear progress for session '%s'? This cannot be undone.", id))
+		if err != nil {
+			return err
+		}
+		if !confirmed {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+	}
+
+	if err := store.ClearProgress(clearID); err != nil {
+		return fmt.Errorf("failed to clear progress: %w", err)
+	}
+
+	fmt.Printf("Cleared progress for session: %s\n", id)
 	return nil
 }
 

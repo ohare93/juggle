@@ -351,6 +351,42 @@ func (s *SessionStore) LoadProgress(id string) (string, error) {
 	return string(data), nil
 }
 
+// ClearProgress truncates a session's progress file to empty
+func (s *SessionStore) ClearProgress(id string) error {
+	// Verify session exists (skip for "_all" virtual session)
+	if id != "_all" {
+		if _, err := s.LoadSession(id); err != nil {
+			return err
+		}
+	}
+
+	progressPath := s.progressFilePath(id)
+	lockPath := progressPath + ".lock"
+
+	// Check if progress file exists (nothing to clear for "_all" if it doesn't exist)
+	if _, err := os.Stat(progressPath); os.IsNotExist(err) {
+		if id == "_all" {
+			return nil // Nothing to clear for non-existent _all progress
+		}
+		// For regular sessions, file should exist but treat as success if not
+		return nil
+	}
+
+	// Acquire file lock
+	fileLock := flock.New(lockPath)
+	if err := fileLock.Lock(); err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer fileLock.Unlock()
+
+	// Truncate the file
+	if err := os.WriteFile(progressPath, []byte{}, 0644); err != nil {
+		return fmt.Errorf("failed to clear progress file: %w", err)
+	}
+
+	return nil
+}
+
 // saveSession writes a session to disk
 func (s *SessionStore) saveSession(session *JuggleSession) error {
 	filePath := s.sessionFilePath(session.ID)

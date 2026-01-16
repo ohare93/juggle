@@ -24,19 +24,20 @@ func isTerminal(fd uintptr) bool {
 }
 
 var (
-	agentIterations  int
-	agentTrust       bool
-	agentTimeout     time.Duration
-	agentDebug       bool
-	agentDryRun      bool
-	agentMaxWait     time.Duration
-	agentBallID      string
-	agentInteractive bool
-	agentModel       string
-	agentDelay       int    // Delay between iterations in minutes (overrides config)
-	agentFuzz        int    // +/- variance in delay minutes (overrides config)
-	agentProvider    string // Agent provider (claude, opencode)
-	agentIgnoreLock  bool   // Skip lock acquisition
+	agentIterations   int
+	agentTrust        bool
+	agentTimeout      time.Duration
+	agentDebug        bool
+	agentDryRun       bool
+	agentMaxWait      time.Duration
+	agentBallID       string
+	agentInteractive  bool
+	agentModel        string
+	agentDelay        int    // Delay between iterations in minutes (overrides config)
+	agentFuzz         int    // +/- variance in delay minutes (overrides config)
+	agentProvider     string // Agent provider (claude, opencode)
+	agentIgnoreLock   bool   // Skip lock acquisition
+	agentClearProgress bool  // Clear session progress before running
 
 	// Refine command flags
 	refineProvider string // Agent provider for refine command
@@ -179,6 +180,7 @@ func init() {
 	agentRunCmd.Flags().IntVar(&agentFuzz, "fuzz", 0, "Random +/- variance in delay minutes (overrides config)")
 	agentRunCmd.Flags().StringVar(&agentProvider, "provider", "", "Agent provider to use (claude, opencode). Default: from config or claude")
 	agentRunCmd.Flags().BoolVar(&agentIgnoreLock, "ignore-lock", false, "Skip lock acquisition (use with caution)")
+	agentRunCmd.Flags().BoolVar(&agentClearProgress, "clear-progress", false, "Clear session progress before running")
 
 	// Refine command flags
 	agentRefineCmd.Flags().StringVar(&refineProvider, "provider", "", "Agent provider to use (claude, opencode). Default: from config or claude")
@@ -1117,6 +1119,26 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 		if fuzz > 0 {
 			fmt.Printf(" (base: %dm ± %dm)", delayMinutes, fuzz)
 		}
+		fmt.Println()
+	}
+
+	// Clear session progress if requested
+	if agentClearProgress {
+		sessionStore, err := session.NewSessionStoreWithConfig(projectDir, GetStoreConfig())
+		if err != nil {
+			return fmt.Errorf("failed to initialize session store: %w", err)
+		}
+
+		// Normalize session ID for clearing
+		clearID := sessionID
+		if sessionID == "all" {
+			clearID = "_all"
+		}
+
+		if err := sessionStore.ClearProgress(clearID); err != nil {
+			return fmt.Errorf("failed to clear progress: %w", err)
+		}
+		fmt.Printf("Cleared progress for session: %s\n", sessionID)
 		fmt.Println()
 	}
 
