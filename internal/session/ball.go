@@ -288,6 +288,7 @@ func (b *Ball) AddTag(tag string) {
 		}
 	}
 	b.Tags = append(b.Tags, tag)
+	b.UpdateActivity()
 }
 
 // RemoveTag removes a tag from the ball

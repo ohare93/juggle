@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -149,6 +150,7 @@ func (m Model) handleSessionSelectorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Cancel selection
 		m.mode = splitView
 		m.sessionSelectItems = nil
+		m.sessionSelectActive = nil
 		m.message = "Cancelled"
 		return m, nil
 
@@ -166,40 +168,77 @@ func (m Model) handleSessionSelectorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "enter", " ":
-		// Select this session
+	case " ":
+		// Toggle selection of current session
+		if len(m.sessionSelectItems) > 0 && m.sessionSelectIndex < len(m.sessionSelectItems) {
+			if m.sessionSelectActive == nil {
+				m.sessionSelectActive = make(map[string]bool)
+			}
+			sess := m.sessionSelectItems[m.sessionSelectIndex]
+			m.sessionSelectActive[sess.ID] = !m.sessionSelectActive[sess.ID]
+		}
+		return m, nil
+
+	case "enter":
+		// Confirm selection (add all selected sessions as tags)
 		return m.submitSessionSelection()
 	}
 	return m, nil
 }
 
-// submitSessionSelection adds the selected session as a tag to the ball
+// submitSessionSelection adds all selected sessions as tags to the ball.
+// If no sessions are selected via checkbox (multi-select), falls back to adding the focused session.
 func (m Model) submitSessionSelection() (tea.Model, tea.Cmd) {
 	if m.editingBall == nil || len(m.sessionSelectItems) == 0 {
 		m.mode = splitView
 		m.sessionSelectItems = nil
+		m.sessionSelectActive = nil
 		return m, nil
 	}
 
-	if m.sessionSelectIndex >= len(m.sessionSelectItems) {
-		m.sessionSelectIndex = len(m.sessionSelectItems) - 1
+	// Collect all selected sessions (from checkboxes)
+	selectedSessions := make([]string, 0)
+	if m.sessionSelectActive != nil {
+		for _, sess := range m.sessionSelectItems {
+			if m.sessionSelectActive[sess.ID] {
+				selectedSessions = append(selectedSessions, sess.ID)
+			}
+		}
 	}
 
-	selectedSession := m.sessionSelectItems[m.sessionSelectIndex]
-	m.editingBall.AddTag(selectedSession.ID)
-	m.addActivity("Added to session: " + selectedSession.ID)
-	m.message = "Added to session: " + selectedSession.ID
+	// If no checkboxes selected, fall back to cursor position (legacy behavior)
+	if len(selectedSessions) == 0 {
+		if m.sessionSelectIndex >= len(m.sessionSelectItems) {
+			m.sessionSelectIndex = len(m.sessionSelectItems) - 1
+		}
+		selectedSessions = []string{m.sessionSelectItems[m.sessionSelectIndex].ID}
+	}
+
+	// Add all selected sessions as tags
+	for _, sessionID := range selectedSessions {
+		m.editingBall.AddTag(sessionID)
+	}
+
+	if len(selectedSessions) == 1 {
+		m.addActivity("Added to session: " + selectedSessions[0])
+		m.message = "Added to session: " + selectedSessions[0]
+	} else {
+		m.addActivity("Added to " + fmt.Sprintf("%d", len(selectedSessions)) + " sessions")
+		m.message = "Added to " + fmt.Sprintf("%d", len(selectedSessions)) + " sessions"
+	}
 
 	store, err := session.NewStore(m.editingBall.WorkingDir)
 	if err != nil {
 		m.message = "Error: " + err.Error()
 		m.mode = splitView
 		m.sessionSelectItems = nil
+		m.sessionSelectActive = nil
 		return m, nil
 	}
 
 	m.mode = splitView
 	m.sessionSelectItems = nil
+	m.sessionSelectActive = nil
 	return m, updateBall(store, m.editingBall)
 }
 
@@ -237,6 +276,7 @@ func (m Model) handleTagEditStart() (tea.Model, tea.Cmd) {
 	}
 
 	m.sessionSelectItems = availableSessions
+	m.sessionSelectActive = make(map[string]bool) // Initialize multi-select map
 	m.mode = sessionSelectorView
 	m.addActivity("Selecting session for: " + ball.ID)
 

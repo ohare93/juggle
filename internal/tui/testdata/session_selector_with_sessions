@@ -1,12 +1,12 @@
 run
 ----
 -- view:
-Select Session␤
+Select Sessions␤
 ␤
-Available sessions:␤
+Available sessions (Space = toggle, Enter = confirm):␤
 ␤
-> session-1 - Backend work␤
-  session-2 - Frontend tasks␤
-  session-3 - DevOps improvements␤
+> [ ] session-1 - Backend work␤
+  [ ] session-2 - Frontend tasks␤
+  [ ] session-3 - DevOps improvements␤
 ␤
-j/k or ↑/↓ = navigate | Enter/Space = select | Esc = cancel🛇
+j/k = navigate | Space = toggle | Enter = confirm | Esc = cancel🛇

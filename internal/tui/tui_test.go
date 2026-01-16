@@ -2920,32 +2920,52 @@ func TestSessionSelectorSelectWithEnter(t *testing.T) {
 	}
 }
 
-// Test session selector selection with space
+// Test session selector toggle with space (multi-select behavior)
 func TestSessionSelectorSelectWithSpace(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session-a", Description: "First session"},
+		{ID: "session-b", Description: "Second session"},
 	}
 
 	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
-		mode:               sessionSelectorView,
-		sessionSelectItems: sessions,
-		sessionSelectIndex: 0,
-		editingBall:        ball,
+		mode:                sessionSelectorView,
+		sessionSelectItems:  sessions,
+		sessionSelectIndex:  0,
+		sessionSelectActive: make(map[string]bool),
+		editingBall:         ball,
 	}
 
-	// Press space to select
+	// Press space to toggle selection (should stay in selector mode)
 	newModel, _ := model.handleSessionSelectorKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
 	m := newModel.(Model)
 
+	// Should still be in selector mode (Space toggles, Enter confirms)
+	if m.mode != sessionSelectorView {
+		t.Errorf("Expected mode to remain sessionSelectorView after space toggle, got %v", m.mode)
+	}
+
+	// Session-a should be toggled on
+	if !m.sessionSelectActive["session-a"] {
+		t.Errorf("Expected session-a to be selected after space toggle")
+	}
+
+	// Now press Enter to confirm
+	newModel, _ = m.handleSessionSelectorKey(tea.KeyMsg{Type: tea.KeyEnter})
+	m = newModel.(Model)
+
 	if m.mode != splitView {
-		t.Errorf("Expected mode to be splitView after selection, got %v", m.mode)
+		t.Errorf("Expected mode to be splitView after enter confirmation, got %v", m.mode)
 	}
 
 	// Ball should now have session-a as a tag
 	if len(m.editingBall.Tags) != 1 {
 		t.Errorf("Expected 1 tag on ball, got %d", len(m.editingBall.Tags))
+	}
+
+	if m.editingBall.Tags[0] != "session-a" {
+		t.Errorf("Expected tag 'session-a', got '%s'", m.editingBall.Tags[0])
 	}
 }
 
@@ -3003,7 +3023,7 @@ func TestSessionSelectorViewRendering(t *testing.T) {
 	}
 }
 
-// Test session selector view shows cursor
+// Test session selector view shows cursor (with multi-select checkbox)
 func TestSessionSelectorViewShowsCursor(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session-a", Description: "First session"},
@@ -3013,19 +3033,21 @@ func TestSessionSelectorViewShowsCursor(t *testing.T) {
 	ball := &session.Ball{ID: "ball-1", Title: "Test task", Tags: []string{}, WorkingDir: "/tmp"}
 
 	model := Model{
-		mode:               sessionSelectorView,
-		sessionSelectItems: sessions,
-		sessionSelectIndex: 1, // Second item selected
-		editingBall:        ball,
-		width:              80,
-		height:             24,
+		mode:                sessionSelectorView,
+		sessionSelectItems:  sessions,
+		sessionSelectIndex:  1, // Second item selected
+		sessionSelectActive: make(map[string]bool),
+		editingBall:         ball,
+		width:               80,
+		height:              24,
 	}
 
 	view := model.renderSessionSelectorView()
 
-	// The view should have a cursor indicator ">" before the selected session
-	if !strings.Contains(view, "> session-b") {
-		t.Error("Expected cursor '>' before selected session-b")
+	// The view should have a cursor indicator ">" before the checkbox and selected session
+	// Format is now: "> [ ] session-b" (cursor, checkbox, session)
+	if !strings.Contains(view, "> [ ] session-b") {
+		t.Errorf("Expected cursor '>' and checkbox '[ ]' before selected session-b, got view:\n%s", view)
 	}
 }
 

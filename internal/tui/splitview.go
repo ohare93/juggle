@@ -150,6 +150,9 @@ func (m Model) renderSessionsPanel(width, height int) string {
 	// Get filtered sessions
 	sessions := m.filterSessions()
 
+	// Build map of real session indices for shortcut keys
+	realSessionShortcuts := m.buildRealSessionShortcuts(sessions)
+
 	// Title with filter indicator
 	title := "Sessions"
 	if m.panelSearchActive && m.activePanel == SessionsPanel {
@@ -195,10 +198,21 @@ func (m Model) renderSessionsPanel(width, height int) string {
 			// Check if agent is running for this session
 			agentRunningForSession := m.agentStatus.Running && m.agentStatus.SessionID == sess.ID
 
+			// Build shortcut prefix (number for real sessions, space for pseudo)
+			shortcutPrefix := "  "
+			if shortcut, ok := realSessionShortcuts[sess.ID]; ok {
+				shortcutPrefix = fmt.Sprintf("%s ", shortcut)
+			}
+
 			// Add agent indicator prefix
-			prefix := "  "
+			prefix := shortcutPrefix
 			if agentRunningForSession {
-				prefix = "▶ " // Running indicator
+				// Replace the space after shortcut with agent indicator
+				if len(shortcutPrefix) >= 2 {
+					prefix = string(shortcutPrefix[0]) + "▶"
+				} else {
+					prefix = "▶ "
+				}
 			}
 
 			line := fmt.Sprintf("%s%-*s (%d)",
@@ -381,12 +395,15 @@ func (m Model) renderBallsPanel(width, height int) string {
 
 		tagsSuffix := ""
 		if m.showTagsColumn && len(ball.Tags) > 0 {
-			// Show truncated tags
-			tagsStr := strings.Join(ball.Tags, ",")
-			if len(tagsStr) > 15 {
-				tagsStr = tagsStr[:12] + "..."
+			// Filter out session names from tags
+			displayTags := filterSessionTags(ball.Tags, m.sessions)
+			if len(displayTags) > 0 {
+				tagsStr := strings.Join(displayTags, ",")
+				if len(tagsStr) > 15 {
+					tagsStr = tagsStr[:12] + "..."
+				}
+				tagsSuffix = fmt.Sprintf(" [%s]", tagsStr)
 			}
-			tagsSuffix = fmt.Sprintf(" [%s]", tagsStr)
 		}
 
 		// Build model size suffix if set and visible
@@ -622,13 +639,16 @@ func (m Model) buildBallDetailLines(ball *session.Ball, width int) []string {
 	titleValue := truncate(ball.Title, width-50)
 	lines = append(lines, fmt.Sprintf("  %s %s    %s %s", priorityLabel, valueStyle.Render(priorityValue), titleLabel, valueStyle.Render(titleValue)))
 
-	// Row 3: Tags
+	// Row 3: Tags (filtered to exclude session names)
 	tagsLabel := labelStyle.Render("Tags:")
 	tagsValue := "(none)"
 	if len(ball.Tags) > 0 {
-		tagsValue = strings.Join(ball.Tags, ", ")
-		if len(tagsValue) > 40 {
-			tagsValue = truncate(tagsValue, 40)
+		displayTags := filterSessionTags(ball.Tags, m.sessions)
+		if len(displayTags) > 0 {
+			tagsValue = strings.Join(displayTags, ", ")
+			if len(tagsValue) > 40 {
+				tagsValue = truncate(tagsValue, 40)
+			}
 		}
 	}
 	lines = append(lines, fmt.Sprintf("  %s %s", tagsLabel, valueStyle.Render(tagsValue)))
@@ -794,7 +814,7 @@ func (m Model) renderStatusBar() string {
 		hints = []string{
 			"j/k:nav", "s+c/s/b/p:state", "t+c/b/i/p:filter",
 			"a:add", "e:edit", "E:editor", "d:del", "v+p/t/s/m:columns",
-			"[/]:session", "o:sort", "?:help",
+			"[/]:session", "m/M+#:move", "⌫:unsess", "o:sort", "?:help",
 		}
 	case ActivityPanel:
 		hints = []string{
@@ -912,6 +932,56 @@ func (m Model) countBallsForSession(sessionID string) int {
 		}
 		return count
 	}
+}
+
+// buildRealSessionShortcuts builds a map of session ID to shortcut key (1-9, 0).
+// Only real sessions (not pseudo-sessions) get shortcuts.
+// Returns map like {"session-a": "1", "session-b": "2", ...}
+func (m Model) buildRealSessionShortcuts(sessions []*session.JuggleSession) map[string]string {
+	shortcuts := make(map[string]string)
+	realIdx := 0
+	for _, sess := range sessions {
+		// Skip pseudo-sessions
+		if sess.ID == PseudoSessionAll || sess.ID == PseudoSessionUntagged {
+			continue
+		}
+		if realIdx < 10 {
+			// Map: 0->1, 1->2, ..., 8->9, 9->0
+			key := fmt.Sprintf("%d", (realIdx+1)%10)
+			shortcuts[sess.ID] = key
+			realIdx++
+		}
+	}
+	return shortcuts
+}
+
+// getRealSessions returns only real sessions (excluding pseudo-sessions)
+func getRealSessions(sessions []*session.JuggleSession) []*session.JuggleSession {
+	result := make([]*session.JuggleSession, 0)
+	for _, sess := range sessions {
+		if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+			result = append(result, sess)
+		}
+	}
+	return result
+}
+
+// filterSessionTags removes session names from a list of tags.
+// Returns only tags that are not session IDs.
+func filterSessionTags(tags []string, sessions []*session.JuggleSession) []string {
+	sessionIDs := make(map[string]bool)
+	for _, s := range sessions {
+		if s.ID != PseudoSessionAll && s.ID != PseudoSessionUntagged {
+			sessionIDs[s.ID] = true
+		}
+	}
+	result := make([]string, 0)
+	for _, t := range tags {
+		if !sessionIDs[t] {
+			result = append(result, t)
+		}
+	}
+	return result
 }
 
 // allBallsSameProject checks if all balls in the list are from the same project

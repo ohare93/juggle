@@ -1256,3 +1256,120 @@ func copyToClipboard(text string) error {
 
 	return cmd.Wait()
 }
+
+// handleMoveKeySequence handles the second key (digit) in a move/append sequence.
+// If appendOnly is false, removes all existing session tags before adding the target.
+// If appendOnly is true, just adds the target session without removing others.
+func (m Model) handleMoveKeySequence(key string, appendOnly bool) (tea.Model, tea.Cmd) {
+	m.message = ""
+
+	// Must be a digit 0-9
+	if !isDigitKey(key) {
+		m.message = "Invalid key: " + key + " (use 1-9 or 0)"
+		return m, nil
+	}
+
+	// Get selected ball
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		m.message = "No ball selected"
+		return m, nil
+	}
+	ball := balls[m.cursor]
+
+	// Map key to session index (1-9 -> 0-8, 0 -> 9)
+	idx := keyToSessionIndex(key)
+
+	// Get real sessions (excluding pseudo), matching what's displayed in the sessions panel
+	// Use filterSessions() to respect any active panel search filter
+	realSessions := getRealSessions(m.filterSessions())
+	if idx >= len(realSessions) {
+		m.message = "No session at position " + key
+		return m, nil
+	}
+	targetSession := realSessions[idx]
+
+	if !appendOnly {
+		// Move: remove all session tags from all real sessions (not just filtered ones)
+		// This ensures ball is only in the target session, regardless of filter state
+		allRealSessions := getRealSessions(m.sessions)
+		for _, sess := range allRealSessions {
+			ball.RemoveTag(sess.ID)
+		}
+	}
+
+	// Add target session tag
+	ball.AddTag(targetSession.ID)
+
+	// Persist
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	action := "Moved"
+	if appendOnly {
+		action = "Added"
+	}
+	m.message = action + " ball to session: " + targetSession.ID
+	m.addActivity(action + " " + ball.ID + " to session: " + targetSession.ID)
+
+	return m, updateBall(store, ball)
+}
+
+// handleRemoveCurrentSessionFromBall removes the currently selected session from the ball's tags.
+// Only works if a real session (not pseudo-session) is selected.
+func (m Model) handleRemoveCurrentSessionFromBall() (tea.Model, tea.Cmd) {
+	m.message = ""
+
+	// Only works if a real session is selected
+	if m.selectedSession == nil {
+		m.message = "No session selected"
+		return m, nil
+	}
+	if m.selectedSession.ID == PseudoSessionAll || m.selectedSession.ID == PseudoSessionUntagged {
+		m.message = "Select a real session to remove"
+		return m, nil
+	}
+
+	// Get selected ball
+	balls := m.filterBallsForSession()
+	if len(balls) == 0 || m.cursor >= len(balls) {
+		m.message = "No ball selected"
+		return m, nil
+	}
+	ball := balls[m.cursor]
+
+	// Try to remove the session tag
+	if !ball.RemoveTag(m.selectedSession.ID) {
+		m.message = "Ball not in this session"
+		return m, nil
+	}
+
+	// Persist
+	store, err := session.NewStore(ball.WorkingDir)
+	if err != nil {
+		m.message = "Error: " + err.Error()
+		return m, nil
+	}
+
+	m.message = "Removed from session: " + m.selectedSession.ID
+	m.addActivity("Removed " + ball.ID + " from session: " + m.selectedSession.ID)
+
+	return m, updateBall(store, ball)
+}
+
+// isDigitKey returns true if the key is a digit 0-9
+func isDigitKey(key string) bool {
+	return len(key) == 1 && key[0] >= '0' && key[0] <= '9'
+}
+
+// keyToSessionIndex converts a digit key to a session index.
+// Keys 1-9 map to indices 0-8, key 0 maps to index 9.
+func keyToSessionIndex(key string) int {
+	if key == "0" {
+		return 9
+	}
+	return int(key[0] - '1')
+}

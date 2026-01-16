@@ -1,10 +1,10 @@
 run
 ----
 -- view:
-Select Session␤
+Select Sessions␤
 ␤
-Available sessions:␤
+Available sessions (Space = toggle, Enter = confirm):␤
 ␤
   No sessions available␤
 ␤
-j/k or ↑/↓ = navigate | Enter/Space = select | Esc = cancel🛇
+j/k = navigate | Space = toggle | Enter = confirm | Esc = cancel🛇

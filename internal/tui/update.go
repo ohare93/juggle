@@ -342,6 +342,18 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleViewColumnKeySequence(key)
 	}
 
+	// Handle two-key sequences for move ball to session (m + digit)
+	if m.pendingKeySequence == "m" {
+		m.pendingKeySequence = ""
+		return m.handleMoveKeySequence(key, false) // false = replace sessions
+	}
+
+	// Handle two-key sequences for append ball to session (M + digit)
+	if m.pendingKeySequence == "M" {
+		m.pendingKeySequence = ""
+		return m.handleMoveKeySequence(key, true) // true = append to sessions
+	}
+
 	switch key {
 	case "ctrl+c", "q":
 		return m, tea.Quit
@@ -502,6 +514,12 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSplitViewEnter()
 
 	case "esc":
+		// Clear any pending key sequences first
+		if m.pendingKeySequence != "" {
+			m.pendingKeySequence = ""
+			m.message = "Cancelled"
+			return m, nil
+		}
 		// Go back or deselect
 		if m.selectedSession != nil {
 			m.selectedSession = nil
@@ -598,6 +616,31 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingKeySequence = "v"
 			m.message = "v: View columns... (p=priority, t=tags, s=tests, a=all)"
 			return m, nil
+		}
+		return m, nil
+
+	case "m":
+		// Start two-key sequence for moving ball to session (m+1-9,0)
+		if m.activePanel == BallsPanel {
+			m.pendingKeySequence = "m"
+			m.message = "m: Move ball to session... (1-9,0 = session number)"
+			return m, nil
+		}
+		return m, nil
+
+	case "M":
+		// Start two-key sequence for appending ball to session (M+1-9,0)
+		if m.activePanel == BallsPanel {
+			m.pendingKeySequence = "M"
+			m.message = "M: Add ball to session... (1-9,0 = session number, keeps existing)"
+			return m, nil
+		}
+		return m, nil
+
+	case "backspace":
+		// Remove current session from selected ball
+		if m.activePanel == BallsPanel {
+			return m.handleRemoveCurrentSessionFromBall()
 		}
 		return m, nil
 

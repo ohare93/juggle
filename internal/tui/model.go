@@ -157,9 +157,10 @@ type Model struct {
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
 	editingBall        *session.Ball // Ball being edited (for edit action)
 	editingSession     *session.JuggleSession // Session being edited (for edit action)
-	tagEditMode        TagEditMode      // Whether adding or removing a tag
-	sessionSelectItems []*session.JuggleSession // Sessions available for selection
-	sessionSelectIndex int                      // Current selection index in session selector
+	tagEditMode           TagEditMode               // Whether adding or removing a tag
+	sessionSelectItems    []*session.JuggleSession  // Sessions available for selection
+	sessionSelectIndex    int                       // Current selection index in session selector
+	sessionSelectActive   map[string]bool           // Which sessions are currently selected (multi-select)
 
 	// Pending ball creation state (for unified ball creation form)
 	pendingBallContext         string   // Context being created (first field)

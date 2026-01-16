@@ -266,7 +266,7 @@ func (m Model) renderSessionSelectorView() string {
 	title := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("6")).
-		Render("Select Session")
+		Render("Select Sessions")
 	b.WriteString(title + "\n\n")
 
 	// Show ball context
@@ -291,7 +291,7 @@ func (m Model) renderSessionSelectorView() string {
 	// Show session list
 	sessionLabel := lipgloss.NewStyle().
 		Bold(true).
-		Render("Available sessions:")
+		Render("Available sessions (Space = toggle, Enter = confirm):")
 	b.WriteString(sessionLabel + "\n\n")
 
 	if len(m.sessionSelectItems) == 0 {
@@ -307,23 +307,51 @@ func (m Model) renderSessionSelectorView() string {
 
 		normalStyle := lipgloss.NewStyle()
 
+		checkedStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("2")) // Green for checked
+
 		for i, sess := range m.sessionSelectItems {
+			// Cursor indicator
 			cursor := "  "
 			if i == m.sessionSelectIndex {
 				cursor = "> "
 			}
 
-			line := fmt.Sprintf("%s%s", cursor, sess.ID)
+			// Checkbox indicator
+			checkbox := "[ ] "
+			if m.sessionSelectActive != nil && m.sessionSelectActive[sess.ID] {
+				checkbox = "[✓] "
+			}
+
+			line := fmt.Sprintf("%s%s%s", cursor, checkbox, sess.ID)
 			if sess.Description != "" {
-				line += fmt.Sprintf(" - %s", truncate(sess.Description, 40))
+				line += fmt.Sprintf(" - %s", truncate(sess.Description, 35))
 			}
 
 			if i == m.sessionSelectIndex {
 				b.WriteString(selectedStyle.Render(line) + "\n")
+			} else if m.sessionSelectActive != nil && m.sessionSelectActive[sess.ID] {
+				b.WriteString(checkedStyle.Render(line) + "\n")
 			} else {
 				b.WriteString(normalStyle.Render(line) + "\n")
 			}
 		}
+	}
+
+	// Show selected count
+	selectedCount := 0
+	if m.sessionSelectActive != nil {
+		for _, selected := range m.sessionSelectActive {
+			if selected {
+				selectedCount++
+			}
+		}
+	}
+	if selectedCount > 0 {
+		countLabel := lipgloss.NewStyle().
+			Faint(true).
+			Render(fmt.Sprintf("\nSelected: %d session(s)", selectedCount))
+		b.WriteString(countLabel + "\n")
 	}
 
 	b.WriteString("\n")
@@ -336,7 +364,7 @@ func (m Model) renderSessionSelectorView() string {
 	// Help
 	help := lipgloss.NewStyle().
 		Faint(true).
-		Render("j/k or ↑/↓ = navigate | Enter/Space = select | Esc = cancel")
+		Render("j/k = navigate | Space = toggle | Enter = confirm | Esc = cancel")
 	b.WriteString(help)
 
 	return b.String()
@@ -606,6 +634,16 @@ func (m Model) renderSplitHelpView() string {
 				{"  vt", "  Toggle tags column visibility"},
 				{"  vs", "  Toggle tests state column visibility"},
 				{"  va", "  Toggle all optional columns on/off"},
+			},
+		},
+		{
+			title: "Balls Panel - Session Shortcuts (m/M + digit)",
+			items: []helpItem{
+				{"m", "Start two-key move ball sequence:"},
+				{"  m1-m9,m0", "  Move ball to session 1-9 or 10 (replaces all sessions)"},
+				{"M", "Start two-key append session sequence:"},
+				{"  M1-M9,M0", "  Add ball to session 1-9 or 10 (keeps existing sessions)"},
+				{"Backspace", "Remove ball from current session"},
 			},
 		},
 		{
