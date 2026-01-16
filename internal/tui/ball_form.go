@@ -534,7 +534,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m.finalizeBallCreation()
 		} else if m.pendingBallFormField == fieldRunNow {
-			// Run now button - save ball and run agent immediately
+			// Run now button - save ball and exit TUI to run agent
 			saveCurrentFieldValue()
 			// Validate required fields
 			if m.pendingBallIntent == "" && m.pendingBallContext == "" {
@@ -552,7 +552,7 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// This is a limitation of the current finalizeBallCreation design
 
 			// Finalize ball creation first
-			model, cmd := m.finalizeBallCreation()
+			model, _ := m.finalizeBallCreation()
 			m = model.(Model)
 
 			// Extract ball ID from message if creating new ball
@@ -566,12 +566,12 @@ func (m Model) handleUnifiedBallFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			if ballID == "" {
 				m.message = "Error: could not determine ball ID"
-				return m, cmd
+				return m, nil
 			}
 
-			// Run agent on the ball
-			m.message = "Ball saved, starting agent for " + ballID + "..."
-			return m, tea.Batch(cmd, launchAgentForBall(ballID))
+			// Signal to run agent after TUI exits
+			m.runAgentForBall = ballID
+			return m, tea.Quit
 		} else if m.pendingBallFormField == fieldDependsOn {
 			// Open dependency selector
 			return m.openDependencySelector()

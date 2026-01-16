@@ -306,40 +306,6 @@ func launchAgentCmd(sessionID string) tea.Cmd {
 	}
 }
 
-// launchAgentForBall creates a command that runs the agent for a specific ball
-func launchAgentForBall(ballID string) tea.Cmd {
-	return func() tea.Msg {
-		// Launch "juggle agent run --ball <ball-id>" as a subprocess
-		// Using "all" as session ID since we're targeting a specific ball
-		cmd := exec.Command("juggle", "agent", "run", "all", "--ball", ballID)
-
-		// Start the command in the background
-		if err := cmd.Start(); err != nil {
-			return agentFinishedMsg{
-				sessionID: "all",
-				err:       err,
-			}
-		}
-
-		// Wait for the command to complete in this goroutine
-		if err := cmd.Wait(); err != nil {
-			// Check if it was just a non-zero exit (common for blocked/incomplete)
-			if _, ok := err.(*exec.ExitError); !ok {
-				return agentFinishedMsg{
-					sessionID: "all",
-					err:       err,
-				}
-			}
-		}
-
-		// Agent finished - file watcher will pick up ball changes
-		return agentFinishedMsg{
-			sessionID: "all",
-			complete:  true,
-		}
-	}
-}
-
 // launchAgentWithOutputCmd creates a command that runs the agent and streams output
 // It returns the process reference via agentProcessStartedMsg for cancellation support
 func launchAgentWithOutputCmd(sessionID string, outputCh chan<- agentOutputMsg) tea.Cmd {

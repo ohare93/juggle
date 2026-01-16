@@ -163,6 +163,27 @@ func runPlanTUI(store *session.Store, cwd, intent string, acceptanceCriteria []s
 	if len(result.Ball.AcceptanceCriteria) > 0 {
 		fmt.Printf("  Acceptance Criteria: %d\n", len(result.Ball.AcceptanceCriteria))
 	}
+
+	// Check if user requested to run agent after creation
+	if result.RunAgentForBall != "" {
+		fmt.Printf("\nStarting agent for ball %s...\n", result.RunAgentForBall)
+
+		// Run the agent loop directly
+		agentConfig := AgentLoopConfig{
+			SessionID:     "all", // Use "all" meta-session since we're targeting a specific ball
+			ProjectDir:    cwd,
+			MaxIterations: 1,             // Single iteration for "run now"
+			BallID:        result.RunAgentForBall,
+			Interactive:   true,          // Interactive mode for user involvement
+		}
+
+		_, err := RunAgentLoop(agentConfig)
+		if err != nil {
+			return fmt.Errorf("agent error: %w", err)
+		}
+		return nil
+	}
+
 	fmt.Printf("\nStart working on this ball with: juggle %s in-progress\n", result.Ball.ID)
 
 	return nil

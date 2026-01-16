@@ -214,6 +214,9 @@ type Model struct {
 	// Agent process tracking for cancellation
 	agentProcess *AgentProcess // Reference to running agent process for cancellation
 
+	// Exit action - signals to caller what to do after TUI exits
+	runAgentForBall string // Ball ID to run agent for after TUI exits (empty = no action)
+
 	// Agent history state
 	agentHistory        []*session.AgentRunRecord // Loaded agent run history
 	historyCursor       int                       // Current selection in history view
@@ -320,6 +323,12 @@ func (m Model) SelectedSessionID() string {
 		return m.selectedSession.ID
 	}
 	return ""
+}
+
+// RunAgentForBall returns the ball ID to run the agent for after TUI exits.
+// Returns empty string if no agent run is requested.
+func (m Model) RunAgentForBall() string {
+	return m.runAgentForBall
 }
 
 // addAgentOutput adds a line to the agent output buffer

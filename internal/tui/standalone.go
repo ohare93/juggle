@@ -51,13 +51,17 @@ type StandaloneBallModel struct {
 	done    bool          // True when form is completed (either save or cancel)
 	result  *session.Ball // The created ball (nil if cancelled)
 	err     error
+
+	// Exit action - signals to caller what to do after TUI exits
+	runAgentForBall string // Ball ID to run agent for after TUI exits (empty = no action)
 }
 
 // StandaloneBallResult contains the result of the standalone ball creation
 type StandaloneBallResult struct {
-	Ball      *session.Ball // Created ball, nil if cancelled
-	Cancelled bool          // True if user cancelled
-	Err       error         // Error if any
+	Ball            *session.Ball // Created ball, nil if cancelled
+	Cancelled       bool          // True if user cancelled
+	Err             error         // Error if any
+	RunAgentForBall string        // Ball ID to run agent for after TUI exits (empty = no action)
 }
 
 // NewStandaloneBallModel creates a new standalone ball creation model
@@ -467,14 +471,10 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 				return m, tea.Quit
 			}
 
-			// Now launch agent with the ball ID
+			// Signal to run agent after TUI exits
 			m.result = ball
 			m.done = true
-
-			// Launch agent for this ball in background
-			go func() {
-				launchAgentForBall(ball.ID)()
-			}()
+			m.runAgentForBall = ball.ID
 
 			return m, tea.Quit
 		} else if m.pendingBallFormField == fieldDependsOn {
@@ -1277,9 +1277,10 @@ func (m StandaloneBallModel) renderAutocompletePopup() string {
 // Result returns the result of the ball creation
 func (m StandaloneBallModel) Result() StandaloneBallResult {
 	return StandaloneBallResult{
-		Ball:      m.result,
-		Cancelled: m.result == nil && m.err == nil,
-		Err:       m.err,
+		Ball:            m.result,
+		Cancelled:       m.result == nil && m.err == nil,
+		Err:             m.err,
+		RunAgentForBall: m.runAgentForBall,
 	}
 }
 

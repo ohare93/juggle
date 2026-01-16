@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,8 +111,30 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	// Run
-	if _, err := p.Run(); err != nil {
+	finalModel, err := p.Run()
+	if err != nil {
 		return err
+	}
+
+	// Check if user requested to run agent after TUI exit
+	if tuiModel, ok := finalModel.(tui.Model); ok {
+		if ballID := tuiModel.RunAgentForBall(); ballID != "" {
+			fmt.Printf("\nStarting agent for ball %s...\n", ballID)
+
+			// Run the agent loop directly
+			agentConfig := AgentLoopConfig{
+				SessionID:     "all", // Use "all" meta-session since we're targeting a specific ball
+				ProjectDir:    workingDir,
+				MaxIterations: 1,     // Single iteration for "run now"
+				BallID:        ballID,
+				Interactive:   true,  // Interactive mode for user involvement
+			}
+
+			_, err := RunAgentLoop(agentConfig)
+			if err != nil {
+				return fmt.Errorf("agent error: %w", err)
+			}
+		}
 	}
 
 	return nil
