@@ -247,7 +247,7 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 		config:           config,
 		localOnly:        localOnly,
 		mode:             splitView,
-		activePanel:      SessionsPanel,
+		activePanel:      BallsPanel,
 		initialSessionID: initialSessionID,
 		filterStates: map[string]bool{
 			"pending":     true,

@@ -120,18 +120,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.sessionCursor = 0
 			}
 			m.pendingSessionSelect = ""
-		} else if m.initialSessionID != "" && m.selectedSession == nil {
-			// Pre-select session if initialSessionID was provided (initial load)
-			for i, sess := range m.sessions {
-				if sess.ID == m.initialSessionID {
-					m.selectedSession = sess
-					m.sessionCursor = i
-					m.addActivity("Pre-selected session: " + sess.ID)
-					break
+		} else if m.selectedSession == nil {
+			// Pre-select session on initial load
+			if m.initialSessionID != "" {
+				// Use the provided initial session ID
+				for i, sess := range m.sessions {
+					if sess.ID == m.initialSessionID {
+						m.selectedSession = sess
+						m.sessionCursor = i
+						m.addActivity("Pre-selected session: " + sess.ID)
+						break
+					}
+				}
+				// Clear the initialSessionID after attempting selection
+				m.initialSessionID = ""
+			} else {
+				// Default to "All" pseudo-session (first in filtered list)
+				filtered := m.filterSessions()
+				if len(filtered) > 0 {
+					m.selectedSession = filtered[0] // PseudoSessionAll is first
+					m.sessionCursor = 0
 				}
 			}
-			// Clear the initialSessionID after attempting selection
-			m.initialSessionID = ""
 		}
 		m.addActivity("Sessions loaded")
 		return m, nil

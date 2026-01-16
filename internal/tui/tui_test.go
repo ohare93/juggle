@@ -533,8 +533,8 @@ func TestInitialSplitModel(t *testing.T) {
 		t.Errorf("Expected initial mode to be splitView, got %v", model.mode)
 	}
 
-	if model.activePanel != SessionsPanel {
-		t.Errorf("Expected initial active panel to be SessionsPanel, got %v", model.activePanel)
+	if model.activePanel != BallsPanel {
+		t.Errorf("Expected initial active panel to be BallsPanel, got %v", model.activePanel)
 	}
 
 	if !model.localOnly {
