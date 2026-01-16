@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -536,7 +538,7 @@ func TestHandleEditorResult_Success(t *testing.T) {
 		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test-project",
+		WorkingDir: filepath.Join(os.TempDir(), "test-project"),
 	}
 
 	model := Model{
@@ -585,7 +587,7 @@ func TestHandleEditorResult_Cancelled(t *testing.T) {
 		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test-project",
+		WorkingDir: filepath.Join(os.TempDir(), "test-project"),
 	}
 
 	model := Model{
@@ -617,7 +619,7 @@ func TestHandleEditorResult_Error(t *testing.T) {
 		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test-project",
+		WorkingDir: filepath.Join(os.TempDir(), "test-project"),
 	}
 
 	model := Model{
@@ -649,7 +651,7 @@ func TestHandleEditorResult_ParseError(t *testing.T) {
 		Title:     "Original intent",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test-project",
+		WorkingDir: filepath.Join(os.TempDir(), "test-project"),
 	}
 
 	model := Model{
@@ -781,7 +783,7 @@ func TestEditKeyInSplitView(t *testing.T) {
 		Title:     "Test task",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test",
+		WorkingDir: filepath.Join(os.TempDir(), "test"),
 		Tags:       []string{"tag1"},
 	}
 
@@ -839,7 +841,7 @@ func TestShiftEKeyOpenEditorInSplitView(t *testing.T) {
 		Title:     "Test task",
 		Priority:   session.PriorityMedium,
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test",
+		WorkingDir: filepath.Join(os.TempDir(), "test"),
 	}
 
 	model := Model{

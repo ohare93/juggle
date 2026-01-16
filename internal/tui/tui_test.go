@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -351,7 +352,7 @@ func TestStateTransitionsValidated(t *testing.T) {
 					{
 						ID:         "test-1",
 						State:      tt.initialState,
-						WorkingDir: "/tmp/test",
+						WorkingDir: filepath.Join(os.TempDir(), "test"),
 					},
 				},
 				cursor: 0,
@@ -1824,33 +1825,33 @@ func TestAllBallsSameProject(t *testing.T) {
 		{
 			name: "single ball",
 			balls: []*session.Ball{
-				{ID: "juggle-1", WorkingDir: "/home/user/juggle"},
+				{ID: "juggle-1", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
 			},
 			expected: true,
 		},
 		{
 			name: "multiple balls same project",
 			balls: []*session.Ball{
-				{ID: "juggle-1", WorkingDir: "/home/user/juggle"},
-				{ID: "juggle-2", WorkingDir: "/home/user/juggle"},
-				{ID: "juggle-3", WorkingDir: "/home/user/juggle"},
+				{ID: "juggle-1", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
+				{ID: "juggle-2", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
+				{ID: "juggle-3", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
 			},
 			expected: true,
 		},
 		{
 			name: "multiple balls different projects",
 			balls: []*session.Ball{
-				{ID: "juggle-1", WorkingDir: "/home/user/juggle"},
-				{ID: "myapp-1", WorkingDir: "/home/user/myapp"},
+				{ID: "juggle-1", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
+				{ID: "myapp-1", WorkingDir: filepath.Join(os.TempDir(), "user", "myapp")},
 			},
 			expected: false,
 		},
 		{
 			name: "three different projects",
 			balls: []*session.Ball{
-				{ID: "juggle-1", WorkingDir: "/home/user/juggle"},
-				{ID: "myapp-1", WorkingDir: "/home/user/myapp"},
-				{ID: "other-1", WorkingDir: "/home/user/other"},
+				{ID: "juggle-1", WorkingDir: filepath.Join(os.TempDir(), "user", "juggle")},
+				{ID: "myapp-1", WorkingDir: filepath.Join(os.TempDir(), "user", "myapp")},
+				{ID: "other-1", WorkingDir: filepath.Join(os.TempDir(), "user", "other")},
 			},
 			expected: false,
 		},
@@ -5851,7 +5852,7 @@ func TestHistoryViewEnterLoadsOutput(t *testing.T) {
 	model := Model{
 		mode: historyView,
 		agentHistory: []*session.AgentRunRecord{
-			{ID: "1", SessionID: "session1", OutputFile: "/tmp/test-output.txt"},
+			{ID: "1", SessionID: "session1", OutputFile: filepath.Join(os.TempDir(), "test-output.txt")},
 		},
 		historyCursor: 0,
 	}
@@ -7199,7 +7200,7 @@ func TestHandleSplitArchiveBall_NonCompleteBall(t *testing.T) {
 		ID:         "test-1",
 		Title:      "Test ball",
 		State:      session.StatePending,
-		WorkingDir: "/tmp/test",
+		WorkingDir: filepath.Join(os.TempDir(), "test"),
 	}
 	model.filteredBalls = []*session.Ball{ball}
 	model.selectedSession = &session.JuggleSession{ID: PseudoSessionAll}
@@ -9117,7 +9118,7 @@ func TestContextFieldEnterAddsNewline(t *testing.T) {
 // TestCopyBallID_SplitView tests that 'y' key triggers copy in split view balls panel
 func TestCopyBallID_SplitView(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/testproject"},
+		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: filepath.Join(os.TempDir(), "testproject")},
 	}
 
 	model := Model{
@@ -9174,7 +9175,7 @@ func TestCopyBallID_SplitView_NoBall(t *testing.T) {
 // TestCopyBallID_SplitView_WrongPanel tests that 'y' does nothing in non-balls panel
 func TestCopyBallID_SplitView_WrongPanel(t *testing.T) {
 	balls := []*session.Ball{
-		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: "/tmp/testproject"},
+		{ID: "test-ball-123", Title: "Test Ball", State: session.StatePending, WorkingDir: filepath.Join(os.TempDir(), "testproject")},
 	}
 
 	model := Model{
