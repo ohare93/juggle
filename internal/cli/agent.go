@@ -36,8 +36,9 @@ var (
 	agentDelay        int    // Delay between iterations in minutes (overrides config)
 	agentFuzz         int    // +/- variance in delay minutes (overrides config)
 	agentProvider     string // Agent provider (claude, opencode)
-	agentIgnoreLock   bool   // Skip lock acquisition
-	agentClearProgress bool  // Clear session progress before running
+	agentIgnoreLock    bool // Skip lock acquisition
+	agentClearProgress bool // Clear session progress before running
+	agentPickBall      bool // Interactive ball selection
 
 	// Refine command flags
 	refineProvider string // Agent provider for refine command
@@ -123,6 +124,15 @@ Examples:
   # Select from sessions across all discovered projects
   juggle agent run --all
 
+  # Interactively select a specific ball to work on
+  juggle agent run --pick
+
+  # Select a ball from a specific session
+  juggle agent run my-feature --pick
+
+  # Select a ball from all discovered projects
+  juggle agent run --pick --all
+
   # Override iteration delay (5 minutes, overrides config)
   juggle agent run my-feature --delay 5
 
@@ -181,6 +191,7 @@ func init() {
 	agentRunCmd.Flags().StringVar(&agentProvider, "provider", "", "Agent provider to use (claude, opencode). Default: from config or claude")
 	agentRunCmd.Flags().BoolVar(&agentIgnoreLock, "ignore-lock", false, "Skip lock acquisition (use with caution)")
 	agentRunCmd.Flags().BoolVar(&agentClearProgress, "clear-progress", false, "Clear session progress before running")
+	agentRunCmd.Flags().BoolVar(&agentPickBall, "pick", false, "Interactively select a ball to work on")
 
 	// Refine command flags
 	agentRefineCmd.Flags().StringVar(&refineProvider, "provider", "", "Agent provider to use (claude, opencode). Default: from config or claude")
@@ -971,6 +982,194 @@ func GetSessionsForSelectorForTest(cwd string) ([]SessionInfo, error) {
 	return sessions, nil
 }
 
+// BallSelection holds the result of selecting a ball for agent run
+type BallSelection struct {
+	BallID     string
+	ProjectDir string
+	SessionID  string // Determined from ball tags or "all"
+}
+
+// selectBallForAgent shows an interactive ball selector for agent run.
+// If sessionFilter is provided, only shows balls from that session.
+// Shows non-terminal balls: pending, in_progress, blocked.
+// Returns the selected ball info or nil if cancelled.
+func selectBallForAgent(cwd string, sessionFilter string) (*BallSelection, error) {
+	// Load config to discover projects
+	config, err := LoadConfigForCommand()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Create store for current directory
+	store, err := NewStoreForCommand(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// Collect balls based on scope
+	type ballInfo struct {
+		Ball       *session.Ball
+		ProjectDir string
+	}
+	var allBalls []ballInfo
+
+	if GlobalOpts.AllProjects {
+		// Discover all projects
+		projects, err := DiscoverProjectsForCommand(config, store)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover projects: %w", err)
+		}
+
+		for _, projectPath := range projects {
+			var balls []*session.Ball
+			var loadErr error
+			if sessionFilter != "" && sessionFilter != "all" {
+				balls, loadErr = session.LoadBallsBySession([]string{projectPath}, sessionFilter)
+			} else {
+				balls, loadErr = session.LoadAllBalls([]string{projectPath})
+			}
+			if loadErr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to load balls from %s: %v\n", projectPath, loadErr)
+				continue
+			}
+			for _, b := range balls {
+				allBalls = append(allBalls, ballInfo{Ball: b, ProjectDir: projectPath})
+			}
+		}
+	} else {
+		// Local project only
+		var balls []*session.Ball
+		var loadErr error
+		if sessionFilter != "" && sessionFilter != "all" {
+			balls, loadErr = session.LoadBallsBySession([]string{cwd}, sessionFilter)
+		} else {
+			balls, loadErr = session.LoadAllBalls([]string{cwd})
+		}
+		if loadErr != nil {
+			return nil, fmt.Errorf("failed to load balls: %w", loadErr)
+		}
+		for _, b := range balls {
+			allBalls = append(allBalls, ballInfo{Ball: b, ProjectDir: cwd})
+		}
+	}
+
+	// Filter to non-terminal states (pending, in_progress, blocked)
+	var actionable []ballInfo
+	for _, bi := range allBalls {
+		switch bi.Ball.State {
+		case session.StatePending, session.StateInProgress, session.StateBlocked:
+			actionable = append(actionable, bi)
+		}
+	}
+
+	if len(actionable) == 0 {
+		scopeMsg := "this project"
+		if GlobalOpts.AllProjects {
+			scopeMsg = "any discovered project"
+		}
+		filterMsg := ""
+		if sessionFilter != "" && sessionFilter != "all" {
+			filterMsg = fmt.Sprintf(" in session '%s'", sessionFilter)
+		}
+		return nil, fmt.Errorf("no actionable balls found%s in %s (all balls are complete or none exist)", filterMsg, scopeMsg)
+	}
+
+	// Sort: in_progress first, then pending, then blocked
+	stateOrder := func(s session.BallState) int {
+		switch s {
+		case session.StateInProgress:
+			return 0
+		case session.StatePending:
+			return 1
+		case session.StateBlocked:
+			return 2
+		default:
+			return 3
+		}
+	}
+	sort.SliceStable(actionable, func(i, j int) bool {
+		return stateOrder(actionable[i].Ball.State) < stateOrder(actionable[j].Ball.State)
+	})
+
+	// Compute minimal unique IDs for display
+	balls := make([]*session.Ball, len(actionable))
+	for i, bi := range actionable {
+		balls[i] = bi.Ball
+	}
+	minIDs := session.ComputeMinimalUniqueIDs(balls)
+
+	// Display ball selector
+	fmt.Println("Select a ball to work on:")
+	fmt.Println()
+
+	for i, bi := range actionable {
+		ball := bi.Ball
+		stateLabel := fmt.Sprintf("[%s]", ball.State)
+		minID := minIDs[ball.ID]
+		priorityLabel := fmt.Sprintf("(%s)", ball.Priority)
+		fmt.Printf("  %d. %s %s - %s %s\n", i+1, stateLabel, minID, ball.Title, priorityLabel)
+
+		// Show blocked reason if blocked
+		if ball.State == session.StateBlocked && ball.BlockedReason != "" {
+			fmt.Printf("     Reason: %s\n", ball.BlockedReason)
+		}
+
+		// Show project directory if viewing all projects
+		if GlobalOpts.AllProjects {
+			fmt.Printf("     📁 %s\n", bi.ProjectDir)
+		}
+	}
+	fmt.Println()
+	fmt.Print("Enter number (or 'q' to cancel): ")
+
+	// Read selection
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input: %w", err)
+	}
+	input = strings.TrimSpace(input)
+
+	// Handle cancel
+	if input == "q" || input == "Q" || input == "" {
+		return nil, nil
+	}
+
+	// Parse selection
+	var idx int
+	_, err = fmt.Sscanf(input, "%d", &idx)
+	if err != nil || idx < 1 || idx > len(actionable) {
+		return nil, fmt.Errorf("invalid selection: %s", input)
+	}
+
+	selected := actionable[idx-1]
+
+	// Determine session ID: prefer the filter, then ball's first tag, then "all"
+	sessionID := "all"
+	if sessionFilter != "" && sessionFilter != "all" {
+		sessionID = sessionFilter
+	} else if len(selected.Ball.Tags) > 0 {
+		sessionID = selected.Ball.Tags[0]
+	}
+
+	// If the selected ball is from a different project, notify the user
+	if selected.ProjectDir != cwd {
+		fmt.Printf("\n📁 Ball is in project: %s\n", selected.ProjectDir)
+		fmt.Printf("   Running agent in that directory...\n\n")
+	}
+
+	return &BallSelection{
+		BallID:     selected.Ball.ID,
+		ProjectDir: selected.ProjectDir,
+		SessionID:  sessionID,
+	}, nil
+}
+
+// SelectBallForAgentForTest is an exported wrapper for testing
+func SelectBallForAgentForTest(cwd string, sessionFilter string) (*BallSelection, error) {
+	return selectBallForAgent(cwd, sessionFilter)
+}
+
 func runAgentRun(cmd *cobra.Command, args []string) error {
 	// Get current directory
 	cwd, err := GetWorkingDir()
@@ -980,6 +1179,74 @@ func runAgentRun(cmd *cobra.Command, args []string) error {
 
 	// Track which project directory to use (may change if session is in different project)
 	projectDir := cwd
+
+	// Handle --pick flag (interactive ball selection)
+	if agentPickBall {
+		// --pick and --ball are mutually exclusive
+		if agentBallID != "" {
+			return fmt.Errorf("cannot use --pick with --ball (they are mutually exclusive)")
+		}
+
+		// Check terminal for interactive mode
+		if !isTerminal(os.Stdin.Fd()) {
+			return fmt.Errorf("--pick requires interactive terminal")
+		}
+
+		// Determine session filter from args
+		var sessionFilter string
+		if len(args) > 0 {
+			sessionFilter = args[0]
+		}
+
+		selected, err := selectBallForAgent(cwd, sessionFilter)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			// User cancelled
+			return nil
+		}
+
+		// Set ball ID and session from selection
+		agentBallID = selected.BallID
+		projectDir = selected.ProjectDir
+
+		// Clear session progress if requested
+		if agentClearProgress {
+			sessionStore, err := session.NewSessionStoreWithConfig(projectDir, GetStoreConfig())
+			if err != nil {
+				return fmt.Errorf("failed to initialize session store: %w", err)
+			}
+
+			clearID := selected.SessionID
+			if selected.SessionID == "all" {
+				clearID = "_all"
+			}
+
+			if err := sessionStore.ClearProgress(clearID); err != nil {
+				return fmt.Errorf("failed to clear progress: %w", err)
+			}
+			fmt.Printf("Cleared progress for session: %s\n", selected.SessionID)
+			fmt.Println()
+		}
+
+		// Run agent loop for the selected ball
+		_, err = RunAgentLoop(AgentLoopConfig{
+			SessionID:     selected.SessionID,
+			ProjectDir:    projectDir,
+			MaxIterations: 1,
+			BallID:        agentBallID,
+			Interactive:   true,
+			Model:         agentModel,
+			IterDelay:     0,
+			Timeout:       agentTimeout,
+			Trust:         agentTrust,
+			MaxWait:       agentMaxWait,
+			Provider:      agentProvider,
+			IgnoreLock:    agentIgnoreLock,
+		})
+		return err
+	}
 
 	// Determine session ID from args or selector
 	var sessionID string
