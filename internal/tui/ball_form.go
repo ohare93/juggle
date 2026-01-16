@@ -92,6 +92,16 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		ball.ModelSize = modelSize
 		ball.BlockedReason = blockedReason
 
+		// Update state based on blocking reason changes:
+		// - If blocking reason is set and ball is not blocked -> set to blocked
+		// - If blocking reason is cleared and ball is blocked -> set to in_progress
+		if blockedReason != "" && ball.State != session.StateBlocked {
+			ball.State = session.StateBlocked
+		} else if blockedReason == "" && ball.State == session.StateBlocked {
+			// Unblock: revert to in_progress (valid transition: blocked -> in_progress)
+			ball.State = session.StateInProgress
+		}
+
 		// Set acceptance criteria
 		if len(m.pendingAcceptanceCriteria) > 0 {
 			ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)

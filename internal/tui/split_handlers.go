@@ -1156,6 +1156,24 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Convert blocking reason to index (0=blank, 1=Human needed, 2=Waiting for dependency, 3=Needs research, 4=custom)
+		m.pendingBallBlockingReason = 0 // Default to blank
+		m.pendingBallCustomReason = ""
+		if ball.BlockedReason != "" {
+			switch ball.BlockedReason {
+			case "Human needed":
+				m.pendingBallBlockingReason = 1
+			case "Waiting for dependency":
+				m.pendingBallBlockingReason = 2
+			case "Needs research":
+				m.pendingBallBlockingReason = 3
+			default:
+				// Custom reason
+				m.pendingBallBlockingReason = 4
+				m.pendingBallCustomReason = ball.BlockedReason
+			}
+		}
+
 		m.pendingBallFormField = 0 // Start at context field
 		m.contextInput.SetValue(ball.Context)
 		m.contextInput.Focus()

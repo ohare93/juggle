@@ -9616,3 +9616,314 @@ func TestPanelNavigation_DownFromSessions(t *testing.T) {
 		t.Errorf("expected to be at ActivityPanel after down arrow from Sessions, got %v", model.activePanel)
 	}
 }
+
+// =============================================================================
+// Blocking Reason State Transition Tests
+// =============================================================================
+
+// TestEditBallBlockingReasonLoadsFromBall tests that editing a blocked ball loads the blocking reason correctly
+func TestEditBallBlockingReasonLoadsFromBall(t *testing.T) {
+	ball := &session.Ball{
+		ID:            "test-1",
+		Title:         "Test ball",
+		Priority:      session.PriorityMedium,
+		State:         session.StateBlocked,
+		BlockedReason: "Human needed",
+		WorkingDir:    "/tmp/test",
+	}
+
+	model := Model{
+		mode:          splitView,
+		activePanel:   BallsPanel,
+		cursor:        0,
+		balls:         []*session.Ball{ball},
+		filteredBalls: []*session.Ball{ball},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		selectedSession: &session.JuggleSession{ID: PseudoSessionAll},
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       newTestTextInput(),
+		contextInput:    newContextTextarea(),
+	}
+
+	// Simulate pressing 'e' key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	newModel, _ := model.Update(msg)
+	m := newModel.(Model)
+
+	// Verify blocking reason is loaded (Human needed = index 1)
+	if m.pendingBallBlockingReason != 1 {
+		t.Errorf("Expected pendingBallBlockingReason 1 (Human needed), got %d", m.pendingBallBlockingReason)
+	}
+}
+
+// TestEditBallBlockingReasonCustomLoadsFromBall tests that editing a ball with custom blocking reason loads correctly
+func TestEditBallBlockingReasonCustomLoadsFromBall(t *testing.T) {
+	ball := &session.Ball{
+		ID:            "test-1",
+		Title:         "Test ball",
+		Priority:      session.PriorityMedium,
+		State:         session.StateBlocked,
+		BlockedReason: "My custom reason",
+		WorkingDir:    "/tmp/test",
+	}
+
+	model := Model{
+		mode:          splitView,
+		activePanel:   BallsPanel,
+		cursor:        0,
+		balls:         []*session.Ball{ball},
+		filteredBalls: []*session.Ball{ball},
+		filterStates: map[string]bool{
+			"pending":     true,
+			"in_progress": true,
+			"blocked":     true,
+			"complete":    true,
+		},
+		selectedSession: &session.JuggleSession{ID: PseudoSessionAll},
+		activityLog:     make([]ActivityEntry, 0),
+		textInput:       newTestTextInput(),
+		contextInput:    newContextTextarea(),
+	}
+
+	// Simulate pressing 'e' key
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}
+	newModel, _ := model.Update(msg)
+	m := newModel.(Model)
+
+	// Verify custom blocking reason is loaded (custom = index 4)
+	if m.pendingBallBlockingReason != 4 {
+		t.Errorf("Expected pendingBallBlockingReason 4 (custom), got %d", m.pendingBallBlockingReason)
+	}
+	if m.pendingBallCustomReason != "My custom reason" {
+		t.Errorf("Expected pendingBallCustomReason 'My custom reason', got %q", m.pendingBallCustomReason)
+	}
+}
+
+// TestEditBallSetBlockingReasonSetsBlockedState tests that setting a blocking reason on a non-blocked ball sets state to blocked
+func TestEditBallSetBlockingReasonSetsBlockedState(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-block-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create a ball in pending state with no blocking reason
+	ball, err := session.NewBall(tmpDir, "Test ball", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball: %v", err)
+	}
+	ball.State = session.StatePending
+	ball.BlockedReason = ""
+	err = store.AppendBall(ball)
+	if err != nil {
+		t.Fatalf("failed to append ball: %v", err)
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+	ti.Blur()
+
+	ta := newContextTextarea()
+	ta.Focus()
+
+	model := Model{
+		store:                     store,
+		mode:                      unifiedBallFormView,
+		inputAction:               actionEdit,
+		editingBall:               ball,
+		textInput:                 ti,
+		contextInput:              ta,
+		pendingBallIntent:         ball.Title,
+		pendingBallPriority:       1, // medium
+		pendingBallBlockingReason: 1, // Human needed (should trigger state change)
+		width:                     80,
+		height:                    24,
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	// Simulate Ctrl+S to save the ball
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Reload balls from store
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	updatedBall := balls[0]
+
+	// Verify state changed to blocked
+	if updatedBall.State != session.StateBlocked {
+		t.Errorf("expected state to be 'blocked', got '%s'", updatedBall.State)
+	}
+
+	// Verify blocking reason is set
+	if updatedBall.BlockedReason != "Human needed" {
+		t.Errorf("expected BlockedReason 'Human needed', got '%s'", updatedBall.BlockedReason)
+	}
+}
+
+// TestEditBallClearBlockingReasonUnblocksInProgressBall tests that clearing blocking reason on a blocked ball sets state to in_progress
+func TestEditBallClearBlockingReasonUnblocksInProgressBall(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-unblock-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create a ball in blocked state with a blocking reason
+	ball, err := session.NewBall(tmpDir, "Test ball", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball: %v", err)
+	}
+	ball.State = session.StateBlocked
+	ball.BlockedReason = "Human needed"
+	ball.StartedAt = time.Now() // Ball was started before being blocked
+	err = store.AppendBall(ball)
+	if err != nil {
+		t.Fatalf("failed to append ball: %v", err)
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+	ti.Blur()
+
+	ta := newContextTextarea()
+	ta.Focus()
+
+	model := Model{
+		store:                     store,
+		mode:                      unifiedBallFormView,
+		inputAction:               actionEdit,
+		editingBall:               ball,
+		textInput:                 ti,
+		contextInput:              ta,
+		pendingBallIntent:         ball.Title,
+		pendingBallPriority:       1, // medium
+		pendingBallBlockingReason: 0, // Blank (should unblock)
+		width:                     80,
+		height:                    24,
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	// Simulate Ctrl+S to save the ball
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Reload balls from store
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	updatedBall := balls[0]
+
+	// Verify state changed to in_progress (since it was started)
+	if updatedBall.State != session.StateInProgress {
+		t.Errorf("expected state to be 'in_progress', got '%s'", updatedBall.State)
+	}
+
+	// Verify blocking reason is cleared
+	if updatedBall.BlockedReason != "" {
+		t.Errorf("expected BlockedReason to be empty, got '%s'", updatedBall.BlockedReason)
+	}
+}
+
+// TestEditBallClearBlockingReasonAlwaysSetsInProgress tests that clearing blocking reason always sets state to in_progress
+// (since blocked -> in_progress is the valid state transition per the state machine)
+func TestEditBallClearBlockingReasonAlwaysSetsInProgress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "juggle-tui-unblock-always-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	store, err := session.NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	// Create a ball in blocked state with a blocking reason
+	ball, err := session.NewBall(tmpDir, "Test ball", session.PriorityMedium)
+	if err != nil {
+		t.Fatalf("failed to create ball: %v", err)
+	}
+	ball.State = session.StateBlocked
+	ball.BlockedReason = "Human needed"
+	err = store.AppendBall(ball)
+	if err != nil {
+		t.Fatalf("failed to append ball: %v", err)
+	}
+
+	ti := textinput.New()
+	ti.CharLimit = 256
+	ti.Width = 60
+	ti.Blur()
+
+	ta := newContextTextarea()
+	ta.Focus()
+
+	model := Model{
+		store:                     store,
+		mode:                      unifiedBallFormView,
+		inputAction:               actionEdit,
+		editingBall:               ball,
+		textInput:                 ti,
+		contextInput:              ta,
+		pendingBallIntent:         ball.Title,
+		pendingBallPriority:       1, // medium
+		pendingBallBlockingReason: 0, // Blank (should unblock)
+		width:                     80,
+		height:                    24,
+		activityLog:               make([]ActivityEntry, 0),
+	}
+
+	// Simulate Ctrl+S to save the ball
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+
+	// Reload balls from store
+	balls, err := store.LoadBalls()
+	if err != nil {
+		t.Fatalf("failed to load balls: %v", err)
+	}
+
+	if len(balls) != 1 {
+		t.Fatalf("expected 1 ball, got %d", len(balls))
+	}
+
+	updatedBall := balls[0]
+
+	// Verify state changed to in_progress (valid transition: blocked -> in_progress)
+	if updatedBall.State != session.StateInProgress {
+		t.Errorf("expected state to be 'in_progress', got '%s'", updatedBall.State)
+	}
+
+	// Verify blocking reason is cleared
+	if updatedBall.BlockedReason != "" {
+		t.Errorf("expected BlockedReason to be empty, got '%s'", updatedBall.BlockedReason)
+	}
+}
