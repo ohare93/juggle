@@ -104,7 +104,7 @@ func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 		m.mode = splitView
 		return m, nil
 	}
-	m.editingBall.Title = value
+	m.editingBall.SetTitle(value)
 	store, err := session.NewStore(m.editingBall.WorkingDir)
 	if err != nil {
 		m.message = "Error: " + err.Error()

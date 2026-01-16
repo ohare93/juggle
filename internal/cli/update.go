@@ -97,10 +97,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	modified := false
 
 	if updateIntent != "" {
-		foundBall.Title = updateIntent
+		foundBall.SetTitle(updateIntent)
 		modified = true
 		if !updateJSONFlag {
-			fmt.Printf("✓ Updated title: %s\n", updateIntent)
+			fmt.Printf("✓ Updated title: %s\n", foundBall.Title)
 		}
 	}
 
@@ -345,7 +345,7 @@ func runInteractiveUpdate(ball *session.Ball, store *session.Store) error {
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
-		ball.Title = input
+		ball.SetTitle(input)
 	}
 
 	// Edit priority

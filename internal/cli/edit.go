@@ -65,9 +65,9 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	modified := false
 
 	if editIntent != "" {
-		foundBall.Title = editIntent
+		foundBall.SetTitle(editIntent)
 		modified = true
-		fmt.Printf("✓ Updated intent: %s\n", editIntent)
+		fmt.Printf("✓ Updated intent: %s\n", foundBall.Title)
 	}
 
 	if editDescription != "" {
@@ -130,7 +130,7 @@ func runInteractiveEdit(ball *session.Ball, store *session.Store) error {
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 	if input != "" {
-		ball.Title = input
+		ball.SetTitle(input)
 	}
 
 	// Edit priority

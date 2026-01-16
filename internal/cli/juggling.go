@@ -852,7 +852,7 @@ func handleBallEdit(ball *session.Ball, args []string, store *session.Store) err
 			return fmt.Errorf("new intent text required")
 		}
 		newIntent := strings.Join(args[1:], " ")
-		ball.Title = newIntent
+		ball.SetTitle(newIntent)
 
 	case "priority":
 		if len(args) < 2 {
@@ -888,7 +888,7 @@ func handleBallUpdate(ball *session.Ball, args []string, store *session.Store) e
 			if i+1 >= len(args) {
 				return fmt.Errorf("--intent requires a value")
 			}
-			ball.Title = args[i+1]
+			ball.SetTitle(args[i+1])
 			modified = true
 			fmt.Printf("✓ Updated intent: %s\n", ball.Title)
 			i += 2

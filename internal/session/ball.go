@@ -105,7 +105,7 @@ func NewBall(workingDir, title string, priority Priority) (*Ball, error) {
 	ball := &Ball{
 		ID:           id,
 		WorkingDir:   workingDir,
-		Title:        title,
+		Title:        ExtractTitleFirstSentence(title),
 		Priority:     priority,
 		State:        StatePending,
 		StartedAt:    now,
@@ -142,6 +142,13 @@ func GetCwd() (string, error) {
 // UpdateActivity updates the last activity timestamp
 func (b *Ball) UpdateActivity() {
 	b.LastActivity = time.Now()
+}
+
+// SetTitle sets the ball title, extracting only the first sentence
+// if the title contains multiple sentences separated by periods.
+func (b *Ball) SetTitle(title string) {
+	b.Title = ExtractTitleFirstSentence(title)
+	b.UpdateActivity()
 }
 
 // IncrementUpdateCount increments the update counter
@@ -453,6 +460,28 @@ func ResolveBallByPrefix(balls []*Ball, prefix string) []*Ball {
 	}
 
 	return matches
+}
+
+// ExtractTitleFirstSentence extracts the first sentence from a title.
+// If the title contains a period followed by a space or end of string,
+// only the text before the first such period is returned.
+// Titles without periods are returned unchanged.
+//
+// Examples:
+//   - "Lots of context. More stuff" -> "Lots of context"
+//   - "First. Second." -> "First"
+//   - "No period" -> "No period"
+func ExtractTitleFirstSentence(title string) string {
+	for i := 0; i < len(title); i++ {
+		if title[i] == '.' {
+			// Check if this is a sentence-ending period:
+			// either at the end of the string, or followed by a space
+			if i == len(title)-1 || title[i+1] == ' ' {
+				return title[:i]
+			}
+		}
+	}
+	return title
 }
 
 // lowerString returns lowercase version of a string

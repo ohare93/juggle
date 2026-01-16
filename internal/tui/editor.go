@@ -86,7 +86,7 @@ func yamlToBall(yamlContent string, ball *session.Ball) error {
 	// Update title (only if non-empty after trimming whitespace)
 	title := strings.TrimSpace(yamlBall.Title)
 	if title != "" {
-		ball.Title = title
+		ball.SetTitle(title)
 	}
 
 	// Update priority (only if non-empty after trimming whitespace)

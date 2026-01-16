@@ -86,7 +86,7 @@ func (m Model) finalizeBallCreation() (tea.Model, tea.Cmd) {
 		// Update existing ball
 		ball := m.editingBall
 		ball.Context = m.pendingBallContext
-		ball.Title = m.pendingBallIntent
+		ball.SetTitle(m.pendingBallIntent)
 		ball.Priority = priority
 		ball.Tags = tags
 		ball.ModelSize = modelSize
