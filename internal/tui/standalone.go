@@ -199,6 +199,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	fieldBlockingReason := fieldPriority + 1
 	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
+	fieldRunNow := fieldSave + 1
 
 	numModelSizeOptions := 4
 	numPriorityOptions := 4
@@ -209,7 +210,7 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			numSessionOptions++
 		}
 	}
-	maxFieldIndex := fieldSave
+	maxFieldIndex := fieldRunNow
 
 	isTextInputField := func(field int) bool {
 		// Blocking reason field is text input only when custom option (4) is selected
@@ -359,6 +360,123 @@ func (m StandaloneBallModel) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 				return m, nil
 			}
 			return m.finalizeBallCreation()
+		} else if m.pendingBallFormField == fieldRunNow {
+			// Run now button - save ball and run agent immediately
+			// Note: Standalone mode only creates new balls, no editing
+			saveCurrentFieldValue()
+			// Validate required fields
+			if m.pendingBallIntent == "" && m.pendingBallContext == "" {
+				m.message = "Title is required (or add context to auto-generate)"
+				return m, nil
+			}
+
+			// Create the ball first
+			// We need to duplicate the creation logic here to get the ball ID
+			// Map priority index to Priority constant
+			priorities := []session.Priority{session.PriorityLow, session.PriorityMedium, session.PriorityHigh, session.PriorityUrgent}
+			priority := priorities[m.pendingBallPriority]
+
+			// Auto-generate title from context if title is empty but context has content
+			if m.pendingBallIntent == "" && m.pendingBallContext != "" {
+				m.pendingBallIntent = generateTitlePlaceholderFromContext(m.pendingBallContext)
+			}
+
+			ball, err := session.NewBall(m.store.ProjectDir(), m.pendingBallIntent, priority)
+			if err != nil {
+				m.err = err
+				m.done = true
+				return m, tea.Quit
+			}
+
+			// Set ball fields
+			ball.State = session.StatePending
+			ball.Context = m.pendingBallContext
+
+			// Map model size index to ModelSize constant
+			modelSizes := []session.ModelSize{session.ModelSizeBlank, session.ModelSizeSmall, session.ModelSizeMedium, session.ModelSizeLarge}
+			ball.ModelSize = modelSizes[m.pendingBallModelSize]
+
+			// Build tags list
+			var tags []string
+			if m.pendingBallTags != "" {
+				tagList := strings.Split(m.pendingBallTags, ",")
+				for _, tag := range tagList {
+					tag = strings.TrimSpace(tag)
+					if tag != "" {
+						tags = append(tags, tag)
+					}
+				}
+			}
+
+			// Add session tag if selected (0 = none, 1+ = session index)
+			if m.pendingBallSession > 0 {
+				realSessions := []*session.JuggleSession{}
+				for _, sess := range m.sessions {
+					if sess.ID != PseudoSessionAll && sess.ID != PseudoSessionUntagged {
+						realSessions = append(realSessions, sess)
+					}
+				}
+				if m.pendingBallSession-1 < len(realSessions) {
+					tags = append(tags, realSessions[m.pendingBallSession-1].ID)
+				}
+			}
+			ball.Tags = tags
+
+			// Set acceptance criteria
+			if len(m.pendingAcceptanceCriteria) > 0 {
+				ball.SetAcceptanceCriteria(m.pendingAcceptanceCriteria)
+			}
+
+			// Set dependencies
+			if len(m.pendingBallDependsOn) > 0 {
+				ball.SetDependencies(m.pendingBallDependsOn)
+			}
+
+			// Handle blocking reason
+			var blockedReason string
+			if m.pendingBallBlockingReason == 1 {
+				blockedReason = "Human needed"
+				// Add human-needed tag
+				hasHumanNeededTag := false
+				for _, tag := range tags {
+					if tag == "human-needed" {
+						hasHumanNeededTag = true
+						break
+					}
+				}
+				if !hasHumanNeededTag {
+					ball.Tags = append(ball.Tags, "human-needed")
+				}
+			} else if m.pendingBallBlockingReason == 2 {
+				blockedReason = "Waiting for dependency"
+			} else if m.pendingBallBlockingReason == 3 {
+				blockedReason = "Needs research"
+			} else if m.pendingBallBlockingReason == 4 {
+				blockedReason = m.pendingBallCustomReason
+			}
+			ball.BlockedReason = blockedReason
+			if blockedReason != "" {
+				ball.State = session.StateBlocked
+			}
+
+			// Save the ball
+			err = m.store.AppendBall(ball)
+			if err != nil {
+				m.err = err
+				m.done = true
+				return m, tea.Quit
+			}
+
+			// Now launch agent with the ball ID
+			m.result = ball
+			m.done = true
+
+			// Launch agent for this ball in background
+			go func() {
+				launchAgentForBall(ball.ID)()
+			}()
+
+			return m, tea.Quit
 		} else if m.pendingBallFormField == fieldDependsOn {
 			return m.openDependencySelector()
 		} else if isACField(m.pendingBallFormField) {
@@ -758,6 +876,7 @@ func (m StandaloneBallModel) renderForm() string {
 	fieldBlockingReason := fieldPriority + 1
 	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
+	fieldRunNow := fieldSave + 1
 
 	sessionOptions := []string{"(none)"}
 	for _, sess := range m.sessions {
@@ -1050,14 +1169,22 @@ func (m StandaloneBallModel) renderForm() string {
 	}
 	b.WriteString("\n\n")
 
-	// Save button
+	// Save button and Run now button (side by side)
 	saveButtonStyle := lipgloss.NewStyle().Padding(0, 2)
 	if m.pendingBallFormField == fieldSave {
 		saveButtonStyle = saveButtonStyle.Bold(true).Background(lipgloss.Color("2")).Foreground(lipgloss.Color("0"))
 	} else {
 		saveButtonStyle = saveButtonStyle.Foreground(lipgloss.Color("2")).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("2"))
 	}
-	b.WriteString(saveButtonStyle.Render("[ Save ]") + "\n\n")
+
+	runNowButtonStyle := lipgloss.NewStyle().Padding(0, 2).MarginLeft(2)
+	if m.pendingBallFormField == fieldRunNow {
+		runNowButtonStyle = runNowButtonStyle.Bold(true).Background(lipgloss.Color("5")).Foreground(lipgloss.Color("0"))
+	} else {
+		runNowButtonStyle = runNowButtonStyle.Foreground(lipgloss.Color("5")).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("5"))
+	}
+
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, saveButtonStyle.Render("[ Save ]"), runNowButtonStyle.Render("[ Run now ]")) + "\n\n")
 
 	// Message
 	if m.message != "" {

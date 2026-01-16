@@ -1046,6 +1046,7 @@ func (m Model) renderUnifiedBallFormView() string {
 	fieldBlockingReason := fieldPriority + 1
 	fieldDependsOn := fieldBlockingReason + 1
 	fieldSave := fieldDependsOn + 1
+	fieldRunNow := fieldSave + 1
 
 	// Build sessions list for display
 	sessionOptions := []string{"(none)"}
@@ -1437,14 +1438,22 @@ func (m Model) renderUnifiedBallFormView() string {
 	}
 	b.WriteString("\n\n")
 
-	// --- Save button ---
+	// --- Save button and Run now button (side by side) ---
 	saveButtonStyle := lipgloss.NewStyle().Padding(0, 2)
 	if m.pendingBallFormField == fieldSave {
 		saveButtonStyle = saveButtonStyle.Bold(true).Background(lipgloss.Color("2")).Foreground(lipgloss.Color("0"))
 	} else {
 		saveButtonStyle = saveButtonStyle.Foreground(lipgloss.Color("2")).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("2"))
 	}
-	b.WriteString(saveButtonStyle.Render("[ Save ]") + "\n\n")
+
+	runNowButtonStyle := lipgloss.NewStyle().Padding(0, 2).MarginLeft(2)
+	if m.pendingBallFormField == fieldRunNow {
+		runNowButtonStyle = runNowButtonStyle.Bold(true).Background(lipgloss.Color("5")).Foreground(lipgloss.Color("0"))
+	} else {
+		runNowButtonStyle = runNowButtonStyle.Foreground(lipgloss.Color("5")).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("5"))
+	}
+
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, saveButtonStyle.Render("[ Save ]"), runNowButtonStyle.Render("[ Run now ]")) + "\n\n")
 
 	// Show message if any
 	if m.message != "" {
