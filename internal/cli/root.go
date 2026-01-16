@@ -42,6 +42,7 @@ type GlobalOptions struct {
 	JuggleDir   string // Override for .juggle directory name
 	AllProjects bool   // Enable cross-project discovery (default is local only)
 	JSONOutput  bool   // Output as JSON
+	EditTUI     bool   // Open TUI editor for ball
 }
 
 // GlobalOpts holds the parsed global flags (exported for testing)
@@ -191,6 +192,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&GlobalOpts.JuggleDir, "juggle-dir", ".juggle", "Override .juggle directory name")
 	rootCmd.PersistentFlags().BoolVarP(&GlobalOpts.AllProjects, "all", "a", false, "Search across all discovered projects")
 	rootCmd.PersistentFlags().BoolVar(&GlobalOpts.JSONOutput, "json", false, "Output as JSON")
+	rootCmd.PersistentFlags().BoolVarP(&GlobalOpts.EditTUI, "edit", "e", false, "Open TUI editor for ball")
 
 	// Set custom help function
 	defaultHelpFunc = rootCmd.HelpFunc()

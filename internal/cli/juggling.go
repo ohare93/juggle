@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ohare93/juggle/internal/session"
+	"github.com/ohare93/juggle/internal/tui"
 	"github.com/ohare93/juggle/internal/vcs"
 	"github.com/spf13/cobra"
 )
@@ -563,6 +565,11 @@ func handleBallCommand(cmd *cobra.Command, args []string) error {
 		return enhanceBallNotFoundError(err, ballID, args)
 	}
 
+	// If --edit flag is provided, open TUI editor
+	if GlobalOpts.EditTUI {
+		return editBallTUI(ball, store)
+	}
+
 	// If only ball ID provided, activate it
 	if len(args) == 1 {
 		return activateBall(ball, store)
@@ -1042,4 +1049,54 @@ func pluralize(count int) string {
 		return ""
 	}
 	return "s"
+}
+
+// editBallTUI opens a TUI editor for the ball
+func editBallTUI(ball *session.Ball, store *session.Store) error {
+	// Create session store for the TUI
+	sessionStore, err := session.NewSessionStore(ball.WorkingDir)
+	if err != nil {
+		// Session store is optional, continue without it
+		sessionStore = nil
+	}
+
+	// Create standalone edit model
+	model := tui.NewStandaloneEditModel(store, sessionStore, ball)
+
+	// Run the TUI
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	// Get result from final model
+	result := finalModel.(tui.StandaloneEditModel).Result()
+
+	if result.Err != nil {
+		return fmt.Errorf("failed to update ball: %w", result.Err)
+	}
+
+	if result.Cancelled {
+		fmt.Println("Cancelled")
+		return nil
+	}
+
+	// Output JSON if --json flag is set
+	if GlobalOpts.JSONOutput {
+		return printBallJSON(result.Ball)
+	}
+
+	fmt.Printf("✓ Ball updated: %s\n", result.Ball.ID)
+	fmt.Printf("  Title: %s\n", result.Ball.Title)
+	fmt.Printf("  Priority: %s\n", result.Ball.Priority)
+	fmt.Printf("  State: %s\n", result.Ball.State)
+	if len(result.Ball.Tags) > 0 {
+		fmt.Printf("  Tags: %s\n", strings.Join(result.Ball.Tags, ", "))
+	}
+	if len(result.Ball.AcceptanceCriteria) > 0 {
+		fmt.Printf("  Acceptance Criteria: %d\n", len(result.Ball.AcceptanceCriteria))
+	}
+
+	return nil
 }
