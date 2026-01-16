@@ -41,10 +41,50 @@ Further work will be done to improve it from this early version.
 The important part it that it _works_.
 
 - Craft tasks (balls) in 5 different repos and run the loop. Update and append tasks into all of the projects at once.
-- Yet for each Ralph your tasks remain isolated - and you can update and edit the tasks at the same time as the loop without issues.
+- Yet for each Ralph loop your tasks remain isolated - and you can update and edit the tasks at the same time as the loop without issues.
 - Quick shortcuts to run loops, run refinement for your tasks, run interactive sessions for hand-holding the Agent.
 
 After you're running a loop in 4 different repos and a double loop using workspaces in your main repo... then you're truly succeeding at Agentic Development.
+
+## Built With Itself
+
+<!--
+Commit stats generated with:
+jj log --no-graph -r 'ancestors(@)' -T 'committer.timestamp() ++ "\n"' | cut -d' ' -f1 | sort | uniq -c | sort -k2
+
+Output on 2026-01-14:
+     44 2026-01-10
+      6 2026-01-11
+     92 2026-01-12
+     22 2026-01-13
+     66 2026-01-14
+(plus 7 earlier commits from Oct/Nov 2025 initial setup)
+-->
+
+Juggle was built using juggle - after the first few clunky Ralph Loops with bash scripts and there was something working here.
+
+Here's the commit activity from the first 5 days of development:
+
+```
+Jan 10  ████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  44
+Jan 11  ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   6
+Jan 12  ████████████████████████████████████████████████████  92
+Jan 13  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  22
+Jan 14  █████████████████████████████████████░░░░░░░░░░░░░░░  66
+        ──────────────────────────────────────────────────────
+        230 commits in 5 days
+```
+
+The workflow was simple:
+
+- Add a task (`juggle plan`) with good ACs (Acceptance Criteria) until I had enough
+- Interactively refine the ACs with an agent (`juggle agent refine`)
+- Run a loop in one tab (`juggle agent run`) and let it work through the tasks
+- View its progress in the TUI (`juggle`) as tasks get marked complete and the commits roll in
+- In the meantime I keep adding more and more tasks... it just keeps going
+
+In the end I had multiple agents working in parallel on isolated worktrees, each focused on
+different tasks group, all managed through the same TUI and a multiplex terminal (Zellij).
 
 ## Installation
 
@@ -125,6 +165,7 @@ juggle plan
 
 juggle update 162b4eb0 --tags bug-fixes,loop-a
 
+# Large updates for the agent to run during refinement. Users would use the TUI instead
 juggle update cc58e434 --ac "juggle worktree add <path> registers worktree in main repo config" \
        --ac "juggle worktree add creates .juggle/link file in worktree pointing to main repo" \
        --ac "All juggle commands in worktree use main repo's .juggle/ for storage" \
@@ -153,38 +194,6 @@ juggle worktree sync                     # Sync local files (e.g. .claude/settin
 ```
 
 ![JJ Commit Log with Worktrees](assets/jj-commit-log-with-3-worktrees.png)
-
-## Built With Itself
-
-<!--
-Commit stats generated with:
-jj log --no-graph -r 'ancestors(@)' -T 'committer.timestamp() ++ "\n"' | cut -d' ' -f1 | sort | uniq -c | sort -k2
-
-Output on 2026-01-14:
-     44 2026-01-10
-      6 2026-01-11
-     92 2026-01-12
-     22 2026-01-13
-     66 2026-01-14
-(plus 7 earlier commits from Oct/Nov 2025 initial setup)
--->
-
-Juggle was built using juggle - after the first few clunky Ralph Loops with bash scripts and there was something working here.
-
-Here's the commit activity from 5 days of development:
-
-```
-Jan 10  ████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  44
-Jan 11  ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   6
-Jan 12  ████████████████████████████████████████████████████  92
-Jan 13  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  22
-Jan 14  █████████████████████████████████████░░░░░░░░░░░░░░░  66
-        ──────────────────────────────────────────────────────
-        230 commits in 5 days
-```
-
-Multiple agents working in parallel on isolated worktrees, each focused on
-different tasks, all managed through the same TUI and a multiplex terminal (Zellij).
 
 ## Roadmap
 
