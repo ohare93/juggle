@@ -115,6 +115,9 @@ type Model struct {
 	mode   viewMode
 	cursor int
 
+	// Multi-select state for balls
+	selectedBalls map[string]bool // Ball IDs that are currently selected (multi-select with Space)
+
 	// Panel state (for split view)
 	activePanel Panel
 
@@ -159,8 +162,10 @@ type Model struct {
 	contextInput       textarea.Model   // Multiline text input for context field
 	inputAction        InputAction      // Add or Edit
 	inputTarget        string           // What we're editing (e.g., "intent", "description")
-	editingBall        *session.Ball // Ball being edited (for edit action)
-	editingSession     *session.JuggleSession // Session being edited (for edit action)
+	editingBall        *session.Ball            // Ball being edited (for edit action)
+	pendingBlockBalls  []*session.Ball          // Balls waiting to be blocked (for multi-select block)
+	pendingDeleteBalls []*session.Ball          // Balls waiting to be deleted (for multi-select delete)
+	editingSession     *session.JuggleSession   // Session being edited (for edit action)
 	tagEditMode           TagEditMode               // Whether adding or removing a tag
 	sessionSelectItems    []*session.JuggleSession  // Sessions available for selection
 	sessionSelectIndex    int                       // Current selection index in session selector
@@ -268,8 +273,9 @@ func InitialSplitModelWithWatcher(store *session.Store, sessionStore *session.Se
 		showPriorityColumn:  false,
 		showTagsColumn:      false,
 		showModelSizeColumn: false,
-		cursor:             0,
-		sessionCursor:      0,
+		cursor:              0,
+		selectedBalls:       make(map[string]bool),
+		sessionCursor:       0,
 		activityLog:        make([]ActivityEntry, 0),
 		textInput:          ti,
 		contextInput:       newContextTextarea(),

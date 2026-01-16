@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/ohare93/juggle/internal/session"
 )
 
 func (m Model) View() string {
@@ -137,13 +138,30 @@ func (m Model) renderSplitConfirmDelete() string {
 			b.WriteString(fmt.Sprintf("Balls: %d\n", ballCount))
 		}
 	case "delete_ball":
-		balls := m.getBallsForSession()
-		if m.cursor < len(balls) {
-			ball := balls[m.cursor]
+		// Use pendingDeleteBalls if available
+		ballsToDelete := m.pendingDeleteBalls
+		if len(ballsToDelete) == 0 {
+			balls := m.getBallsForSession()
+			if m.cursor < len(balls) {
+				ballsToDelete = []*session.Ball{balls[m.cursor]}
+			}
+		}
+
+		if len(ballsToDelete) == 1 {
+			ball := ballsToDelete[0]
 			b.WriteString(fmt.Sprintf("Ball: %s\n", ball.ID))
 			b.WriteString(fmt.Sprintf("Title: %s\n", ball.Title))
 			b.WriteString(fmt.Sprintf("State: %s\n", ball.State))
 			b.WriteString(fmt.Sprintf("Criteria: %d\n", len(ball.AcceptanceCriteria)))
+		} else if len(ballsToDelete) > 1 {
+			b.WriteString(fmt.Sprintf("Balls: %d selected\n\n", len(ballsToDelete)))
+			for i, ball := range ballsToDelete {
+				if i >= 5 {
+					b.WriteString(fmt.Sprintf("  ... and %d more\n", len(ballsToDelete)-5))
+					break
+				}
+				b.WriteString(fmt.Sprintf("  • %s: %s\n", ball.ID, truncate(ball.Title, 40)))
+			}
 		}
 	}
 

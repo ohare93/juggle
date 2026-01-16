@@ -19,6 +19,12 @@ var (
 		Background(lipgloss.Color("240")).
 		Bold(true)
 
+	// Multi-select style (for balls selected with Space)
+	multiSelectedBallStyle = lipgloss.NewStyle().
+		Padding(0, 1).
+		Background(lipgloss.Color("57")). // Purple/magenta for multi-select
+		Bold(true)
+
 	// State colors
 	readyColor      = lipgloss.Color("2")   // Green
 	jugglingColor   = lipgloss.Color("3")   // Yellow

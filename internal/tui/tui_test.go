@@ -3823,20 +3823,27 @@ func TestEnterOnSessionWithDifferentCursor(t *testing.T) {
 	}
 }
 
-// TestSpaceKeyMovesFocusToSessionsPanel verifies that pressing Space in BallsPanel
-// moves focus back to SessionsPanel
-func TestSpaceKeyMovesFocusToSessionsPanel(t *testing.T) {
-	sessions := []*session.JuggleSession{
-		{ID: "session1", Description: "Session 1"},
+// TestSpaceKeyTogglesBallSelection verifies that pressing Space in BallsPanel
+// toggles ball selection and moves cursor down
+func TestSpaceKeyTogglesBallSelection(t *testing.T) {
+	// Use the __all__ pseudo-session so all balls are visible regardless of tags
+	allSession := &session.JuggleSession{ID: PseudoSessionAll, Description: "All"}
+
+	balls := []*session.Ball{
+		{ID: "ball-1", Title: "Ball 1", State: session.StatePending},
+		{ID: "ball-2", Title: "Ball 2", State: session.StatePending},
 	}
 
 	model := Model{
 		mode:            splitView,
 		activePanel:     BallsPanel,
 		sessionCursor:   0,
-		selectedSession: sessions[0],
-		sessions:        sessions,
-		filteredBalls:   []*session.Ball{},
+		selectedSession: allSession,
+		sessions:        []*session.JuggleSession{allSession},
+		balls:           balls,
+		filteredBalls:   balls,
+		cursor:          0,
+		selectedBalls:   make(map[string]bool),
 		height:          30,
 		width:           80,
 		filterStates: map[string]bool{
@@ -3848,9 +3855,15 @@ func TestSpaceKeyMovesFocusToSessionsPanel(t *testing.T) {
 		activityLog: make([]ActivityEntry, 0),
 	}
 
-	// Verify we start in BallsPanel
+	// Verify we start in BallsPanel at cursor 0 with no selections
 	if model.activePanel != BallsPanel {
 		t.Fatalf("Expected starting activePanel to be BallsPanel, got %v", model.activePanel)
+	}
+	if model.cursor != 0 {
+		t.Fatalf("Expected starting cursor to be 0, got %v", model.cursor)
+	}
+	if len(model.selectedBalls) != 0 {
+		t.Fatalf("Expected no balls selected initially, got %v", len(model.selectedBalls))
 	}
 
 	// Simulate pressing Space key
@@ -3858,9 +3871,24 @@ func TestSpaceKeyMovesFocusToSessionsPanel(t *testing.T) {
 	newModel, _ := model.Update(keyMsg)
 	model = newModel.(Model)
 
-	// Should have moved focus to sessions panel
-	if model.activePanel != SessionsPanel {
-		t.Errorf("Expected activePanel to be SessionsPanel after Space, got %v", model.activePanel)
+	// Should have selected ball-1 and moved cursor to 1
+	if !model.selectedBalls["ball-1"] {
+		t.Errorf("Expected ball-1 to be selected after Space")
+	}
+	if model.cursor != 1 {
+		t.Errorf("Expected cursor to move to 1 after Space, got %v", model.cursor)
+	}
+
+	// Press Space again to select ball-2
+	newModel, _ = model.Update(keyMsg)
+	model = newModel.(Model)
+
+	if !model.selectedBalls["ball-2"] {
+		t.Errorf("Expected ball-2 to be selected after second Space")
+	}
+	// Cursor should stay at 1 (last ball)
+	if model.cursor != 1 {
+		t.Errorf("Expected cursor to stay at 1 (end of list), got %v", model.cursor)
 	}
 }
 
@@ -4220,11 +4248,12 @@ func TestEnterResetsBallCursorAndScrollOffset(t *testing.T) {
 	}
 }
 
-// TestCompleteEnterSpaceWorkflow tests the full Enter-to-balls, Space-to-sessions workflow
+// TestCompleteEnterTabWorkflow tests the full Enter-to-balls, Tab-cycle-to-sessions workflow
 // Note: filterSessions() prepends __all__ and __untagged__, so:
 //
 //	0 = __all__, 1 = __untagged__, 2 = session1, 3 = session2
-func TestCompleteEnterSpaceWorkflow(t *testing.T) {
+// Tab cycles through: Sessions -> Balls -> Activity -> Sessions
+func TestCompleteEnterTabWorkflow(t *testing.T) {
 	sessions := []*session.JuggleSession{
 		{ID: "session1", Description: "Session 1"},
 		{ID: "session2", Description: "Session 2"},
@@ -4258,18 +4287,26 @@ func TestCompleteEnterSpaceWorkflow(t *testing.T) {
 		t.Fatalf("Step 1: Expected session1 to be selected, got %v", model.selectedSession)
 	}
 
-	// Step 2: Press Space to go back to SessionsPanel
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}}
+	// Step 2: Press Tab to go to ActivityPanel (Tab cycles through all panels)
+	keyMsg := tea.KeyMsg{Type: tea.KeyTab}
+	newModel, _ = model.Update(keyMsg)
+	model = newModel.(Model)
+
+	if model.activePanel != ActivityPanel {
+		t.Fatalf("Step 2: Expected activePanel to be ActivityPanel, got %v", model.activePanel)
+	}
+
+	// Step 3: Press Tab again to return to SessionsPanel
 	newModel, _ = model.Update(keyMsg)
 	model = newModel.(Model)
 
 	if model.activePanel != SessionsPanel {
-		t.Fatalf("Step 2: Expected activePanel to be SessionsPanel, got %v", model.activePanel)
+		t.Fatalf("Step 3: Expected activePanel to be SessionsPanel, got %v", model.activePanel)
 	}
 
 	// Session selection should be preserved
 	if model.selectedSession == nil || model.selectedSession.ID != "session1" {
-		t.Errorf("Step 2: Expected session1 to remain selected after Space")
+		t.Errorf("Step 3: Expected session1 to remain selected after Tab cycling")
 	}
 }
 
@@ -8192,7 +8229,7 @@ func TestOpenDependencySelector(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
+		pendingBallFormField:      10, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+AgentProvider(6)+ModelOverride(7)+Priority(8)+BlockingReason(9)+DependsOn(10)
 		pendingAcceptanceCriteria: []string{},
 		pendingBallDependsOn:      []string{},
 		textInput:                 ti,
@@ -8383,7 +8420,7 @@ func TestDependencySelectorPreservesExisting(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      8,                  // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
+		pendingBallFormField:      10,                 // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+AgentProvider(6)+ModelOverride(7)+Priority(8)+BlockingReason(9)+DependsOn(10)
 		pendingBallDependsOn:      []string{"test-1"}, // Pre-existing dependency
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -8477,7 +8514,7 @@ func TestDependencySelectorNoBalls(t *testing.T) {
 	model := Model{
 		mode:                      unifiedBallFormView,
 		pendingBallIntent:         "Test ball",
-		pendingBallFormField:      8, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+Priority(6)+BlockingReason(7)+DependsOn(8)
+		pendingBallFormField:      10, // fieldDependsOn when 0 ACs: Context(0)+Title(1)+ACEnd(2)+Tags(3)+Session(4)+ModelSize(5)+AgentProvider(6)+ModelOverride(7)+Priority(8)+BlockingReason(9)+DependsOn(10)
 		pendingBallDependsOn:      []string{},
 		pendingAcceptanceCriteria: []string{},
 		textInput:                 ti,
@@ -8640,7 +8677,7 @@ func TestUnifiedBallFormModelSizeSelection(t *testing.T) {
 }
 
 // Test priority selection in unified ball form
-// Field order with no ACs: 0=Context, 1=Title, 2=NewAC, 3=Tags, 4=Session, 5=ModelSize, 6=Priority, 7=DependsOn, 8=Save
+// Field order with no ACs: 0=Context, 1=Title, 2=NewAC, 3=Tags, 4=Session, 5=ModelSize, 6=AgentProvider, 7=ModelOverride, 8=Priority, 9=BlockingReason, 10=DependsOn, 11=Save, 12=RunNow
 func TestUnifiedBallFormPrioritySelection(t *testing.T) {
 	ti := textinput.New()
 	ti.CharLimit = 256
@@ -8651,7 +8688,7 @@ func TestUnifiedBallFormPrioritySelection(t *testing.T) {
 		pendingBallIntent:    "Test",
 		pendingBallPriority:  1, // medium
 		pendingBallModelSize: 0, // default
-		pendingBallFormField: 6, // priority field (after model_size)
+		pendingBallFormField: 8, // priority field (after model_size, agent_provider, model_override)
 		textInput:            ti,
 		sessions:             []*session.JuggleSession{},
 		activityLog:          make([]ActivityEntry, 0),

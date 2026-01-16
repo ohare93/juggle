@@ -477,8 +477,15 @@ func (m Model) renderBallsPanel(width, height int) string {
 		}
 		line = styleBallByState(ball, truncate(line, width-2))
 
+		// Check if this ball is multi-selected
+		isMultiSelected := m.selectedBalls[ball.ID]
+
 		if i == m.cursor && m.activePanel == BallsPanel {
+			// Cursor position - show with selected style
 			b.WriteString(selectedBallStyle.Render(line) + "\n")
+		} else if isMultiSelected {
+			// Multi-selected but not at cursor - show with multi-select style
+			b.WriteString(multiSelectedBallStyle.Render(line) + "\n")
 		} else {
 			b.WriteString(ballStyle.Render(line) + "\n")
 		}

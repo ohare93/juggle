@@ -530,6 +530,12 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.message = "Cancelled"
 			return m, nil
 		}
+		// Clear multi-select first, then deselect session
+		if len(m.selectedBalls) > 0 {
+			m.selectedBalls = make(map[string]bool)
+			m.message = "Selection cleared"
+			return m, nil
+		}
 		// Go back or deselect
 		if m.selectedSession != nil {
 			m.selectedSession = nil
@@ -540,10 +546,22 @@ func (m Model) handleSplitViewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case " ":
-		// Space key: go back to sessions in BallsPanel
+		// Space key: toggle ball selection and move cursor down
 		if m.activePanel == BallsPanel {
-			// Move focus back to sessions panel
-			m.activePanel = SessionsPanel
+			balls := m.filterBallsForSession()
+			if len(balls) > 0 && m.cursor < len(balls) {
+				ball := balls[m.cursor]
+				// Toggle selection
+				if m.selectedBalls[ball.ID] {
+					delete(m.selectedBalls, ball.ID)
+				} else {
+					m.selectedBalls[ball.ID] = true
+				}
+				// Move cursor down if not at end
+				if m.cursor < len(balls)-1 {
+					m.cursor++
+				}
+			}
 			return m, nil
 		}
 		return m, nil
@@ -716,13 +734,37 @@ func (m Model) handleSplitDeletePrompt() (tea.Model, tea.Cmd) {
 
 	case BallsPanel:
 		balls := m.filterBallsForSession()
-		if len(balls) == 0 || m.cursor >= len(balls) {
-			m.message = "No ball selected"
+		var ballsToDelete []*session.Ball
+
+		if len(m.selectedBalls) > 0 {
+			// Multi-select mode: collect all selected balls
+			for _, ball := range balls {
+				if m.selectedBalls[ball.ID] {
+					ballsToDelete = append(ballsToDelete, ball)
+				}
+			}
+		} else {
+			// Single ball mode: operate on cursor ball
+			if len(balls) == 0 || m.cursor >= len(balls) {
+				m.message = "No ball selected"
+				return m, nil
+			}
+			ballsToDelete = append(ballsToDelete, balls[m.cursor])
+		}
+
+		if len(ballsToDelete) == 0 {
+			m.message = "No balls selected"
 			return m, nil
 		}
+
+		m.pendingDeleteBalls = ballsToDelete
 		m.confirmAction = "delete_ball"
 		m.mode = confirmSplitDelete
-		m.addActivity("Confirming ball deletion...")
+		if len(ballsToDelete) == 1 {
+			m.addActivity("Confirming deletion of ball: " + ballsToDelete[0].ID)
+		} else {
+			m.addActivity(fmt.Sprintf("Confirming deletion of %d balls...", len(ballsToDelete)))
+		}
 	}
 
 	return m, nil
@@ -735,6 +777,7 @@ func (m Model) handleSplitConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.executeSplitDelete()
 	case "n", "N", "esc":
 		m.mode = splitView
+		m.pendingDeleteBalls = nil // Clear pending delete
 		m.message = "Cancelled"
 		return m, nil
 	}
@@ -773,26 +816,48 @@ func (m Model) executeSplitDelete() (tea.Model, tea.Cmd) {
 		return m, loadSessions(m.sessionStore, m.config, m.localOnly)
 
 	case "delete_ball":
-		balls := m.filterBallsForSession()
-		if m.cursor >= len(balls) {
-			m.mode = splitView
-			return m, nil
+		// Use pendingDeleteBalls if available, otherwise fall back to cursor
+		ballsToDelete := m.pendingDeleteBalls
+		if len(ballsToDelete) == 0 {
+			balls := m.filterBallsForSession()
+			if m.cursor >= len(balls) {
+				m.mode = splitView
+				return m, nil
+			}
+			ballsToDelete = []*session.Ball{balls[m.cursor]}
 		}
-		ball := balls[m.cursor]
-		store, err := session.NewStore(ball.WorkingDir)
-		if err != nil {
-			m.message = "Error: " + err.Error()
-			m.mode = splitView
-			return m, nil
+
+		// Delete all balls
+		deletedCount := 0
+		for _, ball := range ballsToDelete {
+			store, err := session.NewStore(ball.WorkingDir)
+			if err != nil {
+				m.message = "Error: " + err.Error()
+				m.mode = splitView
+				return m, nil
+			}
+			err = store.DeleteBall(ball.ID)
+			if err != nil {
+				m.message = "Error deleting ball: " + err.Error()
+				m.mode = splitView
+				return m, nil
+			}
+			// Remove from selection
+			delete(m.selectedBalls, ball.ID)
+			deletedCount++
 		}
-		err = store.DeleteBall(ball.ID)
-		if err != nil {
-			m.message = "Error deleting ball: " + err.Error()
-			m.mode = splitView
-			return m, nil
+
+		if deletedCount == 1 {
+			m.addActivity("Deleted ball: " + ballsToDelete[0].ID)
+			m.message = "Deleted ball: " + ballsToDelete[0].ID
+		} else {
+			m.addActivity(fmt.Sprintf("Deleted %d balls", deletedCount))
+			m.message = fmt.Sprintf("Deleted %d balls", deletedCount)
 		}
-		m.addActivity("Deleted ball: " + ball.ID)
-		m.message = "Deleted ball: " + ball.ID
+
+		// Clear state
+		m.pendingDeleteBalls = nil
+		m.selectedBalls = make(map[string]bool)
 		m.mode = splitView
 		return m, loadBalls(m.store, m.config, m.localOnly)
 	}

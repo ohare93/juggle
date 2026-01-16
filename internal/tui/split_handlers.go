@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -187,52 +188,112 @@ func (m Model) handleViewColumnKeySequence(key string) (tea.Model, tea.Cmd) {
 	}
 }
 
-// handleSplitSetPending sets the selected ball to pending state
+// handleSplitSetPending sets the selected ball(s) to pending state
+// Supports multi-select: if balls are selected, operates on all selected balls.
 func (m Model) handleSplitSetPending() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
+	var ballsToSet []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: operate on all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToSet = append(ballsToSet, ball)
+			}
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			return m, nil
+		}
+		ballsToSet = append(ballsToSet, balls[m.cursor])
+	}
+
+	if len(ballsToSet) == 0 {
 		return m, nil
 	}
 
-	ball := balls[m.cursor]
-	if err := ball.SetState(session.StatePending); err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
-	}
-	m.addActivity("Set pending: " + ball.ID)
+	var cmds []tea.Cmd
+	for _, ball := range ballsToSet {
+		if err := ball.SetState(session.StatePending); err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
 
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
+		cmds = append(cmds, updateBall(store, ball))
 	}
 
-	return m, updateBall(store, ball)
+	if len(ballsToSet) == 1 {
+		m.addActivity("Set pending: " + ballsToSet[0].ID)
+	} else {
+		m.addActivity(fmt.Sprintf("Set %d balls to pending", len(ballsToSet)))
+	}
+
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
+
+	return m, tea.Batch(cmds...)
 }
 
-// handleSplitArchiveBall archives a completed ball
+// handleSplitArchiveBall archives completed ball(s)
+// Supports multi-select: if balls are selected, archives all selected completed balls.
 func (m Model) handleSplitArchiveBall() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
-		return m, nil
+	var ballsToArchive []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: collect all selected completed balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				if ball.State == session.StateComplete {
+					ballsToArchive = append(ballsToArchive, ball)
+				}
+			}
+		}
+		if len(ballsToArchive) == 0 {
+			m.message = "No completed balls selected (only completed balls can be archived)"
+			m.selectedBalls = make(map[string]bool) // Clear invalid selection
+			return m, nil
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			return m, nil
+		}
+		ball := balls[m.cursor]
+		// Only archive completed balls
+		if ball.State != session.StateComplete {
+			m.message = "Can only archive completed balls (use sc first)"
+			return m, nil
+		}
+		ballsToArchive = append(ballsToArchive, ball)
 	}
 
-	ball := balls[m.cursor]
-
-	// Only archive completed balls
-	if ball.State != session.StateComplete {
-		m.message = "Can only archive completed balls (use sc first)"
-		return m, nil
+	var cmds []tea.Cmd
+	for _, ball := range ballsToArchive {
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
+		cmds = append(cmds, archiveBall(store, ball))
 	}
 
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
+	if len(ballsToArchive) == 1 {
+		m.addActivity("Archiving ball: " + ballsToArchive[0].ID)
+	} else {
+		m.addActivity(fmt.Sprintf("Archiving %d balls", len(ballsToArchive)))
 	}
 
-	m.addActivity("Archiving ball: " + ball.ID)
-	return m, archiveBall(store, ball)
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
+
+	return m, tea.Batch(cmds...)
 }
 
 // handleSplitViewNavUp handles up navigation in split view
@@ -247,11 +308,13 @@ func (m Model) handleSplitViewNavUp() (tea.Model, tea.Cmd) {
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
 			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
+			m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 		} else if m.sessionCursor >= len(sessions) && len(sessions) > 0 {
 			m.sessionCursor = len(sessions) - 1
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0
 			m.ballsScrollOffset = 0
+			m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 		}
 	case BallsPanel:
 		if m.cursor > 0 {
@@ -289,6 +352,7 @@ func (m Model) handleSplitViewNavDown() (tea.Model, tea.Cmd) {
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
 			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
+			m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 		}
 	case BallsPanel:
 		balls := m.filterBallsForSession()
@@ -326,6 +390,7 @@ func (m Model) handleSessionSwitchPrev() (tea.Model, tea.Cmd) {
 		m.selectedSession = sessions[m.sessionCursor]
 		m.cursor = 0 // Reset ball cursor for new session
 		m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
+		m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 		m.addActivity("Switched to session: " + m.selectedSession.ID)
 	}
 	return m, nil
@@ -343,6 +408,7 @@ func (m Model) handleSessionSwitchNext() (tea.Model, tea.Cmd) {
 		m.selectedSession = sessions[m.sessionCursor]
 		m.cursor = 0 // Reset ball cursor for new session
 		m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
+		m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 		m.addActivity("Switched to session: " + m.selectedSession.ID)
 	}
 	return m, nil
@@ -667,6 +733,7 @@ func (m Model) handleSplitViewEnter() (tea.Model, tea.Cmd) {
 			m.selectedSession = sessions[m.sessionCursor]
 			m.cursor = 0 // Reset ball cursor for new session
 			m.ballsScrollOffset = 0 // Reset balls scroll offset for new session
+			m.selectedBalls = make(map[string]bool) // Clear multi-select on session change
 			m.activePanel = BallsPanel
 			m.addActivity("Selected session: " + m.selectedSession.ID)
 		}
@@ -677,68 +744,150 @@ func (m Model) handleSplitViewEnter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleSplitStartBall starts the selected ball in split view
+// handleSplitStartBall starts the selected ball(s) in split view
+// Supports multi-select: if balls are selected, operates on all selected balls.
 func (m Model) handleSplitStartBall() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
+	var ballsToStart []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: operate on all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToStart = append(ballsToStart, ball)
+			}
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			return m, nil
+		}
+		ballsToStart = append(ballsToStart, balls[m.cursor])
+	}
+
+	if len(ballsToStart) == 0 {
 		return m, nil
 	}
 
-	ball := balls[m.cursor]
-	if err := ball.SetState(session.StateInProgress); err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
-	}
-	m.addActivity("Started ball: " + ball.ID)
+	var cmds []tea.Cmd
+	for _, ball := range ballsToStart {
+		if err := ball.SetState(session.StateInProgress); err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
 
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
+		cmds = append(cmds, updateBall(store, ball))
 	}
 
-	return m, updateBall(store, ball)
+	if len(ballsToStart) == 1 {
+		m.addActivity("Started ball: " + ballsToStart[0].ID)
+	} else {
+		m.addActivity(fmt.Sprintf("Started %d balls", len(ballsToStart)))
+	}
+
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
+
+	return m, tea.Batch(cmds...)
 }
 
-// handleSplitCompleteBall completes the selected ball in split view and archives it
+// handleSplitCompleteBall completes the selected ball(s) in split view and archives them
+// Supports multi-select: if balls are selected, operates on all selected balls.
 func (m Model) handleSplitCompleteBall() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
+	var ballsToComplete []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: operate on all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToComplete = append(ballsToComplete, ball)
+			}
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			return m, nil
+		}
+		ballsToComplete = append(ballsToComplete, balls[m.cursor])
+	}
+
+	if len(ballsToComplete) == 0 {
 		return m, nil
 	}
 
-	ball := balls[m.cursor]
-	if err := ball.SetState(session.StateComplete); err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
-	}
-	m.addActivity("Completing ball: " + ball.ID)
+	var cmds []tea.Cmd
+	for _, ball := range ballsToComplete {
+		if err := ball.SetState(session.StateComplete); err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
 
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
+		// Update and archive the completed ball
+		cmds = append(cmds, updateAndArchiveBall(store, ball))
 	}
 
-	// Update and archive the completed ball
-	return m, updateAndArchiveBall(store, ball)
+	if len(ballsToComplete) == 1 {
+		m.addActivity("Completing ball: " + ballsToComplete[0].ID)
+	} else {
+		m.addActivity(fmt.Sprintf("Completing %d balls", len(ballsToComplete)))
+	}
+
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
+
+	return m, tea.Batch(cmds...)
 }
 
 // handleSplitBlockBall prompts for a blocked reason
+// Supports multi-select: if balls are selected, the reason will apply to all selected balls.
 func (m Model) handleSplitBlockBall() (tea.Model, tea.Cmd) {
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
+	var ballsToBlock []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: collect all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToBlock = append(ballsToBlock, ball)
+			}
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			return m, nil
+		}
+		ballsToBlock = append(ballsToBlock, balls[m.cursor])
+	}
+
+	if len(ballsToBlock) == 0 {
 		return m, nil
 	}
 
-	ball := balls[m.cursor]
-	m.editingBall = ball
+	// Store balls to block for when reason is submitted
+	m.pendingBlockBalls = ballsToBlock
+	m.editingBall = ballsToBlock[0] // Keep for backwards compatibility
 	m.textInput.Reset()
 	m.textInput.Focus()
 	m.textInput.Placeholder = "Blocked reason (e.g., waiting for API access)"
 	m.inputTarget = "blocked_reason"
 	m.mode = inputBlockedView
-	m.addActivity("Blocking ball: " + ball.ID)
+
+	if len(ballsToBlock) == 1 {
+		m.addActivity("Blocking ball: " + ballsToBlock[0].ID)
+	} else {
+		m.addActivity(fmt.Sprintf("Blocking %d balls...", len(ballsToBlock)))
+	}
 
 	return m, nil
 }
@@ -1110,6 +1259,12 @@ func (m Model) handleSplitEditItem() (tea.Model, tea.Cmd) {
 			m.message = "No ball selected"
 			return m, nil
 		}
+		// Edit only works on cursor ball, clear any multi-selection
+		if len(m.selectedBalls) > 1 {
+			m.message = "Edit works on one ball at a time - editing cursor ball"
+			m.addActivity("Multi-select cleared for edit")
+		}
+		m.selectedBalls = make(map[string]bool)
 		ball := balls[m.cursor]
 		m.editingBall = ball
 
@@ -1318,6 +1473,7 @@ func copyToClipboard(text string) error {
 // handleMoveKeySequence handles the second key (digit) in a move/append sequence.
 // If appendOnly is false, removes all existing session tags before adding the target.
 // If appendOnly is true, just adds the target session without removing others.
+// Supports multi-select: if balls are selected, operates on all selected balls.
 func (m Model) handleMoveKeySequence(key string, appendOnly bool) (tea.Model, tea.Cmd) {
 	m.message = ""
 
@@ -1326,14 +1482,6 @@ func (m Model) handleMoveKeySequence(key string, appendOnly bool) (tea.Model, te
 		m.message = "Invalid key: " + key + " (use 1-9 or 0)"
 		return m, nil
 	}
-
-	// Get selected ball
-	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
-		m.message = "No ball selected"
-		return m, nil
-	}
-	ball := balls[m.cursor]
 
 	// Map key to session index (1-9 -> 0-8, 0 -> 9)
 	idx := keyToSessionIndex(key)
@@ -1347,37 +1495,78 @@ func (m Model) handleMoveKeySequence(key string, appendOnly bool) (tea.Model, te
 	}
 	targetSession := realSessions[idx]
 
-	if !appendOnly {
-		// Move: remove all session tags from all real sessions (not just filtered ones)
-		// This ensures ball is only in the target session, regardless of filter state
-		allRealSessions := getRealSessions(m.sessions)
-		for _, sess := range allRealSessions {
-			ball.RemoveTag(sess.ID)
+	// Determine which balls to operate on
+	balls := m.filterBallsForSession()
+	var ballsToMove []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: operate on all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToMove = append(ballsToMove, ball)
+			}
 		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			m.message = "No ball selected"
+			return m, nil
+		}
+		ballsToMove = append(ballsToMove, balls[m.cursor])
 	}
 
-	// Add target session tag
-	ball.AddTag(targetSession.ID)
-
-	// Persist
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
+	if len(ballsToMove) == 0 {
+		m.message = "No balls to move"
 		return m, nil
+	}
+
+	// Get all real sessions for removing tags (when not append-only)
+	allRealSessions := getRealSessions(m.sessions)
+
+	// Process all balls
+	var cmds []tea.Cmd
+	for _, ball := range ballsToMove {
+		if !appendOnly {
+			// Move: remove all session tags from all real sessions (not just filtered ones)
+			// This ensures ball is only in the target session, regardless of filter state
+			for _, sess := range allRealSessions {
+				ball.RemoveTag(sess.ID)
+			}
+		}
+
+		// Add target session tag
+		ball.AddTag(targetSession.ID)
+
+		// Persist
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			return m, nil
+		}
+		cmds = append(cmds, updateBall(store, ball))
 	}
 
 	action := "Moved"
 	if appendOnly {
 		action = "Added"
 	}
-	m.message = action + " ball to session: " + targetSession.ID
-	m.addActivity(action + " " + ball.ID + " to session: " + targetSession.ID)
+	if len(ballsToMove) == 1 {
+		m.message = action + " ball to session: " + targetSession.ID
+		m.addActivity(action + " " + ballsToMove[0].ID + " to session: " + targetSession.ID)
+	} else {
+		m.message = fmt.Sprintf("%s %d balls to session: %s", action, len(ballsToMove), targetSession.ID)
+		m.addActivity(fmt.Sprintf("%s %d balls to session: %s", action, len(ballsToMove), targetSession.ID))
+	}
 
-	return m, updateBall(store, ball)
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
+
+	return m, tea.Batch(cmds...)
 }
 
 // handleRemoveCurrentSessionFromBall removes the currently selected session from the ball's tags.
 // Only works if a real session (not pseudo-session) is selected.
+// Supports multi-select: if balls are selected, operates on all selected balls.
 func (m Model) handleRemoveCurrentSessionFromBall() (tea.Model, tea.Cmd) {
 	m.message = ""
 
@@ -1391,31 +1580,65 @@ func (m Model) handleRemoveCurrentSessionFromBall() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Get selected ball
+	// Determine which balls to operate on
 	balls := m.filterBallsForSession()
-	if len(balls) == 0 || m.cursor >= len(balls) {
-		m.message = "No ball selected"
+	var ballsToRemove []*session.Ball
+
+	if len(m.selectedBalls) > 0 {
+		// Multi-select mode: operate on all selected balls
+		for _, ball := range balls {
+			if m.selectedBalls[ball.ID] {
+				ballsToRemove = append(ballsToRemove, ball)
+			}
+		}
+	} else {
+		// Single ball mode: operate on cursor ball
+		if len(balls) == 0 || m.cursor >= len(balls) {
+			m.message = "No ball selected"
+			return m, nil
+		}
+		ballsToRemove = append(ballsToRemove, balls[m.cursor])
+	}
+
+	if len(ballsToRemove) == 0 {
+		m.message = "No balls to remove from session"
 		return m, nil
 	}
-	ball := balls[m.cursor]
 
-	// Try to remove the session tag
-	if !ball.RemoveTag(m.selectedSession.ID) {
-		m.message = "Ball not in this session"
+	// Process all balls
+	var cmds []tea.Cmd
+	removedCount := 0
+	for _, ball := range ballsToRemove {
+		// Try to remove the session tag
+		if ball.RemoveTag(m.selectedSession.ID) {
+			removedCount++
+			// Persist
+			store, err := session.NewStore(ball.WorkingDir)
+			if err != nil {
+				m.message = "Error: " + err.Error()
+				return m, nil
+			}
+			cmds = append(cmds, updateBall(store, ball))
+		}
+	}
+
+	if removedCount == 0 {
+		m.message = "No balls were in this session"
 		return m, nil
 	}
 
-	// Persist
-	store, err := session.NewStore(ball.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		return m, nil
+	if removedCount == 1 {
+		m.message = "Removed from session: " + m.selectedSession.ID
+		m.addActivity("Removed " + ballsToRemove[0].ID + " from session: " + m.selectedSession.ID)
+	} else {
+		m.message = fmt.Sprintf("Removed %d balls from session: %s", removedCount, m.selectedSession.ID)
+		m.addActivity(fmt.Sprintf("Removed %d balls from session: %s", removedCount, m.selectedSession.ID))
 	}
 
-	m.message = "Removed from session: " + m.selectedSession.ID
-	m.addActivity("Removed " + ball.ID + " from session: " + m.selectedSession.ID)
+	// Clear multi-select after operation
+	m.selectedBalls = make(map[string]bool)
 
-	return m, updateBall(store, ball)
+	return m, tea.Batch(cmds...)
 }
 
 // isDigitKey returns true if the key is a digit 0-9

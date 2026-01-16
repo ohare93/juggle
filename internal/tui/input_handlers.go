@@ -13,8 +13,9 @@ func (m Model) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		// Cancel input
-		m.editingSession = nil // Clear the editing session
-		m.editingBall = nil // Clear the editing ball
+		m.editingSession = nil    // Clear the editing session
+		m.editingBall = nil       // Clear the editing ball
+		m.pendingBlockBalls = nil // Clear pending block balls (multi-select)
 		m.mode = splitView
 		m.message = "Cancelled"
 		m.textInput.Blur()
@@ -118,29 +119,50 @@ func (m Model) submitBallInput(value string) (tea.Model, tea.Cmd) {
 }
 
 // submitBlockedInput handles blocked reason submission
+// Supports multi-select: if pendingBlockBalls has multiple balls, applies reason to all.
 func (m Model) submitBlockedInput(value string) (tea.Model, tea.Cmd) {
-	if m.editingBall == nil {
-		m.mode = splitView
-		return m, nil
+	// Use pendingBlockBalls if available, otherwise fall back to editingBall
+	ballsToBlock := m.pendingBlockBalls
+	if len(ballsToBlock) == 0 {
+		if m.editingBall == nil {
+			m.mode = splitView
+			return m, nil
+		}
+		ballsToBlock = []*session.Ball{m.editingBall}
 	}
 
-	if err := m.editingBall.SetBlocked(value); err != nil {
-		m.message = "Error: " + err.Error()
-		m.mode = splitView
-		return m, nil
-	}
-	m.addActivity("Blocked ball: " + m.editingBall.ID + " - " + truncate(value, 20))
-	m.message = "Blocked ball: " + m.editingBall.ID
+	var cmds []tea.Cmd
+	for _, ball := range ballsToBlock {
+		if err := ball.SetBlocked(value); err != nil {
+			m.message = "Error: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
 
-	store, err := session.NewStore(m.editingBall.WorkingDir)
-	if err != nil {
-		m.message = "Error: " + err.Error()
-		m.mode = splitView
-		return m, nil
+		store, err := session.NewStore(ball.WorkingDir)
+		if err != nil {
+			m.message = "Error: " + err.Error()
+			m.mode = splitView
+			return m, nil
+		}
+		cmds = append(cmds, updateBall(store, ball))
 	}
 
+	if len(ballsToBlock) == 1 {
+		m.addActivity("Blocked ball: " + ballsToBlock[0].ID + " - " + truncate(value, 20))
+		m.message = "Blocked ball: " + ballsToBlock[0].ID
+	} else {
+		m.addActivity(fmt.Sprintf("Blocked %d balls - %s", len(ballsToBlock), truncate(value, 20)))
+		m.message = fmt.Sprintf("Blocked %d balls", len(ballsToBlock))
+	}
+
+	// Clear state
+	m.pendingBlockBalls = nil
+	m.editingBall = nil
+	m.selectedBalls = make(map[string]bool)
 	m.mode = splitView
-	return m, updateBall(store, m.editingBall)
+
+	return m, tea.Batch(cmds...)
 }
 
 // handleSessionSelectorKey handles keyboard input in session selector mode
